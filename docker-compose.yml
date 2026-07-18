@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: decisioniq
+      POSTGRES_PASSWORD: decisioniq
+      POSTGRES_DB: decisioniq
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U decisioniq"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://decisioniq:decisioniq@db:5432/decisioniq?schema=public
+      JWT_SECRET: change-me-in-production
+      JWT_EXPIRES_IN: 7d
+      OPENAI_API_KEY: ""
+      APP_URL: http://localhost:5173
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    # Runs migrations + seed on first boot, then starts the server.
+    command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js"
+
+volumes:
+  pgdata:

@@ -1,0 +1,16 @@
+{
+  "name": "decisioniq",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DecisionIQ — AI Decision Intelligence Platform (deterministic analyst, no LLM key required)",
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/api & npm run dev --workspace apps/web",
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
+    "db:migrate": "npm run prisma:migrate --workspace apps/api",
+    "db:seed": "npm run seed --workspace apps/api",
+    "setup": "npm install && npm run prisma:generate --workspace apps/api && npm run db:migrate && npm run db:seed"
+  }
+}

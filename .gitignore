@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+uploads/
+apps/api/src/sample/retail_sales.csv
+.DS_Store

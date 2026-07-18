@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+.dark body {
+  @apply bg-slate-950 text-slate-100;
+}
+
+/* thin scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { @apply bg-slate-300 dark:bg-slate-700 rounded-full; }
+
+@layer utilities {
+  .animate-in { animation: fadein 0.2s ease-out; }
+  @keyframes fadein { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+}

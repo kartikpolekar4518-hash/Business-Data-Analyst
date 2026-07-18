@@ -1,0 +1,220 @@
+// DecisionIQ database schema.
+// Row data is stored as JSON on Dataset (rows / cleanedRows) rather than a
+// per-cell table — correct and simple for MVP-size uploads.
+// ponytail: JSON row storage; move to a columnar store/warehouse if files grow past ~100k rows.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+enum DatasetStatus {
+  UPLOADED
+  PROFILED
+  CLEANED
+  FAILED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id           String               @id @default(uuid())
+  email        String               @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  memberships  OrganizationMember[]
+  resetTokens  PasswordResetToken[]
+}
+
+model Organization {
+  id          String               @id @default(uuid())
+  name        String
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  members     OrganizationMember[]
+  datasets    Dataset[]
+  reports     Report[]
+  forecasts   Forecast[]
+  alerts      Alert[]
+  conversations AIConversation[]
+  apiKeys     ApiKey[]
+  activity    ActivityLog[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(uuid())
+  role           Role         @default(VIEWER)
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  @@index([userId])
+}
+
+model Dataset {
+  id             String        @id @default(uuid())
+  name           String
+  fileName       String
+  fileType       String
+  fileSize       Int
+  status         DatasetStatus @default(UPLOADED)
+  rowCount       Int           @default(0)
+  columnCount    Int           @default(0)
+  qualityScore   Int?
+  columns        Json          // [{ name, type, semantic, ... }]
+  schemaMap      Json          // { revenue: "revenue", date: "order_date", ... }
+  profile        Json          // per-column profiling stats
+  rows           Json          // original parsed rows
+  cleanedRows    Json?         // rows after accepted cleaning suggestions
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  issues         DataQualityIssue[]
+  reports        Report[]
+  forecasts      Forecast[]
+  conversations  AIConversation[]
+
+  @@index([organizationId])
+}
+
+model DataQualityIssue {
+  id            String   @id @default(uuid())
+  type          String
+  column        String?
+  affectedRows  Int      @default(0)
+  severity      Severity @default(LOW)
+  recommendation String
+  autoFixable   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  dataset       Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  datasetId     String
+
+  @@index([datasetId])
+}
+
+model Report {
+  id             String       @id @default(uuid())
+  title          String
+  content        Json         // structured report sections
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  dataset        Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  datasetId      String?
+
+  @@index([organizationId])
+}
+
+model Forecast {
+  id             String       @id @default(uuid())
+  metric         String
+  horizon        Int
+  method         String
+  history        Json         // [{ period, value }]
+  points         Json         // [{ period, value, lower, upper }]
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  dataset        Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  datasetId      String?
+
+  @@index([organizationId])
+}
+
+model Alert {
+  id             String       @id @default(uuid())
+  type           String
+  severity       Severity     @default(MEDIUM)
+  metric         String
+  currentValue   Float?
+  threshold      Float?
+  description    String
+  read           Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  @@index([organizationId])
+}
+
+model AIConversation {
+  id             String       @id @default(uuid())
+  title          String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  dataset        Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  datasetId      String?
+  messages       AIMessage[]
+
+  @@index([organizationId])
+}
+
+model AIMessage {
+  id             String         @id @default(uuid())
+  role           String         // "user" | "assistant"
+  content        String
+  data           Json?          // intent + result (table/chart/metrics)
+  createdAt      DateTime       @default(now())
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+
+  @@index([conversationId])
+}
+
+model ApiKey {
+  id             String       @id @default(uuid())
+  name           String
+  provider       String       @default("openai")
+  keyHash        String       // stored hashed, never returned
+  lastFour       String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  @@index([organizationId])
+}
+
+model ActivityLog {
+  id             String       @id @default(uuid())
+  action         String
+  detail         String?
+  actorId        String?
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  @@index([organizationId])
+}
