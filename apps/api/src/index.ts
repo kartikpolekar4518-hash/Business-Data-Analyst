@@ -1,6 +1,8 @@
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import path from "node:path";
+import { existsSync } from "node:fs";
 import { env } from "./env.js";
 import { errorHandler } from "./errors.js";
 import { authRouter } from "./auth/routes.js";
@@ -33,6 +35,15 @@ app.use("/api/forecasts", forecastingRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/settings", settingsRouter);
+
+// Serve the built web app if present (single-container / production mode).
+// Non-/api routes fall back to index.html for client-side routing.
+const webDist = process.env.WEB_DIST ?? path.resolve(process.cwd(), "../web/dist");
+if (existsSync(webDist)) {
+  app.use(express.static(webDist));
+  app.get(/^\/(?!api).*/, (_req, res) => res.sendFile(path.join(webDist, "index.html")));
+  console.log(`Serving web UI from ${webDist}`);
+}
 
 app.use(errorHandler);
 

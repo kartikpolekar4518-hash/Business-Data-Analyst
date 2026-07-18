@@ -72,7 +72,19 @@ Copy `.env.example` → `apps/api/.env`:
 | `PORT` | API port (default `4000`) |
 | `MAX_FILE_SIZE` | Max upload bytes (default 15 MB) |
 
-## Quick start (local)
+## Quick start — easiest way (Docker, one command)
+
+Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bash
+git clone -b claude/decisioniq-mvp https://github.com/kartikpolekar4518-hash/Business-Data-Analyst.git
+cd Business-Data-Analyst
+docker compose up --build
+```
+
+Wait for `DecisionIQ API listening on :4000`, then open **http://localhost:4000** and log in with `admin@decisioniq.dev` / `password123`. Database, migrations, demo data, API, and web UI all start automatically.
+
+## Quick start (local development)
 
 ```bash
 # 1. Start Postgres (Docker) — or use your own and set DATABASE_URL

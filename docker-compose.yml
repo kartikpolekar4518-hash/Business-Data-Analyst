@@ -31,7 +31,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Runs migrations + seed on first boot, then starts the server.
+    # Runs migrations + seed on first boot, then serves API + web UI on :4000.
     command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js"
 
 volumes:
