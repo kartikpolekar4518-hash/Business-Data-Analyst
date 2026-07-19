@@ -11,7 +11,8 @@ const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/data", label: "Data", icon: Database },
   { to: "/analytics", label: "Analytics", icon: BarChart3 },
-  { to: "/ai-chat", label: "Chat with Data", icon: MessagesSquare },
+  // Chat persists conversations, so it's ADMIN/MANAGER only (matches the API gate).
+  { to: "/ai-chat", label: "Chat with Data", icon: MessagesSquare, roles: ["ADMIN", "MANAGER"] as const },
   { to: "/forecasts", label: "Forecasts", icon: TrendingUp },
   { to: "/reports", label: "Reports", icon: FileText },
   { to: "/alerts", label: "Alerts", icon: Bell },
@@ -20,7 +21,7 @@ const NAV = [
 
 export function Shell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
-  const { user, organization, role, logout } = useAuth();
+  const { user, organization, role, logout, can } = useAuth();
   const { theme, toggle } = useTheme();
   const [menu, setMenu] = useState(false);
   const location = useLocation();
@@ -37,7 +38,7 @@ export function Shell({ children }: { children: ReactNode }) {
           <span className="text-lg font-bold tracking-tight">DecisionIQ</span>
         </div>
         <nav className="space-y-1 p-3">
-          {NAV.map((n) => (
+          {NAV.filter((n) => !n.roles || can(...n.roles)).map((n) => (
             <NavLink key={n.to} to={n.to} onClick={() => setOpen(false)}
               className={({ isActive }) => cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition", isActive ? "bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300" : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800")}>
               <n.icon className="h-4 w-4" />{n.label}

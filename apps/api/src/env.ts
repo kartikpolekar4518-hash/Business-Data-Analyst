@@ -1,4 +1,7 @@
+const isProd = process.env.NODE_ENV === "production";
+
 export const env = {
+  isProd,
   port: Number(process.env.PORT ?? 4000),
   jwtSecret: process.env.JWT_SECRET ?? "dev-insecure-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
@@ -8,3 +11,8 @@ export const env = {
   openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
   aiEnabled: Boolean(process.env.OPENAI_API_KEY),
 };
+
+// Fail fast: never sign tokens with the public dev secret in production.
+if (isProd && !process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET must be set in production");
+}

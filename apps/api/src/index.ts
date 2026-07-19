@@ -23,7 +23,8 @@ app.use(express.json({ limit: "2mb" }));
 
 app.get("/api/health", (_req, res) => res.json({ ok: true, aiEnabled: env.aiEnabled }));
 
-app.use("/api/auth", authRouter);
+// Throttle the credential surface: brute-force logins, reset-token guessing, forgot-password spam.
+app.use("/api/auth", rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }), authRouter);
 app.use("/api/organizations", organizationsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/uploads", uploadsRouter);

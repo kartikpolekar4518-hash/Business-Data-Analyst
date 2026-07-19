@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
-import { requireAuth } from "../auth/middleware.js";
+import { requireAuth, requireRole } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
 import { getProvider, aiConfigMessage } from "../engine/provider.js";
 import { deriveInsights } from "../engine/insights.js";
@@ -30,7 +30,8 @@ const chatSchema = z.object({
 });
 
 // Natural-language question -> validated intent -> deterministic analytics answer.
-aiRouter.post("/chat", wrap(async (req, res) => {
+// Write path (persists conversations) — VIEWER is read-only per the role matrix.
+aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const auth = req.auth!;
   const { message, datasetId, conversationId } = chatSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);

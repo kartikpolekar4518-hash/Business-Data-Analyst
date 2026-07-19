@@ -77,11 +77,14 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
   const { current, previous } = splitPeriods(filtered, s);
   const sum = (rs: Row[], fn: (r: Row) => number) => rs.reduce((a, r) => a + fn(r), 0);
 
+  // Distinct-count helpers, applied consistently to filtered/current/previous so the
+  // KPI value and its period-over-period change are measured on the same basis.
+  const orderCount = (rs: Row[]) => s.order_id ? new Set(rs.map((r) => str(r[s.order_id!]))).size : rs.length;
+  const customerCount = (rs: Row[]) => s.customer_id ? new Set(rs.map((r) => str(r[s.customer_id!]))).size
+    : s.customer_name ? new Set(rs.map((r) => str(r[s.customer_name!]))).size : 0;
+
   const revenue = sum(filtered, (r) => rowRevenue(r, s));
   const profit = sum(filtered, (r) => rowProfit(r, s));
-  const orders = s.order_id ? new Set(filtered.map((r) => str(r[s.order_id!]))).size : filtered.length;
-  const customers = s.customer_id ? new Set(filtered.map((r) => str(r[s.customer_id!]))).size
-    : s.customer_name ? new Set(filtered.map((r) => str(r[s.customer_name!]))).size : 0;
 
   const curRev = sum(current, (r) => rowRevenue(r, s));
   const prevRev = sum(previous, (r) => rowRevenue(r, s));
@@ -91,8 +94,8 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
   return {
     revenue: kpi(revenue, curRev, prevRev),
     profit: kpi(profit, sum(current, (r) => rowProfit(r, s)), sum(previous, (r) => rowProfit(r, s))),
-    orders: kpi(orders, current.length, previous.length),
-    customers: kpi(customers, customers, customers),
+    orders: kpi(orderCount(filtered), orderCount(current), orderCount(previous)),
+    customers: kpi(customerCount(filtered), customerCount(current), customerCount(previous)),
     growth: pctChange(curRev, prevRev),
     profitMargin: revenue ? Math.round((profit / revenue) * 1000) / 10 : 0,
   };

@@ -38,16 +38,27 @@ assert(ov.revenue.value === 600, `revenue expected 600, got ${ov.revenue.value}`
 const topCust = A.groupBy(rows, map, "customer_name", "revenue", {}, 5);
 assert(topCust[0].label === "Ada" && topCust[0].value === 400, "Ada leads with 400");
 
+// 3b. Period-over-period KPIs are measured on a consistent basis (regression: the
+// customers/orders KPIs used to compare the wrong quantities, so change was bogus).
+assert(ov.customers.previous === 2, `customers 'previous' should be prior-period distinct count (2), got ${ov.customers.previous}`);
+assert(ov.orders.changePct === 0, `orders change should be distinct-order based (0), got ${ov.orders.changePct}`);
+
 // 4. Cleaning removes the duplicate and trims/normalizes — original untouched.
-const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues as any);
+const numericCols = new Set(profile.columns.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
+const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues as any, numericCols);
 assert(cleaned.length === 4, `duplicate removed, expected 4 rows got ${cleaned.length}`);
 assert(rows.length === 5, "original rows unchanged");
 assert(cleaned.every((r) => r.customer_name !== " bo "), "whitespace trimmed");
+// Missing numeric values fill with 0, never the string "Unknown" (which would zero-out totals silently).
+assert(cleaned.some((r) => r.revenue === 0), "missing numeric revenue filled with 0");
+assert(!cleaned.some((r) => r.revenue === "Unknown"), "numeric column never filled with 'Unknown'");
 
 // 5. NL intent → top_n answer.
 const res = answer("show top 3 customers by revenue", rows, map);
 assert(res.intent.intent === "top_n", "intent is top_n");
 assert(res.table && res.table.rows.length > 0, "answer has a table");
+// "highest sales by <dimension>" must route to top-N, not get swallowed by the by-month branch.
+assert(answer("which product has the highest sales", rows, map).intent.intent === "top_n", "highest-sales-by-product routes to top_n");
 
 // 6. Forecast produces the requested horizon with a valid confidence band.
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);

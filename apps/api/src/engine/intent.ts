@@ -77,7 +77,7 @@ export function answer(question: string, rows: Row[], s: SchemaMap): ChatResult 
   }
 
   // --- highest / lowest period ("which month had the highest sales") ---
-  if (/(which|what).*(month|period|day).*(highest|most|best|top|lowest|worst|least)/.test(q) || /highest.*(month|sales)/.test(q)) {
+  if (/(which|what).*(month|period|day).*(highest|most|best|top|lowest|worst|least)/.test(q) || /(highest|lowest|best|worst).*(month|quarter|week|day|period)/.test(q)) {
     const series = A.timeSeries(rows, s, metric === "orders" ? "orders" : metric === "profit" ? "profit" : "revenue");
     if (!series.length) return fallback(question, "No date column detected to analyse by month.");
     const worst = /lowest|worst|least/.test(q);

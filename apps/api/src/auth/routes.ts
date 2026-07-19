@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
+import { env } from "../env.js";
 import { wrap, HttpError } from "../errors.js";
 import { signToken, requireAuth } from "./middleware.js";
 
@@ -67,7 +68,8 @@ authRouter.post("/forgot-password", wrap(async (req, res) => {
       data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
     });
     // No email provider in the MVP — return the token in dev so the flow is testable.
-    devToken = token;
+    // Never expose it in production: that would let anyone reset any account by email.
+    if (!env.isProd) devToken = token;
   }
   // Always 200 to avoid leaking which emails exist.
   res.json({ ok: true, message: "If that email exists, a reset link has been created.", devToken });

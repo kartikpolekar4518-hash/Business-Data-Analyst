@@ -55,7 +55,9 @@ export function detectSchema(columns: ColumnProfile[]): { map: SchemaMap; column
 }
 
 // Apply accepted cleaning issue-types to rows. Returns a new array (never mutates original).
-export function cleanRows(rows: Row[], columns: string[], acceptedTypes: string[], issues: QualityIssue[]): Row[] {
+// numericColumns lets missing-value fill use 0 for numbers instead of the string "Unknown",
+// which would otherwise poison downstream math (num() coerces it to 0 silently and totals shift).
+export function cleanRows(rows: Row[], columns: string[], acceptedTypes: string[], issues: QualityIssue[], numericColumns: Set<string> = new Set()): Row[] {
   const accept = new Set(acceptedTypes);
   let out = rows.map((r) => ({ ...r }));
 
@@ -80,10 +82,11 @@ export function cleanRows(rows: Row[], columns: string[], acceptedTypes: string[
     }
   }
 
-  // fill missing (numeric -> 0, else "Unknown")
+  // fill missing (numeric -> 0, else "Unknown"). Skip columns already dropped above.
   if (accept.has("missing_values")) {
     for (const r of out) for (const c of cols) {
-      if (r[c] === null || r[c] === undefined || r[c] === "") r[c] = "Unknown";
+      if (!(c in r)) continue;
+      if (r[c] === null || r[c] === undefined || r[c] === "") r[c] = numericColumns.has(c) ? 0 : "Unknown";
     }
   }
 
