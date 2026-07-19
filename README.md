@@ -48,7 +48,7 @@ apps/
 
 ## Tech stack
 
-**Frontend:** React, TypeScript, Vite, Tailwind, Recharts, React Router, TanStack Query, React Hook Form, Zod, lucide-react.
+**Frontend:** React, TypeScript, Vite, Tailwind, Recharts, React Router, TanStack Query, lucide-react.
 **Backend:** Node, Express, TypeScript, Zod, JWT, bcrypt, multer, papaparse, xlsx, pdfkit.
 **Database:** PostgreSQL + Prisma.
 

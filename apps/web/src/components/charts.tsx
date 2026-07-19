@@ -1,4 +1,4 @@
-import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, Cell } from "recharts";
+import { ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, Cell } from "recharts";
 import { useTheme } from "../lib/theme";
 
 const PALETTE = ["#3366f5", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
@@ -25,21 +25,6 @@ export function TrendChart({ data, color = PALETTE[0] }: { data: { label?: strin
         <Tooltip contentStyle={tooltipStyle} />
         <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill="url(#g)" />
       </AreaChart>
-    </ResponsiveContainer>
-  );
-}
-
-export function MultiLineChart({ data, keys }: { data: any[]; keys: { key: string; color: string }[] }) {
-  const { grid, tick } = useAxis();
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-        <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
-        <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
-        <Tooltip contentStyle={tooltipStyle} />
-        {keys.map((k) => <Line key={k.key} type="monotone" dataKey={k.key} stroke={k.color} strokeWidth={2} dot={false} />)}
-      </LineChart>
     </ResponsiveContainer>
   );
 }

@@ -1,25 +1,29 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "./lib/auth";
 import { Shell } from "./components/Shell";
 import { Spinner } from "./components/ui";
 import { Login, Signup, ForgotPassword, ResetPassword } from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import DataList from "./pages/DataList";
-import DatasetDetail from "./pages/DatasetDetail";
-import Analytics from "./pages/Analytics";
-import AiChat from "./pages/AiChat";
-import Forecasts from "./pages/Forecasts";
-import Reports from "./pages/Reports";
-import Alerts from "./pages/Alerts";
-import SettingsPage from "./pages/Settings";
-import Profile from "./pages/Profile";
+
+// Route-level code splitting: chart-heavy pages (and recharts itself) load on
+// demand instead of shipping in the login bundle.
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DataList = lazy(() => import("./pages/DataList"));
+const DatasetDetail = lazy(() => import("./pages/DatasetDetail"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const AiChat = lazy(() => import("./pages/AiChat"));
+const Forecasts = lazy(() => import("./pages/Forecasts"));
+const Reports = lazy(() => import("./pages/Reports"));
+const Alerts = lazy(() => import("./pages/Alerts"));
+const SettingsPage = lazy(() => import("./pages/Settings"));
+const Profile = lazy(() => import("./pages/Profile"));
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
   if (loading) return <div className="grid h-full place-items-center"><Spinner label="Loading DecisionIQ…" /></div>;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-  return <Shell>{children}</Shell>;
+  return <Shell><Suspense fallback={<Spinner />}>{children}</Suspense></Shell>;
 }
 
 function PublicOnly({ children }: { children: React.ReactNode }) {
