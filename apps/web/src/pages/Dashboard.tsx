@@ -48,8 +48,8 @@ export default function Dashboard() {
           <KpiCard label="Revenue" value={money(o.revenue.value)} changePct={o.revenue.changePct} icon={DollarSign} tooltip="Sum of revenue (or quantity × unit price) across all rows. Comparison splits the data at its median date." />
           <KpiCard label="Profit" value={money(o.profit.value)} changePct={o.profit.changePct} icon={TrendingUp} tooltip="Revenue minus cost. Margin shown separately." />
           <KpiCard label="Orders" value={num(o.orders.value)} changePct={o.orders.changePct} icon={ShoppingCart} tooltip="Distinct order IDs (or row count if no order ID column)." />
-          <KpiCard label="Customers" value={num(o.customers.value)} icon={Users} tooltip="Distinct customers detected in the dataset." />
-          <KpiCard label="Growth" value={o.growth == null ? "—" : `${o.growth}%`} changePct={o.growth} icon={Percent} tooltip="Revenue change, current vs previous period." />
+          <KpiCard label="Customers" value={num(o.customers.value)} changePct={o.customers.changePct} icon={Users} tooltip="Distinct customers detected in the dataset." />
+          <KpiCard label="Margin" value={`${o.profitMargin}%`} icon={Percent} tooltip="Profit as a share of revenue." />
         </>}
       </div>
 

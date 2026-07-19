@@ -54,7 +54,17 @@ export default function Analytics() {
 
       {/* Filters */}
       <Card><CardBody>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+          <div>
+            <Label htmlFor="f-from">From</Label>
+            <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setFilter("dateFrom", e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+          </div>
+          <div>
+            <Label htmlFor="f-to">To</Label>
+            <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setFilter("dateTo", e.target.value)}
+              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+          </div>
           {FILTERS.map((f) => (
             <div key={f.key}>
               <Label>{f.label}</Label>
@@ -88,7 +98,7 @@ export default function Analytics() {
 
       {/* Data table */}
       <Card>
-        <CardHeader title="Filtered rows" subtitle={table.data ? `Showing ${table.data.rows.length} of ${num(table.data.total)}` : undefined} />
+        <CardHeader title="Filtered rows" subtitle={table.data ? `Showing first ${Math.min(100, table.data.rows.length)} of ${num(table.data.total)} rows — CSV export includes up to 500` : undefined} />
         <CardBody className="overflow-x-auto p-0">
           {!table.data ? <Spinner /> : (
             <table className="w-full text-sm">

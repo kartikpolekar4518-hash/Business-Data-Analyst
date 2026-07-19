@@ -1,4 +1,4 @@
-import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef, useState, createContext, useContext, useCallback } from "react";
+import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef, useState, useEffect, createContext, useContext, useCallback } from "react";
 import { cn } from "../lib/utils";
 import { Loader2, X, CheckCircle2, AlertCircle, Info } from "lucide-react";
 
@@ -14,7 +14,7 @@ const variants: Record<Variant, string> = {
 export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; loading?: boolean }>(
   ({ variant = "primary", loading, className, children, disabled, ...props }, ref) => (
     <button ref={ref} disabled={disabled || loading}
-      className={cn("inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none", variants[variant], className)} {...props}>
+      className={cn("inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950", variants[variant], className)} {...props}>
       {loading && <Loader2 className="h-4 w-4 animate-spin" />}
       {children}
     </button>
@@ -78,11 +78,17 @@ export const ErrorState = ({ message }: { message: string }) => (
 
 // --- Modal ---
 export const Modal = ({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl animate-in dark:border-slate-800 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">{title}</h3><button onClick={onClose} className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button></div>
+      <div role="dialog" aria-modal="true" aria-label={title} className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl animate-in dark:border-slate-800 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold">{title}</h3><button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800"><X className="h-4 w-4" /></button></div>
         {children}
       </div>
     </div>
@@ -91,9 +97,9 @@ export const Modal = ({ open, onClose, title, children }: { open: boolean; onClo
 
 // --- Tabs ---
 export const Tabs = ({ tabs, active, onChange }: { tabs: { id: string; label: string }[]; active: string; onChange: (id: string) => void }) => (
-  <div className="flex gap-1 border-b border-slate-200 dark:border-slate-800">
+  <div role="tablist" className="flex gap-1 border-b border-slate-200 dark:border-slate-800">
     {tabs.map((t) => (
-      <button key={t.id} onClick={() => onChange(t.id)}
+      <button key={t.id} role="tab" aria-selected={active === t.id} onClick={() => onChange(t.id)}
         className={cn("border-b-2 px-4 py-2 text-sm font-medium transition", active === t.id ? "border-brand-600 text-brand-700 dark:text-brand-400" : "border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200")}>
         {t.label}
       </button>
@@ -116,7 +122,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2">
+      <div aria-live="polite" className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2">
         {toasts.map((t) => { const Icon = icons[t.tone]; return (
           <div key={t.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm shadow-lg animate-in dark:border-slate-800 dark:bg-slate-900">
             <Icon className={cn("h-4 w-4", t.tone === "success" && "text-emerald-500", t.tone === "error" && "text-red-500", t.tone === "info" && "text-brand-500")} />

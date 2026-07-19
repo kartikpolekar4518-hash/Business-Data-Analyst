@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug } from "lucide-react";
-import { api, ApiError, getToken } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
@@ -24,10 +24,7 @@ export default function DataList() {
     setUploading(true);
     try {
       const fd = new FormData(); fd.append("file", file);
-      // FormData upload via fetch (api wrapper handles the token)
-      const res = await fetch("/api/uploads", { method: "POST", headers: { Authorization: `Bearer ${getToken()}` }, body: fd });
-      const body = await res.json();
-      if (!res.ok) throw new ApiError(res.status, body.error || "Upload failed");
+      const body = await api.post<{ dataset: { qualityScore: number } }>("/uploads", fd);
       toast(`Uploaded ${file.name} — quality score ${body.dataset.qualityScore}`, "success");
       qc.invalidateQueries({ queryKey: ["datasets"] });
     } catch (e) { toast(e instanceof ApiError ? e.message : "Upload failed", "error"); }

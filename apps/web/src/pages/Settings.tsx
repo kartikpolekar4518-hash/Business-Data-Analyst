@@ -48,7 +48,11 @@ function UsersTab() {
   const { data } = useQuery({ queryKey: ["users"], queryFn: () => api.get<{ users: { membershipId: string; id: string; name: string; email: string; role: Role }[] }>("/users") });
 
   const changeRole = async (id: string, role: Role) => { await api.patch(`/users/${id}/role`, { role }); qc.invalidateQueries({ queryKey: ["users"] }); toast("Role updated", "success"); };
-  const remove = async (id: string) => { await api.del(`/users/${id}`); qc.invalidateQueries({ queryKey: ["users"] }); toast("Member removed", "success"); };
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`Remove ${name} from this workspace? They will lose access immediately.`)) return;
+    try { await api.del(`/users/${id}`); qc.invalidateQueries({ queryKey: ["users"] }); toast("Member removed", "success"); }
+    catch (e) { toast(e instanceof ApiError ? e.message : "Could not remove member", "error"); }
+  };
 
   return (
     <Card>
@@ -61,7 +65,7 @@ function UsersTab() {
             {can("ADMIN") && u.id !== user?.id ? (
               <Select value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
             ) : <Badge tone="blue">{u.role}</Badge>}
-            {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" onClick={() => remove(u.membershipId)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
+            {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" aria-label={`Remove ${u.name}`} onClick={() => remove(u.membershipId, u.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
           </div>
         ))}
       </div></CardBody>
@@ -103,7 +107,10 @@ function ApiKeysTab() {
   const { data } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ apiKeys: { id: string; name: string; provider: string; lastFour: string }[]; aiEnabled: boolean }>("/settings") });
   const [form, setForm] = useState({ name: "", key: "" });
   const add = async () => { try { await api.post("/settings/api-keys", { ...form, provider: "openai" }); toast("Key added securely", "success"); qc.invalidateQueries({ queryKey: ["settings"] }); setForm({ name: "", key: "" }); } catch { toast("Failed", "error"); } };
-  const remove = async (id: string) => { await api.del(`/settings/api-keys/${id}`); qc.invalidateQueries({ queryKey: ["settings"] }); };
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`Delete the API key "${name}"? This cannot be undone.`)) return;
+    await api.del(`/settings/api-keys/${id}`); qc.invalidateQueries({ queryKey: ["settings"] });
+  };
 
   return (
     <div className="space-y-4">
@@ -114,7 +121,7 @@ function ApiKeysTab() {
         {data?.apiKeys.length ? data.apiKeys.map((k) => (
           <div key={k.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
             <KeyRound className="h-4 w-4 text-slate-400" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-slate-500">{k.provider} · ••••{k.lastFour}</div></div>
-            {can("ADMIN") && <Button variant="ghost" onClick={() => remove(k.id)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
+            {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
           </div>
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
         {can("ADMIN") && (

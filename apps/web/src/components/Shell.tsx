@@ -1,6 +1,6 @@
 import { type ReactNode, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
-import { LayoutDashboard, Database, BarChart3, MessagesSquare, TrendingUp, FileText, Bell, Settings, Menu, X, Sun, Moon, LogOut, ChevronDown, BrainCircuit } from "lucide-react";
+import { LayoutDashboard, Database, BarChart3, MessagesSquare, TrendingUp, FileText, Bell, Settings, Menu, Sun, Moon, LogOut, BrainCircuit } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
@@ -52,21 +52,21 @@ export function Shell({ children }: { children: ReactNode }) {
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
-          <button className="lg:hidden" onClick={() => setOpen(true)}><Menu className="h-5 w-5" /></button>
-          {/* Workspace selector (single org in MVP) */}
-          <button className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium dark:border-slate-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />{organization?.name ?? "Workspace"}<ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          </button>
+          <button className="lg:hidden" onClick={() => setOpen(true)} aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
+          {/* Workspace label (single org in MVP — becomes a switcher when multi-org lands) */}
+          <div className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium dark:border-slate-700">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />{organization?.name ?? "Workspace"}
+          </div>
           <span className="hidden text-sm text-slate-400 md:inline">/ {crumb}</span>
           <div className="ml-auto flex items-center gap-1">
-            <button onClick={toggle} className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" title="Toggle theme">
+            <button onClick={toggle} className="rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Toggle theme">
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
-            <NavLink to="/alerts" className="relative rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <NavLink to="/alerts" aria-label={alerts?.unread ? `Alerts (${alerts.unread} unread)` : "Alerts"} className="relative rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-800">
               <Bell className="h-4 w-4" />{alerts?.unread ? <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" /> : null}
             </NavLink>
             <div className="relative">
-              <button onClick={() => setMenu((m) => !m)} className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
+              <button onClick={() => setMenu((m) => !m)} aria-label="Account menu" aria-expanded={menu} className="flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">{user?.name?.[0] ?? "U"}</div>
               </button>
               {menu && (

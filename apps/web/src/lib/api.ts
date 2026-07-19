@@ -33,10 +33,6 @@ export const api = {
   post: <T,>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T,>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T,>(path: string) => request<T>("DELETE", path),
-  // returns a blob URL for downloads (PDF)
-  blob: async (path: string) => {
-    const res = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${getToken()}` } });
-    if (!res.ok) throw new ApiError(res.status, "Download failed");
-    return URL.createObjectURL(await res.blob());
-  },
+  // returns a blob URL for downloads (PDF) — shares auth/401/error handling with request()
+  blob: async (path: string) => URL.createObjectURL(await request<Blob>("GET", path)),
 };

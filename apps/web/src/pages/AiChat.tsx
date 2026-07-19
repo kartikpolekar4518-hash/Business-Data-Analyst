@@ -87,7 +87,7 @@ export default function AiChat() {
       {config && <p className="mb-2 flex items-center gap-1 text-xs text-slate-400"><BarChart3 className="h-3 w-3" />{config}</p>}
       <form onSubmit={(e) => { e.preventDefault(); ask(input); }} className="flex gap-2">
         <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your data…" className="flex-1" />
-        <Button type="submit" loading={loading} disabled={!input.trim()}><Send className="h-4 w-4" /></Button>
+        <Button type="submit" loading={loading} disabled={!input.trim()} aria-label="Send question"><Send className="h-4 w-4" /></Button>
       </form>
     </div>
   );

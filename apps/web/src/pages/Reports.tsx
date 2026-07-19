@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Download, Plus, Eye } from "lucide-react";
-import { api, getToken } from "../lib/api";
+import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Modal, Badge, useToast } from "../components/ui";
 import { money, num, timeAgo } from "../lib/utils";
@@ -35,9 +35,11 @@ export default function Reports() {
   }
 
   async function downloadPdf(id: string, title: string) {
-    const res = await fetch(`/api/reports/${id}/pdf`, { headers: { Authorization: `Bearer ${getToken()}` } });
-    const url = URL.createObjectURL(await res.blob());
-    const a = document.createElement("a"); a.href = url; a.download = `${title}.pdf`; a.click();
+    try {
+      const url = await api.blob(`/reports/${id}/pdf`);
+      const a = document.createElement("a"); a.href = url; a.download = `${title}.pdf`; a.click();
+      URL.revokeObjectURL(url);
+    } catch { toast("Could not download the PDF", "error"); }
   }
 
   const r = view.data?.report.content;
