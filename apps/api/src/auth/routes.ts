@@ -1,5 +1,6 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
@@ -8,6 +9,11 @@ import { wrap, HttpError } from "../errors.js";
 import { signToken, requireAuth } from "./middleware.js";
 
 export const authRouter = Router();
+
+// Throttle only the credential surface (brute force, token guessing, reset spam).
+// Deliberately NOT applied to /me, which fires on every page load.
+const credentialLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
+authRouter.use(["/login", "/signup", "/forgot-password", "/reset-password"], credentialLimiter);
 
 const signupSchema = z.object({
   name: z.string().min(1),
@@ -93,8 +99,10 @@ authRouter.post("/reset-password", wrap(async (req, res) => {
 
 authRouter.get("/me", requireAuth, wrap(async (req, res) => {
   const auth = req.auth!;
-  const user = await prisma.user.findUnique({ where: { id: auth.userId } });
-  const org = await prisma.organization.findUnique({ where: { id: auth.organizationId } });
+  const [user, org] = await Promise.all([
+    prisma.user.findUnique({ where: { id: auth.userId } }),
+    prisma.organization.findUnique({ where: { id: auth.organizationId } }),
+  ]);
   res.json({ user: user && publicUser(user), organization: org, role: auth.role });
 }));
 

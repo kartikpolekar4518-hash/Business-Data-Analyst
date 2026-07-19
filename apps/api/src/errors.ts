@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
+import { MulterError } from "multer";
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -15,6 +16,10 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   }
   if (err instanceof HttpError) {
     return res.status(err.status).json({ error: err.message });
+  }
+  if (err instanceof MulterError) {
+    const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
+    return res.status(status).json({ error: err.code === "LIMIT_FILE_SIZE" ? "File exceeds the maximum upload size" : err.message });
   }
   console.error("[error]", err);
   res.status(500).json({ error: "Internal server error" });

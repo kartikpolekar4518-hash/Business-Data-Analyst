@@ -38,12 +38,15 @@ function rowProfit(r: Row, s: SchemaMap): number {
 }
 
 function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
+  // "YYYY-MM-DD" parses to midnight, so an inclusive dateTo must cover the whole end day.
+  const from = f.dateFrom ? new Date(f.dateFrom) : null;
+  const to = f.dateTo ? new Date(new Date(f.dateTo).getTime() + 86_399_999) : null;
   return rows.filter((r) => {
-    if (s.date && (f.dateFrom || f.dateTo)) {
+    if (s.date && (from || to)) {
       const d = parseDate(r[s.date]);
       if (d) {
-        if (f.dateFrom && d < new Date(f.dateFrom)) return false;
-        if (f.dateTo && d > new Date(f.dateTo)) return false;
+        if (from && d < from) return false;
+        if (to && d > to) return false;
       }
     }
     const eq = (sem: Semantic, val?: string) => !val || (s[sem] && str(r[s[sem]!]).toLowerCase() === val.toLowerCase());
@@ -143,4 +146,9 @@ export function distinctValues(rows: Row[], s: SchemaMap, dimension: Semantic): 
 }
 
 function round(n: number): number { return Math.round(n * 100) / 100; }
+// Shared money formatter so reports, insights, and PDFs all render the same figure the same way.
+export function fmtMoney(n: unknown): string {
+  return "$" + Math.round(num(n)).toLocaleString("en-US");
+}
+
 export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters };

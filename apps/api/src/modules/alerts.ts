@@ -8,9 +8,10 @@ import { deriveInsights } from "../engine/insights.js";
 export const alertsRouter = Router();
 alertsRouter.use(requireAuth);
 
-// Regenerate alerts from the latest dataset, then return all stored alerts.
+// Regenerate alerts from the latest dataset. Called from the write paths
+// (upload, clean) — NOT from GET, which stays a pure read so polling is cheap.
 // De-dupes by (type, metric) so re-running doesn't pile up copies.
-async function refreshAlerts(organizationId: string) {
+export async function refreshAlerts(organizationId: string) {
   try {
     const { rows, schema } = await loadDataset(organizationId);
     const { alerts } = deriveInsights(rows, schema);
@@ -22,7 +23,6 @@ async function refreshAlerts(organizationId: string) {
 }
 
 alertsRouter.get("/", wrap(async (req, res) => {
-  await refreshAlerts(req.auth!.organizationId);
   const alerts = await prisma.alert.findMany({ where: { organizationId: req.auth!.organizationId }, orderBy: [{ read: "asc" }, { createdAt: "desc" }] });
   res.json({ alerts, unread: alerts.filter((a) => !a.read).length });
 }));

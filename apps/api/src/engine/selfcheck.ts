@@ -38,6 +38,10 @@ assert(ov.revenue.value === 600, `revenue expected 600, got ${ov.revenue.value}`
 const topCust = A.groupBy(rows, map, "customer_name", "revenue", {}, 5);
 assert(topCust[0].label === "Ada" && topCust[0].value === 400, "Ada leads with 400");
 
+// 3a. Date filters are inclusive of the end day (regression: dateTo used to exclude its own date).
+const inRange = A.applyFilters(rows, map, { dateFrom: "2024-01-01", dateTo: "2024-04-05" });
+assert(inRange.length === 5, `dateTo must include its own day, expected 5 rows got ${inRange.length}`);
+
 // 3b. Period-over-period KPIs are measured on a consistent basis (regression: the
 // customers/orders KPIs used to compare the wrong quantities, so change was bogus).
 assert(ov.customers.previous === 2, `customers 'previous' should be prior-period distinct count (2), got ${ov.customers.previous}`);

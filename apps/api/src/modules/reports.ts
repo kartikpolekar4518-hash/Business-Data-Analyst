@@ -139,4 +139,4 @@ function list(doc: PDFKit.PDFDocument, title: string, items: { label: string; va
   for (const it of items) doc.fontSize(10).fillColor("#374151").text(`${it.label}: ${money(it.value)}`);
   doc.moveDown(0.4);
 }
-function money(n: number): string { return "$" + Math.round(A.num(n)).toLocaleString(); }
+const money = A.fmtMoney;

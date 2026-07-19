@@ -12,7 +12,11 @@ export const env = {
   aiEnabled: Boolean(process.env.OPENAI_API_KEY),
 };
 
-// Fail fast: never sign tokens with the public dev secret in production.
-if (isProd && !process.env.JWT_SECRET) {
-  throw new Error("JWT_SECRET must be set in production");
+// Fail fast: never sign tokens with a secret that is published in this repo.
+const KNOWN_WEAK_SECRETS = new Set(["dev-insecure-secret-change-me", "change-me-in-production"]);
+if (isProd && KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
+  throw new Error("JWT_SECRET must be set to a real secret in production (the default is public)");
+}
+if (KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
+  console.warn("[security] JWT_SECRET is the public default — fine for local demos, never for production.");
 }

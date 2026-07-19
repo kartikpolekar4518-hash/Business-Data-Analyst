@@ -7,6 +7,8 @@ import { env } from "../env.js";
 import { parseFile } from "../engine/parse.js";
 import { profileDataset } from "../engine/profile.js";
 import { detectSchema } from "../engine/schema.js";
+import { refreshAlerts } from "./alerts.js";
+import { stripRows } from "./context.js";
 
 export const uploadsRouter = Router();
 uploadsRouter.use(requireAuth);
@@ -48,7 +50,8 @@ uploadsRouter.post("/", requireRole("ADMIN", "MANAGER"), upload.single("file"), 
   });
 
   await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.uploaded", detail: originalname, actorId: auth.userId } });
-  res.status(201).json({ dataset: summarize(dataset) });
+  await refreshAlerts(auth.organizationId); // alerts derive on data change, not on read
+  res.status(201).json({ dataset: stripRows(dataset) });
 }));
 
 uploadsRouter.get("/", wrap(async (req, res) => {
@@ -60,20 +63,9 @@ uploadsRouter.get("/", wrap(async (req, res) => {
   res.json({ datasets });
 }));
 
-uploadsRouter.get("/:id", wrap(async (req, res) => {
-  const dataset = await prisma.dataset.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId }, include: { issues: true } });
-  if (!dataset) throw new HttpError(404, "Upload not found");
-  res.json({ dataset: summarize(dataset) });
-}));
-
 uploadsRouter.delete("/:id", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const existing = await prisma.dataset.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
   if (!existing) throw new HttpError(404, "Upload not found");
   await prisma.dataset.delete({ where: { id: existing.id } });
   res.json({ ok: true });
 }));
-
-function summarize(d: any) {
-  const { rows, cleanedRows, ...rest } = d;
-  return rest;
-}

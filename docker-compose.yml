@@ -21,7 +21,9 @@ services:
       dockerfile: apps/api/Dockerfile
     environment:
       DATABASE_URL: postgresql://decisioniq:decisioniq@db:5432/decisioniq?schema=public
-      JWT_SECRET: change-me-in-production
+      # Demo default — export JWT_SECRET before `docker compose up` for anything non-local.
+      # The API refuses to boot with this default when NODE_ENV=production.
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRES_IN: 7d
       OPENAI_API_KEY: ""
       APP_URL: http://localhost:5173

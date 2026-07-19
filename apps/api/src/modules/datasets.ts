@@ -5,6 +5,8 @@ import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { profileDataset } from "../engine/profile.js";
 import { cleanRows, detectSchema } from "../engine/schema.js";
+import { stripRows } from "./context.js";
+import { refreshAlerts } from "./alerts.js";
 import type { Row } from "../engine/parse.js";
 
 export const datasetsRouter = Router();
@@ -16,18 +18,11 @@ async function getOwned(orgId: string, id: string) {
   return d;
 }
 
-datasetsRouter.get("/", wrap(async (req, res) => {
-  const datasets = await prisma.dataset.findMany({
-    where: { organizationId: req.auth!.organizationId },
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, status: true, rowCount: true, columnCount: true, qualityScore: true, createdAt: true },
-  });
-  res.json({ datasets });
-}));
+// (Listing lives on GET /uploads — one endpoint per operation.)
 
 datasetsRouter.get("/:id", wrap(async (req, res) => {
   const d = await getOwned(req.auth!.organizationId, req.params.id);
-  res.json({ dataset: { ...d, rows: undefined, cleanedRows: undefined } });
+  res.json({ dataset: stripRows(d) });
 }));
 
 datasetsRouter.get("/:id/preview", wrap(async (req, res) => {
@@ -80,5 +75,6 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
     },
   });
   await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "dataset.cleaned", detail: d.name, actorId: req.auth!.userId } });
-  res.json({ dataset: { ...updated, rows: undefined, cleanedRows: undefined }, appliedFixes: acceptedTypes, newQualityScore: profile.qualityScore });
+  await refreshAlerts(req.auth!.organizationId); // alerts derive on data change, not on read
+  res.json({ dataset: stripRows(updated), appliedFixes: acceptedTypes, newQualityScore: profile.qualityScore });
 }));

@@ -147,4 +147,4 @@ function lowInventory(rows: Row[], s: SchemaMap): { label: string; value: number
   return [...inv.entries()].map(([label, value]) => ({ label, value })).filter((x) => x.value < 20).sort((a, b) => a.value - b.value);
 }
 
-function money(n: number): string { return "$" + A.num(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+const money = A.fmtMoney;
