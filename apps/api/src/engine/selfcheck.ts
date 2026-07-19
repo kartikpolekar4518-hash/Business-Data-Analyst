@@ -64,6 +64,15 @@ assert(res.table && res.table.rows.length > 0, "answer has a table");
 // "highest sales by <dimension>" must route to top-N, not get swallowed by the by-month branch.
 assert(answer("which product has the highest sales", rows, map).intent.intent === "top_n", "highest-sales-by-product routes to top_n");
 
+// "which products are declining" must actually analyze decline, not silently fall back to a
+// generic top-N ranking — this is one of the app's own suggested chat questions.
+const declineRes = answer("which products are declining", rows, map);
+assert(declineRes.intent.intent === "declining_groups", `declining-products routes to declining_groups, got ${declineRes.intent.intent}`);
+assert(declineRes.table!.rows.some((r) => r[0] === "Gadget"), "Gadget (revenue 200 -> 0) is flagged as declining");
+const growRes = answer("what product is growing fastest", rows, map);
+assert(growRes.intent.intent === "growing_groups", `growing-fastest routes to growing_groups, got ${growRes.intent.intent}`);
+assert(growRes.table!.rows.some((r) => r[0] === "Widget"), "Widget (revenue 100 -> 300) is flagged as growing");
+
 // 6. Forecast produces the requested horizon with a valid confidence band.
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);
 assert(fc.points.length === 3, "3 forecast points");

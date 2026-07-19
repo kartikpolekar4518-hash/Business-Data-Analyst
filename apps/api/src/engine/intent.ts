@@ -2,6 +2,7 @@ import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
 import { forecast } from "./forecast.js";
+import { changeByGroup } from "./insights.js";
 
 // "Chat with your data": deterministic NL -> structured intent -> validated result.
 // The AI never runs SQL/code. This function IS the swappable provider (see ai/provider.ts).
@@ -107,6 +108,27 @@ export function answer(question: string, rows: Row[], s: SchemaMap): ChatResult 
       explanation: expl,
       chart: series.length ? { type: "line", xKey: "label", yKey: "value", data: series.map((p) => ({ label: p.period, value: p.value })) } : undefined,
       confidence: 0.45,
+    };
+  }
+
+  // --- declining / growing by dimension (first half of the date range vs. second half) ---
+  if (/declin|falling|dropping|shrinking|slump|losing ground/.test(q) || /grow(ing)?|rising|fastest|climbing|surging/.test(q)) {
+    const isGrowth = /grow(ing)?|rising|fastest|climbing|surging/.test(q);
+    const dim = pickDimension(q) ?? (s.product_name ? "product_name" : s.region ? "region" : s.customer_name ? "customer_name" : null);
+    if (!dim || dim === "date" || !s.date) return fallback(question, "Need a date column plus a product/region/customer/category column to compare periods.");
+    const changes = changeByGroup(rows, s, dim).sort((a, b) => isGrowth ? b.changePct - a.changePct : a.changePct - b.changePct);
+    const picked = (isGrowth ? changes.filter((c) => c.changePct > 0) : changes.filter((c) => c.changePct < 0)).slice(0, 10);
+    const dimLabel = dim.replace("_name", "").replace("_", " ");
+    if (!picked.length) {
+      return { intent: { intent: isGrowth ? "growing_groups" : "declining_groups", metrics: ["revenue"], dimensions: [dim], filters: {}, limit: 0, visualization: "none" },
+        explanation: `No ${dimLabel}s are clearly ${isGrowth ? "growing" : "declining"} between the first and second half of the available date range.`, confidence: 0.6 };
+    }
+    return {
+      intent: { intent: isGrowth ? "growing_groups" : "declining_groups", metrics: ["revenue"], dimensions: [dim], filters: {}, limit: picked.length, visualization: "bar" },
+      explanation: `${picked.length} ${dimLabel}${picked.length === 1 ? "" : "s"} ${isGrowth ? "grew" : "declined"} between the first and second half of the period. ${isGrowth ? "Fastest" : "Steepest drop"}: ${picked[0].label} (${picked[0].changePct >= 0 ? "+" : ""}${picked[0].changePct}%).`,
+      chart: { type: "bar", xKey: "label", yKey: "value", data: picked.map((p) => ({ label: p.label, value: p.changePct })) },
+      table: { columns: [cap(dimLabel), "Change %"], rows: picked.map((p) => [p.label, p.changePct]) },
+      confidence: 0.65,
     };
   }
 

@@ -1,5 +1,5 @@
 import type { Row } from "./parse.js";
-import type { SchemaMap } from "./schema.js";
+import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
 import { forecast } from "./forecast.js";
 
@@ -116,8 +116,10 @@ function halfSplit(rows: Row[], s: SchemaMap): { first: Row[]; second: Row[] } {
   return { first: dated.slice(0, mid).map((x) => x.r), second: dated.slice(mid).map((x) => x.r) };
 }
 
-function changeByGroup(rows: Row[], s: SchemaMap): { label: string; changePct: number }[] {
-  const dim = s.product_name ? "product_name" : s.category ? "category" : s.region ? "region" : null;
+// Exported so the chat intent parser can answer "which X are declining/growing" for a
+// caller-specified dimension, instead of only the fixed product->category->region priority below.
+export function changeByGroup(rows: Row[], s: SchemaMap, dimOverride?: Semantic): { label: string; changePct: number }[] {
+  const dim = dimOverride ?? (s.product_name ? "product_name" : s.category ? "category" : s.region ? "region" : null);
   if (!dim) return [];
   const { first, second } = halfSplit(rows, s);
   if (!first.length || !second.length) return [];
