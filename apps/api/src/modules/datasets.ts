@@ -61,19 +61,26 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
   const profile = profileDataset(cleaned, newColumns.length ? newColumns : columns);
   const { map, columns: annotated } = detectSchema(profile.columns);
 
-  const updated = await prisma.dataset.update({
-    where: { id: d.id },
-    data: {
-      status: "CLEANED",
-      cleanedRows: cleaned as object,
-      qualityScore: profile.qualityScore,
-      rowCount: cleaned.length,
-      columnCount: profile.columnCount,
-      columns: annotated as object,
-      schemaMap: map as object,
-      profile: profile as object,
-    },
-  });
+  // Replace the persisted issue list with the ones found on the cleaned data —
+  // otherwise the Quality Report keeps showing already-fixed issues (e.g. the
+  // duplicate that was just removed) forever, since nothing else clears them.
+  const [updated] = await prisma.$transaction([
+    prisma.dataset.update({
+      where: { id: d.id },
+      data: {
+        status: "CLEANED",
+        cleanedRows: cleaned as object,
+        qualityScore: profile.qualityScore,
+        rowCount: cleaned.length,
+        columnCount: profile.columnCount,
+        columns: annotated as object,
+        schemaMap: map as object,
+        profile: profile as object,
+      },
+    }),
+    prisma.dataQualityIssue.deleteMany({ where: { datasetId: d.id } }),
+    prisma.dataQualityIssue.createMany({ data: profile.issues.map((i) => ({ ...i, datasetId: d.id })) }),
+  ]);
   await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "dataset.cleaned", detail: d.name, actorId: req.auth!.userId } });
   await refreshAlerts(req.auth!.organizationId); // alerts derive on data change, not on read
   res.json({ dataset: stripRows(updated), appliedFixes: acceptedTypes, newQualityScore: profile.qualityScore });
