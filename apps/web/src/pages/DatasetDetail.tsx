@@ -52,7 +52,7 @@ export default function DatasetDetail() {
     <div className="space-y-8">
       <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
       <div className="page-header flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="page-title">{d?.name ?? (meta.isLoading ? <Skeleton className="h-9 w-48" /> : "Dataset")}</h1><p className="page-subtitle">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : meta.isLoading ? <Skeleton className="mt-1 h-4 w-56" /> : ""}</p></div>
+        <div><h1 className="page-title">{d?.name ?? (meta.isLoading ? <Skeleton className="h-9 w-48" /> : "Dataset")}</h1><div className="page-subtitle">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : meta.isLoading ? <Skeleton className="mt-1 h-4 w-56" /> : ""}</div></div>
         {d && <div className="flex items-center gap-2"><Badge tone={d.qualityScore >= 90 ? "green" : d.qualityScore >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge><Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge></div>}
       </div>
 
