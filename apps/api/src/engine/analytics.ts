@@ -69,10 +69,11 @@ function splitPeriods(rows: Row[], s: SchemaMap): { current: Row[]; previous: Ro
   if (dated.length < 4) return { current: rows, previous: [] };
   dated.sort((a, b) => a.d.getTime() - b.d.getTime());
   const mid = dated[Math.floor(dated.length / 2)].d.getTime();
-  return {
-    current: dated.filter((x) => x.d.getTime() >= mid).map((x) => x.r),
-    previous: dated.filter((x) => x.d.getTime() < mid).map((x) => x.r),
-  };
+  const current: Row[] = [], previous: Row[] = [];
+  for (const x of dated) {
+    (x.d.getTime() >= mid ? current : previous).push(x.r);
+  }
+  return { current, previous };
 }
 
 export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {

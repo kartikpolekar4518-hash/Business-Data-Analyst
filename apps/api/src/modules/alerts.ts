@@ -24,7 +24,8 @@ export async function refreshAlerts(organizationId: string) {
 
 alertsRouter.get("/", wrap(async (req, res) => {
   const alerts = await prisma.alert.findMany({ where: { organizationId: req.auth!.organizationId }, orderBy: [{ read: "asc" }, { createdAt: "desc" }] });
-  res.json({ alerts, unread: alerts.filter((a) => !a.read).length });
+  const unread = alerts.reduce((sum, a) => sum + (a.read ? 0 : 1), 0);
+  res.json({ alerts, unread });
 }));
 
 alertsRouter.patch("/:id/read", wrap(async (req, res) => {

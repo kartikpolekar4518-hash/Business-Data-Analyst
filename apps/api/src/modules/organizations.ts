@@ -8,10 +8,12 @@ export const organizationsRouter = Router();
 organizationsRouter.use(requireAuth);
 
 organizationsRouter.get("/current", wrap(async (req, res) => {
-  const org = await prisma.organization.findUnique({ where: { id: req.auth!.organizationId } });
+  const org = await prisma.organization.findUnique({
+    where: { id: req.auth!.organizationId },
+    include: { _count: { select: { members: true } } },
+  });
   if (!org) throw new HttpError(404, "Organization not found");
-  const memberCount = await prisma.organizationMember.count({ where: { organizationId: org.id } });
-  res.json({ organization: { ...org, memberCount } });
+  res.json({ organization: { ...org, memberCount: org._count.members } });
 }));
 
 const patchSchema = z.object({ name: z.string().min(1) });

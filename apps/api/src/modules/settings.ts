@@ -8,11 +8,13 @@ import { requireAuth, requireRole } from "../auth/middleware.js";
 export const settingsRouter = Router();
 settingsRouter.use(requireAuth);
 
+const apiKeySelect = { id: true, name: true, provider: true, lastFour: true, createdAt: true } as const;
+
 settingsRouter.get("/", wrap(async (req, res) => {
   const org = await prisma.organization.findUnique({ where: { id: req.auth!.organizationId } });
   const apiKeys = await prisma.apiKey.findMany({
     where: { organizationId: req.auth!.organizationId },
-    select: { id: true, name: true, provider: true, lastFour: true, createdAt: true }, // keyHash never returned
+    select: apiKeySelect,
     orderBy: { createdAt: "desc" },
   });
   res.json({ organization: org, apiKeys, role: req.auth!.role });
@@ -38,7 +40,7 @@ settingsRouter.post("/api-keys", requireRole("ADMIN"), wrap(async (req, res) => 
       keyHash: await bcrypt.hash(key, 10),
       lastFour: key.slice(-4),
     },
-    select: { id: true, name: true, provider: true, lastFour: true, createdAt: true },
+    select: apiKeySelect,
   });
   res.status(201).json({ apiKey: created });
 }));

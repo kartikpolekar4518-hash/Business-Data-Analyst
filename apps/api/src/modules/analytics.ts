@@ -15,6 +15,18 @@ function filtersFrom(query: any): A.Filters {
   return f;
 }
 
+const timeSeries = (metric: "revenue" | "profit") =>
+  wrap(async (req, res) => {
+    const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+    res.json({ series: A.timeSeries(rows, schema, metric, filtersFrom(req.query)) });
+  });
+
+const groupByDimension = (key: "product_name" | "customer_name" | "region", limit: number) =>
+  wrap(async (req, res) => {
+    const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+    res.json({ items: A.groupBy(rows, schema, key, "revenue", filtersFrom(req.query), limit) });
+  });
+
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const f = filtersFrom(req.query);
@@ -40,30 +52,15 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
   });
 }));
 
-analyticsRouter.get("/revenue", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  res.json({ series: A.timeSeries(rows, schema, "revenue", filtersFrom(req.query)) });
-}));
+analyticsRouter.get("/revenue", timeSeries("revenue"));
 
-analyticsRouter.get("/profit", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  res.json({ series: A.timeSeries(rows, schema, "profit", filtersFrom(req.query)) });
-}));
+analyticsRouter.get("/profit", timeSeries("profit"));
 
-analyticsRouter.get("/products", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  res.json({ items: A.groupBy(rows, schema, "product_name", "revenue", filtersFrom(req.query), 20) });
-}));
+analyticsRouter.get("/products", groupByDimension("product_name", 20));
 
-analyticsRouter.get("/customers", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  res.json({ items: A.groupBy(rows, schema, "customer_name", "revenue", filtersFrom(req.query), 20) });
-}));
+analyticsRouter.get("/customers", groupByDimension("customer_name", 20));
 
-analyticsRouter.get("/regions", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  res.json({ items: A.groupBy(rows, schema, "region", "revenue", filtersFrom(req.query), 20) });
-}));
+analyticsRouter.get("/regions", groupByDimension("region", 20));
 
 // Flat rows for the analytics data table + CSV export on the client.
 analyticsRouter.get("/table", wrap(async (req, res) => {

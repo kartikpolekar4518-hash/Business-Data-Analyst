@@ -1,7 +1,12 @@
 const isProd = process.env.NODE_ENV === "production";
 
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL environment variable is required");
+}
+
 export const env = {
   isProd,
+  databaseUrl: process.env.DATABASE_URL,
   port: Number(process.env.PORT ?? 4000),
   jwtSecret: process.env.JWT_SECRET ?? "dev-insecure-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",

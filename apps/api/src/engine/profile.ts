@@ -158,8 +158,10 @@ export function profileDataset(rows: Row[], columns: string[]): Profile {
 function countOutliers(nums: number[]): number {
   if (nums.length < 8) return 0;
   const sorted = [...nums].sort((a, b) => a - b);
-  const q = (p: number) => sorted[Math.floor((sorted.length - 1) * p)];
-  const q1 = q(0.25), q3 = q(0.75), iqr = q3 - q1;
+  const len = sorted.length - 1;
+  const q1 = sorted[Math.floor(len * 0.25)];
+  const q3 = sorted[Math.floor(len * 0.75)];
+  const iqr = q3 - q1;
   const lo = q1 - 1.5 * iqr, hi = q3 + 1.5 * iqr;
   return nums.filter((v) => v < lo || v > hi).length;
 }

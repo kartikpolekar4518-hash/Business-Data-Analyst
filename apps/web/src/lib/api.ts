@@ -13,9 +13,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  let payload: BodyInit | undefined;
-  if (body instanceof FormData) payload = body;
-  else if (body !== undefined) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
+  let payload: BodyInit | undefined = body instanceof FormData ? body : undefined;
+  if (body && !(body instanceof FormData)) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
 
   const res = await fetch(`/api${path}`, { method, headers, body: payload });
   if (res.status === 204) return undefined as T;

@@ -18,8 +18,8 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return res.status(err.status).json({ error: err.message });
   }
   if (err instanceof MulterError) {
-    const status = err.code === "LIMIT_FILE_SIZE" ? 413 : 400;
-    return res.status(status).json({ error: err.code === "LIMIT_FILE_SIZE" ? "File exceeds the maximum upload size" : err.message });
+    const isFileSizeError = err.code === "LIMIT_FILE_SIZE";
+    return res.status(isFileSizeError ? 413 : 400).json({ error: isFileSizeError ? "File exceeds the maximum upload size" : err.message });
   }
   console.error("[error]", err);
   res.status(500).json({ error: "Internal server error" });

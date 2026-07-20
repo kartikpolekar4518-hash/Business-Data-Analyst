@@ -35,16 +35,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   function apply(s: Session) {
-    setToken(s.token); setUser(s.user); setOrg(s.organization); setRole(s.role);
+    setToken(s.token);
+    setUser(s.user);
+    setOrg(s.organization);
+    setRole(s.role);
   }
 
-  const login = async (email: string, password: string) => {
-    apply(await api.post<Session>("/auth/login", { email, password }));
+  const login = async (email: string, password: string) => apply(await api.post<Session>("/auth/login", { email, password }));
+  const signup = async (data: { name: string; email: string; password: string; organizationName: string }) => apply(await api.post<Session>("/auth/signup", data));
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    setOrg(null);
+    setRole(null);
+    location.href = "/login";
   };
-  const signup = async (data: { name: string; email: string; password: string; organizationName: string }) => {
-    apply(await api.post<Session>("/auth/signup", data));
-  };
-  const logout = () => { setToken(null); setUser(null); setOrg(null); setRole(null); location.href = "/login"; };
   const can = (...roles: Role[]) => !!role && roles.includes(role);
 
   return <AuthContext.Provider value={{ user, organization, role, loading, login, signup, logout, can }}>{children}</AuthContext.Provider>;

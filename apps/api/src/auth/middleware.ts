@@ -25,8 +25,8 @@ export function signToken(payload: AuthContext): string {
 // Verifies the JWT and confirms the membership still exists (org isolation source of truth).
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
-    const header = req.headers.authorization;
-    const token = header?.startsWith("Bearer ") ? header.slice(7) : null;
+    const auth = req.headers.authorization;
+    const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
     if (!token) throw new HttpError(401, "Not authenticated");
     const decoded = jwt.verify(token, env.jwtSecret) as AuthContext;
     const member = await prisma.organizationMember.findFirst({

@@ -41,28 +41,39 @@ usersRouter.post("/invite", requireRole("ADMIN"), wrap(async (req, res) => {
 
 const roleSchema = z.object({ role: z.enum(["ADMIN", "MANAGER", "VIEWER"]) });
 
-// Guard against removing the org's only ADMIN — either by demotion or deletion —
-// which would lock everyone out of user/settings management permanently.
-async function assertNotLastAdmin(organizationId: string, memberRole: string) {
-  if (memberRole !== "ADMIN") return;
-  const admins = await prisma.organizationMember.count({ where: { organizationId, role: "ADMIN" } });
-  if (admins <= 1) throw new HttpError(400, "This is the last admin — promote another member first");
-}
-
 usersRouter.patch("/:id/role", requireRole("ADMIN"), wrap(async (req, res) => {
   const { role } = roleSchema.parse(req.body);
-  const member = await prisma.organizationMember.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
+  const auth = req.auth!;
+  const member = await prisma.organizationMember.findFirst({ where: { id: req.params.id, organizationId: auth.organizationId }, include: { user: true } });
   if (!member) throw new HttpError(404, "Member not found");
-  if (role !== "ADMIN") await assertNotLastAdmin(req.auth!.organizationId, member.role);
-  const updated = await prisma.organizationMember.update({ where: { id: member.id }, data: { role } });
+  
+  const updated = await prisma.$transaction(async (tx) => {
+    if (role !== "ADMIN") {
+      const admins = await tx.organizationMember.count({ where: { organizationId: auth.organizationId, role: "ADMIN" } });
+      if (admins <= 1) throw new HttpError(400, "This is the last admin — promote another member first");
+    }
+    const result = await tx.organizationMember.update({ where: { id: member.id }, data: { role } });
+    await tx.activityLog.create({ data: { organizationId: auth.organizationId, action: "user.role-changed", detail: `${member.user.email} role changed to ${role}`, actorId: auth.userId } });
+    return result;
+  });
+  
   res.json({ membershipId: updated.id, role: updated.role });
 }));
 
 usersRouter.delete("/:id", requireRole("ADMIN"), wrap(async (req, res) => {
-  const member = await prisma.organizationMember.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
+  const auth = req.auth!;
+  const member = await prisma.organizationMember.findFirst({ where: { id: req.params.id, organizationId: auth.organizationId }, include: { user: true } });
   if (!member) throw new HttpError(404, "Member not found");
-  if (member.userId === req.auth!.userId) throw new HttpError(400, "You cannot remove yourself");
-  await assertNotLastAdmin(req.auth!.organizationId, member.role);
-  await prisma.organizationMember.delete({ where: { id: member.id } });
+  if (member.userId === auth.userId) throw new HttpError(400, "You cannot remove yourself");
+  
+  await prisma.$transaction(async (tx) => {
+    if (member.role === "ADMIN") {
+      const admins = await tx.organizationMember.count({ where: { organizationId: auth.organizationId, role: "ADMIN" } });
+      if (admins <= 1) throw new HttpError(400, "This is the last admin — promote another member first");
+    }
+    await tx.organizationMember.delete({ where: { id: member.id } });
+    await tx.activityLog.create({ data: { organizationId: auth.organizationId, action: "user.removed", detail: `${member.user.email} removed from organization`, actorId: auth.userId } });
+  });
+  
   res.json({ ok: true });
 }));

@@ -3,6 +3,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import path from "node:path";
 import { existsSync } from "node:fs";
+import { prisma } from "./prisma.js";
 import { env } from "./env.js";
 import { errorHandler } from "./errors.js";
 import { authRouter } from "./auth/routes.js";
@@ -21,6 +22,13 @@ const app = express();
 app.disable("x-powered-by");
 app.use(cors({ origin: env.appUrl.split(",") }));
 app.use(express.json({ limit: "2mb" }));
+
+// Request timeout: 30s for AI queries, 10s default
+app.use((req, res, next) => {
+  const timeout = req.path.startsWith("/api/ai") ? 30000 : req.path.startsWith("/api/analytics") ? 20000 : 10000;
+  res.setTimeout(timeout);
+  next();
+});
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
@@ -50,4 +58,17 @@ if (existsSync(webDist)) {
 
 app.use(errorHandler);
 
-app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port}`));
+const server = app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port}`));
+
+// Graceful shutdown: close database connections and server
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, shutting down gracefully...");
+  server.close(() => console.log("Server closed"));
+  await prisma.$disconnect();
+});
+
+process.on("SIGINT", async () => {
+  console.log("SIGINT received, shutting down gracefully...");
+  server.close(() => console.log("Server closed"));
+  await prisma.$disconnect();
+});

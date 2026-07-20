@@ -28,7 +28,7 @@ datasetsRouter.get("/:id", wrap(async (req, res) => {
 datasetsRouter.get("/:id/preview", wrap(async (req, res) => {
   const d = await getOwned(req.auth!.organizationId, req.params.id);
   const rows = (d.cleanedRows ?? d.rows) as Row[];
-  const columns = (d.columns as { name: string }[]).map((c) => c.name);
+  const columns = ((d.columns as any[]) || []).map((c: any) => c.name);
   res.json({ columns, rows: rows.slice(0, 50), total: rows.length, cleaned: !!d.cleanedRows });
 }));
 
@@ -51,11 +51,12 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
   const d = await getOwned(req.auth!.organizationId, req.params.id);
   const { acceptedTypes } = cleanSchema.parse(req.body);
   const originalRows = d.rows as Row[];
-  const columns = (d.columns as { name: string }[]).map((c) => c.name);
+  const columnsList = (d.columns as any[]) || [];
+  const columns = columnsList.map((c: any) => c.name);
   const issues = await prisma.dataQualityIssue.findMany({ where: { datasetId: d.id } });
 
-  const numericColumns = new Set((d.columns as { name: string; type: string }[])
-    .filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
+  const numericColumns = new Set(columnsList
+    .filter((c: any) => c.type === "number" || c.type === "currency").map((c: any) => c.name));
   const cleaned = cleanRows(originalRows, columns, acceptedTypes, issues as any, numericColumns);
   const newColumns = Object.keys(cleaned[0] ?? {});
   const profile = profileDataset(cleaned, newColumns.length ? newColumns : columns);

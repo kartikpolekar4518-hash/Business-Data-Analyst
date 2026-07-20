@@ -1,5 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
@@ -13,10 +14,29 @@ import { stripRows } from "./context.js";
 export const uploadsRouter = Router();
 uploadsRouter.use(requireAuth);
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: env.maxFileSize } });
+const ALLOWED_MIME_TYPES = [
+  "text/csv",
+  "text/plain",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
+  "application/vnd.ms-excel", // xls
+];
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: env.maxFileSize },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      cb(new HttpError(400, `Invalid file type '${file.mimetype}'. Upload CSV or Excel files only."));
+    } else {
+      cb(null, true);
+    }
+  },
+});
+
+const uploadLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: "Too many uploads — max 10 per minute" });
 
 // Create a dataset from an uploaded file: parse -> profile -> detect schema -> store.
-uploadsRouter.post("/", requireRole("ADMIN", "MANAGER"), upload.single("file"), wrap(async (req, res) => {
+uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.single("file"), wrap(async (req, res) => {
   const auth = req.auth!;
   if (!req.file) throw new HttpError(400, "No file uploaded");
   const { originalname, size, buffer } = req.file;
@@ -28,22 +48,23 @@ uploadsRouter.post("/", requireRole("ADMIN", "MANAGER"), upload.single("file"), 
 
   const profile = profileDataset(parsed.rows, parsed.columns);
   const { map, columns } = detectSchema(profile.columns);
+  const fileExt = originalname.split(".").pop()?.toLowerCase() ?? "csv";
 
   const dataset = await prisma.dataset.create({
     data: {
       organizationId: auth.organizationId,
-      name: originalname.replace(/\.[^.]+$/, ""),
+      name: originalname.slice(0, originalname.lastIndexOf(".") || originalname.length),
       fileName: originalname,
-      fileType: originalname.split(".").pop()?.toLowerCase() ?? "csv",
+      fileType: fileExt,
       fileSize: size,
       status: "PROFILED",
       rowCount: profile.rowCount,
       columnCount: profile.columnCount,
       qualityScore: profile.qualityScore,
-      columns: columns as object,
-      schemaMap: map as object,
-      profile: profile as object,
-      rows: parsed.rows as object,
+      columns: columns as Record<string, unknown>,
+      schemaMap: map as Record<string, unknown>,
+      profile: profile as Record<string, unknown>,
+      rows: parsed.rows as Record<string, unknown>[],
       issues: { create: profile.issues.map((i) => ({ ...i })) },
     },
     include: { issues: true },

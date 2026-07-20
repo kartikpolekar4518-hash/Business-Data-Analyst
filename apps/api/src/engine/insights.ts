@@ -113,7 +113,11 @@ function halfSplit(rows: Row[], s: SchemaMap): { first: Row[]; second: Row[] } {
   const dated = rows.map((r) => ({ r, d: A.parseDate(r[s.date!]) })).filter((x) => x.d) as { r: Row; d: Date }[];
   dated.sort((a, b) => a.d.getTime() - b.d.getTime());
   const mid = Math.floor(dated.length / 2);
-  return { first: dated.slice(0, mid).map((x) => x.r), second: dated.slice(mid).map((x) => x.r) };
+  const first: Row[] = [], second: Row[] = [];
+  for (let i = 0; i < dated.length; i++) {
+    (i < mid ? first : second).push(dated[i].r);
+  }
+  return { first, second };
 }
 
 // Exported so the chat intent parser can answer "which X are declining/growing" for a
