@@ -34,6 +34,7 @@ role-based, works out of the box with sample retail data.
 - **Insights & alerts** — recommendations that separate *observed data* from *possible cause* from *recommendation*; automatic alerts for revenue drops, profit decline, inventory shortage, forecast risk, and unusual performance.
 - **Executive reports** — structured report + server-side **PDF export**.
 - **Settings** — company profile, user management, API-key vault (stored **hashed**, never returned), theme (dark/light).
+- **Interface** — collapsible icon-rail sidebar (state remembered per browser), and a `⌘K`/`Ctrl+K` command palette for jumping between pages and running quick actions (upload data, ask AI, toggle theme) without the mouse.
 
 ## Architecture
 
@@ -163,13 +164,16 @@ Settings   GET|PATCH /api/settings
 
 ## Tests
 
-The engine ships with a runnable regression suite (assert-based, no framework):
+The engine ships with two runnable regression suites (assert-based, no framework — run from `apps/api`):
 
 ```bash
-npx tsx apps/api/src/engine/selfcheck.ts
+npx tsx src/engine/selfcheck.ts             # profiling, schema detection, KPI math, row cleaning,
+                                             # NL intent routing, forecasting, insight derivation
+npx tsx src/engine/statistics.selfcheck.ts  # statistical primitives (mean/variance, distributions,
+                                             # correlation, hypothesis tests, confidence intervals)
 ```
 
-Covers profiling, schema detection, KPI period-over-period math, row cleaning, NL intent routing, forecasting, and insight derivation. Every bug fixed in this codebase gets a new assert.
+Every bug fixed in this codebase gets a new assert. `npm run typecheck` (root) covers both workspaces with no test framework needed for type errors.
 
 ## Prisma / database
 
