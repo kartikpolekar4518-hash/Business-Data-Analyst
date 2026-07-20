@@ -1,7 +1,7 @@
 import { ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart } from "recharts";
 import { useTheme } from "../lib/theme";
 
-const BRAND = "#3366f5";
+const BRAND = "#4f46e5";
 
 function useAxis() {
   const { theme } = useTheme();

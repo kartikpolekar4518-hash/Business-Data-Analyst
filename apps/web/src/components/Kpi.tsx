@@ -1,8 +1,6 @@
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 
-const ICON_GRADIENT = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 60%, #6d28d9 100%)";
-
 export function KpiCard({ label, value, changePct, icon: Icon, tooltip }: {
   label: string;
   value: string;
@@ -15,16 +13,13 @@ export function KpiCard({ label, value, changePct, icon: Icon, tooltip }: {
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
 
   return (
-    <div className="group relative rounded-xl border border-slate-200/70 bg-white p-5 shadow-card transition-shadow hover:shadow-card-hover dark:border-white/[0.07] dark:bg-[#111118] dark:shadow-kpi-glow">
+    <div className="group relative rounded-xl border border-slate-200/70 bg-white p-5 shadow-sm-soft transition-shadow hover:shadow-elevated dark:border-white/[0.08] dark:bg-[#111113]">
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">
           {label}
         </p>
-        <div
-          className="shrink-0 rounded-lg p-[7px] text-white shadow-sm"
-          style={{ background: ICON_GRADIENT }}
-        >
+        <div className="shrink-0 rounded-lg bg-brand-50 p-[7px] text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
           <Icon className="h-3.5 w-3.5" />
         </div>
       </div>
@@ -49,7 +44,7 @@ export function KpiCard({ label, value, changePct, icon: Icon, tooltip }: {
 
       {/* Tooltip on hover */}
       {tooltip && (
-        <div className="pointer-events-none absolute left-5 top-full z-10 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3 text-[11.5px] leading-relaxed text-slate-500 opacity-0 shadow-xl shadow-black/[0.08] transition-opacity duration-150 group-hover:opacity-100 dark:border-white/10 dark:bg-[#141420] dark:text-slate-400">
+        <div className="pointer-events-none absolute left-5 top-full z-10 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-3 text-[11.5px] leading-relaxed text-slate-500 opacity-0 shadow-elevated transition-opacity duration-150 group-hover:opacity-100 dark:border-white/10 dark:bg-[#18181b] dark:text-slate-400">
           {tooltip}
         </div>
       )}
