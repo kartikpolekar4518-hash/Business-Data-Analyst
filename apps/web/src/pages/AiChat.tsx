@@ -15,6 +15,8 @@ const SUGGESTIONS = [
   "What region is growing fastest?",
 ];
 
+const ASSISTANT_GRADIENT = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)";
+
 interface Turn { role: "user" | "assistant"; text: string; result?: ChatMessage; }
 
 export default function AiChat() {
@@ -40,46 +42,71 @@ export default function AiChat() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col">
-      <div className="mb-4"><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
+      <div className="mb-5">
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Chat with your Data</h1>
+        <p className="mt-0.5 text-[13.5px] text-slate-400">Ask questions in plain English. Answers are computed directly from your dataset.</p>
+      </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 p-6 dark:border-slate-700">
-            <div className="mb-3 flex items-center gap-2 text-slate-500"><Sparkles className="h-4 w-4" />Try asking:</div>
-            <div className="flex flex-wrap gap-2">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm hover:border-brand-400 hover:text-brand-600 dark:border-slate-700">{s}</button>)}</div>
+          <div className="rounded-xl border border-dashed border-slate-200 p-6 dark:border-white/[0.08]">
+            <div className="mb-3 flex items-center gap-2 text-[13px] text-slate-400"><Sparkles className="h-4 w-4 text-brand-500" />Try asking:</div>
+            <div className="flex flex-wrap gap-2">
+              {SUGGESTIONS.map((s) => (
+                <button key={s} onClick={() => ask(s)} className="rounded-full border border-slate-200 px-3 py-1.5 text-[12.5px] font-medium text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-600 dark:border-white/10 dark:text-slate-300 dark:hover:border-brand-500/50 dark:hover:text-brand-300">
+                  {s}
+                </button>
+              ))}
+            </div>
           </div>
         )}
         {turns.map((t, i) => t.role === "user" ? (
           <div key={i} className="flex justify-end gap-2">
-            <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-brand-600 px-4 py-2 text-sm text-white">{t.text}</div>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700"><User className="h-4 w-4" /></div>
+            <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-br from-brand-500 to-brand-700 px-4 py-2.5 text-[13.5px] text-white shadow-sm shadow-brand-700/20">{t.text}</div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-white/[0.06]"><User className="h-4 w-4 text-slate-500 dark:text-slate-400" /></div>
           </div>
         ) : (
           <div key={i} className="flex gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4" /></div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white" style={{ background: ASSISTANT_GRADIENT }}><Sparkles className="h-4 w-4" /></div>
             <div className="max-w-[85%] space-y-3">
-              <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm shadow-sm dark:bg-slate-900">
-                <p>{t.text}</p>
+              <div className="rounded-2xl rounded-tl-sm border border-slate-200/70 bg-white px-4 py-3 text-[13.5px] shadow-card dark:border-white/[0.07] dark:bg-[#111118]">
+                <p className="text-slate-700 dark:text-slate-200">{t.text}</p>
                 {t.result && t.result.confidence > 0 && <div className="mt-2"><Badge tone={t.result.confidence >= 0.7 ? "green" : t.result.confidence >= 0.4 ? "amber" : "slate"}>Confidence {Math.round(t.result.confidence * 100)}%</Badge></div>}
               </div>
               {t.result?.metrics && t.result.metrics.length > 0 && !t.result.chart && (
-                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"><div className="text-xs text-slate-500">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
+                <div className="flex flex-wrap gap-2">
+                  {t.result.metrics.map((m) => (
+                    <div key={m.label} className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 dark:border-white/[0.07] dark:bg-[#111118]">
+                      <div className="text-[11px] text-slate-400">{m.label}</div>
+                      <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{num(m.value)}</div>
+                    </div>
+                  ))}
+                </div>
               )}
               {t.result?.chart && (
                 <Card><CardBody>{t.result.chart.type === "bar" ? <BarRankChart data={t.result.chart.data} /> : <TrendChart data={t.result.chart.data} />}</CardBody></Card>
               )}
               {t.result?.table && (
                 <Card><CardBody className="overflow-x-auto p-0">
-                  <table className="w-full text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>
+                  <table className="w-full text-[13px]">
+                    <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-white/[0.06] dark:bg-white/[0.02]">
+                      <tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400">{c}</th>)}</tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-white/[0.05]">
+                      {t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-2 text-slate-700 dark:text-slate-300">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}
+                    </tbody>
                   </table>
                 </CardBody></Card>
               )}
             </div>
           </div>
         ))}
-        {loading && <div className="flex gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4 animate-pulse" /></div><div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-400 shadow-sm dark:bg-slate-900">Analyzing…</div></div>}
+        {loading && (
+          <div className="flex gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full text-white" style={{ background: ASSISTANT_GRADIENT }}><Sparkles className="h-4 w-4 animate-pulse" /></div>
+            <div className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 text-[13.5px] text-slate-400 shadow-card dark:border-white/[0.07] dark:bg-[#111118]">Analyzing…</div>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
 

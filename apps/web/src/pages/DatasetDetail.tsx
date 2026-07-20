@@ -42,10 +42,13 @@ export default function DatasetDetail() {
 
   const d = meta.data?.dataset;
   return (
-    <div className="space-y-6">
-      <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
+    <div className="space-y-7">
+      <Link to="/data" className="inline-flex items-center gap-1.5 text-[13px] font-medium text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"><ArrowLeft className="h-3.5 w-3.5" />Back to data</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">{d?.name ?? "Dataset"}</h1><p className="text-sm text-slate-500">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{d?.name ?? "Dataset"}</h1>
+          <p className="mt-0.5 text-[13.5px] text-slate-400">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p>
+        </div>
         {d && <div className="flex items-center gap-2"><Badge tone={d.qualityScore >= 90 ? "green" : d.qualityScore >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge><Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge></div>}
       </div>
 
@@ -55,14 +58,14 @@ export default function DatasetDetail() {
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
           <CardBody className="overflow-x-auto p-0">
             {!preview.data ? <Spinner /> : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
-                  <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
+              <table className="w-full text-[13px]">
+                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-white/[0.06] dark:bg-white/[0.02]">
+                  <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2.5 font-semibold text-slate-500 dark:text-slate-400">{c}</th>)}</tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-slate-100 dark:divide-white/[0.05]">
                   {preview.data.rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      {preview.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5 text-slate-700 dark:text-slate-300">{String(row[c] ?? "—")}</td>)}
+                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-white/[0.03] transition-colors">
+                      {preview.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300">{String(row[c] ?? "—")}</td>)}
                     </tr>
                   ))}
                 </tbody>
@@ -75,21 +78,21 @@ export default function DatasetDetail() {
       {tab === "quality" && (
         <Card>
           <CardHeader title="Data Quality Report" subtitle="Review and apply cleaning suggestions. The original file is never modified."
-            action={can("ADMIN", "MANAGER") && fixable.length ? <div className="flex gap-2"><Button variant="outline" onClick={acceptAllSafe}>Accept all safe</Button><Button loading={cleaning} disabled={!accepted.size} onClick={applyClean}><Wand2 className="h-4 w-4" />Apply ({accepted.size})</Button></div> : undefined} />
+            action={can("ADMIN", "MANAGER") && fixable.length ? <div className="flex gap-2"><Button variant="outline" onClick={acceptAllSafe}>Accept all safe</Button><Button loading={cleaning} disabled={!accepted.size} onClick={applyClean}><Wand2 className="h-3.5 w-3.5" />Apply ({accepted.size})</Button></div> : undefined} />
           <CardBody className="space-y-2">
             {!quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
-              <div className="flex items-center gap-2 py-6 text-sm text-emerald-600"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
+              <div className="flex items-center gap-2 py-6 text-[13.5px] text-emerald-600 dark:text-emerald-400"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
             ) : quality.data.issues.map((i) => (
-              <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40">
-                <input type="checkbox" disabled={!i.autoFixable || !can("ADMIN", "MANAGER")} checked={accepted.has(i.type)} onChange={() => toggle(i.type)} className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600" />
+              <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-100 p-3.5 hover:bg-slate-50 dark:border-white/[0.06] dark:hover:bg-white/[0.03] transition-colors">
+                <input type="checkbox" disabled={!i.autoFixable || !can("ADMIN", "MANAGER")} checked={accepted.has(i.type)} onChange={() => toggle(i.type)} className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500/30" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium">{i.type.replace(/_/g, " ")}</span>
+                    <span className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{i.type.replace(/_/g, " ")}</span>
                     {i.column && <Badge>{i.column}</Badge>}
                     <Badge tone={i.severity === "HIGH" ? "red" : i.severity === "MEDIUM" ? "amber" : "slate"}>{i.severity}</Badge>
                     {!i.autoFixable && <Badge tone="slate">manual review</Badge>}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{i.recommendation} {i.affectedRows > 0 && <span className="text-slate-400">· {num(i.affectedRows)} rows</span>}</p>
+                  <p className="mt-1.5 text-[12.5px] text-slate-500">{i.recommendation} {i.affectedRows > 0 && <span className="text-slate-400">· {num(i.affectedRows)} rows</span>}</p>
                 </div>
               </label>
             ))}
@@ -101,11 +104,13 @@ export default function DatasetDetail() {
         <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
           <CardBody className="overflow-x-auto p-0">
             {!schema.data ? <Spinner /> : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <table className="w-full text-[13px]">
+                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-white/[0.06] dark:bg-white/[0.02]">
+                  <tr><th className="px-4 py-2.5 font-semibold text-slate-500 dark:text-slate-400">Column</th><th className="px-4 py-2.5 font-semibold text-slate-500 dark:text-slate-400">Data type</th><th className="px-4 py-2.5 font-semibold text-slate-500 dark:text-slate-400">Business meaning</th></tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-white/[0.05]">
                   {schema.data.columns.map((c) => (
-                    <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>
+                    <tr key={c.name}><td className="px-4 py-2.5 font-medium text-slate-700 dark:text-slate-300">{c.name}</td><td className="px-4 py-2.5"><Badge>{c.type}</Badge></td><td className="px-4 py-2.5">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>
                   ))}
                 </tbody>
               </table>

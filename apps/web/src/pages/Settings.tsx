@@ -7,16 +7,25 @@ import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
 
+const AVATAR_GRADIENT = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)";
+
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
   const tabs = [{ id: "organization", label: "Organization" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500">Manage your workspace, team, and integrations.</p></div>
+    <div className="space-y-7">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Settings</h1>
+        <p className="mt-0.5 text-[13.5px] text-slate-400">Manage your workspace, team, and integrations.</p>
+      </div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
-      {!can("ADMIN") && tab !== "preferences" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
+      {!can("ADMIN") && tab !== "preferences" && (
+        <div className="flex items-center gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-[12.5px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
+          <ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.
+        </div>
+      )}
       {tab === "organization" && <OrgTab />}
       {tab === "users" && <UsersTab />}
       {tab === "api-keys" && <ApiKeysTab />}
@@ -32,11 +41,14 @@ function OrgTab() {
   const [name, setName] = useState("");
   const save = async () => { try { await api.patch("/organizations/current", { name: name || data?.organization.name }); toast("Saved", "success"); } catch { toast("Failed", "error"); } };
   return (
-    <Card><CardHeader title="Company profile" /><CardBody className="max-w-md space-y-4">
-      <div><Label>Organization name</Label><Input defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
-      <div className="text-sm text-slate-500">{data?.organization.memberCount ?? 0} members</div>
-      {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
-    </CardBody></Card>
+    <Card>
+      <CardHeader title="Company profile" />
+      <CardBody className="max-w-md space-y-4">
+        <div><Label>Organization name</Label><Input defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
+        <div className="text-[13px] text-slate-400">{data?.organization.memberCount ?? 0} members</div>
+        {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
+      </CardBody>
+    </Card>
   );
 }
 
@@ -56,19 +68,24 @@ function UsersTab() {
 
   return (
     <Card>
-      <CardHeader title="Team members" subtitle={`${data?.users.length ?? 0} members`} action={can("ADMIN") && <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" />Invite</Button>} />
-      <CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
-        {data?.users.map((u) => (
-          <div key={u.membershipId} className="flex items-center gap-3 px-5 py-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">{u.name[0]}</div>
-            <div className="flex-1"><div className="font-medium">{u.name} {u.id === user?.id && <span className="text-xs text-slate-400">(you)</span>}</div><div className="text-xs text-slate-500">{u.email}</div></div>
-            {can("ADMIN") && u.id !== user?.id ? (
-              <Select value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
-            ) : <Badge tone="blue">{u.role}</Badge>}
-            {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" aria-label={`Remove ${u.name}`} onClick={() => remove(u.membershipId, u.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
-          </div>
-        ))}
-      </div></CardBody>
+      <CardHeader title="Team members" subtitle={`${data?.users.length ?? 0} members`} action={can("ADMIN") && <Button onClick={() => setOpen(true)}><Plus className="h-3.5 w-3.5" />Invite</Button>} />
+      <CardBody className="p-0">
+        <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
+          {data?.users.map((u) => (
+            <div key={u.membershipId} className="flex items-center gap-3 px-5 py-3.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white" style={{ background: AVATAR_GRADIENT }}>{u.name[0]}</div>
+              <div className="flex-1">
+                <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{u.name} {u.id === user?.id && <span className="text-[11px] font-normal text-slate-400">(you)</span>}</div>
+                <div className="text-[11.5px] text-slate-400">{u.email}</div>
+              </div>
+              {can("ADMIN") && u.id !== user?.id ? (
+                <Select value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
+              ) : <Badge tone="blue">{u.role}</Badge>}
+              {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" aria-label={`Remove ${u.name}`} onClick={() => remove(u.membershipId, u.name)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>}
+            </div>
+          ))}
+        </div>
+      </CardBody>
       <InviteModal open={open} onClose={() => setOpen(false)} />
     </Card>
   );
@@ -88,7 +105,7 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
   };
   return (
     <Modal open={open} onClose={onClose} title="Invite team member">
-      <form onSubmit={submit} className="space-y-3">
+      <form onSubmit={submit} className="space-y-3.5">
         {error && <ErrorState message={error} />}
         <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
         <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
@@ -114,25 +131,32 @@ function ApiKeysTab() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-        DecisionIQ needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong>hashed</strong> and never returned.
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-[12.5px] leading-relaxed text-slate-600 dark:border-white/[0.06] dark:bg-white/[0.03] dark:text-slate-400">
+        DecisionIQ needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong className="font-semibold text-slate-700 dark:text-slate-300">hashed</strong> and never returned.
       </div>
-      <Card><CardHeader title="API keys" /><CardBody className="space-y-3">
-        {data?.apiKeys.length ? data.apiKeys.map((k) => (
-          <div key={k.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
-            <KeyRound className="h-4 w-4 text-slate-400" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-slate-500">{k.provider} · ••••{k.lastFour}</div></div>
-            {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
-          </div>
-        )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
-        {can("ADMIN") && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
-            <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
-            <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, key: e.target.value })} /></div>
-            <Button onClick={add} disabled={!form.name || !form.provider || form.key.length < 8}>Add key</Button>
-          </div>
-        )}
-      </CardBody></Card>
+      <Card>
+        <CardHeader title="API keys" />
+        <CardBody className="space-y-3">
+          {data?.apiKeys.length ? data.apiKeys.map((k) => (
+            <div key={k.id} className="flex items-center gap-3 rounded-xl border border-slate-100 px-3.5 py-2.5 dark:border-white/[0.06]">
+              <KeyRound className="h-4 w-4 text-slate-400" />
+              <div className="flex-1">
+                <div className="text-[13px] font-medium text-slate-700 dark:text-slate-200">{k.name}</div>
+                <div className="text-[11.5px] text-slate-400">{k.provider} · ••••{k.lastFour}</div>
+              </div>
+              {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>}
+            </div>
+          )) : <p className="text-[13px] text-slate-400">No API keys configured.</p>}
+          {can("ADMIN") && (
+            <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3.5 dark:border-white/[0.06]">
+              <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
+              <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
+              <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, key: e.target.value })} /></div>
+              <Button onClick={add} disabled={!form.name || !form.provider || form.key.length < 8}>Add key</Button>
+            </div>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }
@@ -145,8 +169,8 @@ function PreferencesTab() {
       <CardBody className="max-w-md space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="font-medium">Theme</div>
-            <div className="text-sm text-slate-500">Current: {theme}</div>
+            <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">Theme</div>
+            <div className="text-[12.5px] text-slate-400">Current: {theme}</div>
           </div>
           <Button variant="outline" onClick={toggle}>
             Switch to {theme === "dark" ? "light" : "dark"}

@@ -27,20 +27,23 @@ export default function Forecasts() {
   }
 
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-slate-500">Projections from historical trend. Estimates only — not guarantees.</p></div>
+    <div className="space-y-7">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">Forecasts</h1>
+        <p className="mt-0.5 text-[13.5px] text-slate-400">Projections from historical trend. Estimates only — not guarantees.</p>
+      </div>
 
       {can("ADMIN", "MANAGER") && (
         <Card><CardBody>
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-40"><Label>Metric</Label><Select value={metric} onChange={(e) => setMetric(e.target.value)}><option value="revenue">Revenue</option><option value="profit">Profit</option><option value="orders">Orders</option></Select></div>
             <div className="w-40"><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>{[1, 3, 6, 12].map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
-            <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button>
+            <Button onClick={run} loading={running}><TrendingUp className="h-3.5 w-3.5" />Generate forecast</Button>
           </div>
         </CardBody></Card>
       )}
 
-      <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+      <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-[12.5px] text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-400">
         <Info className="mt-0.5 h-4 w-4 shrink-0" />Forecasts use a linear-trend model with a 95% confidence band that widens with the horizon. The model can be swapped for a statistical/ML service later without changing this page.
       </div>
 
@@ -54,10 +57,10 @@ export default function Forecasts() {
                 <ForecastChart history={f.history} points={f.points} />
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {f.points.map((p) => (
-                    <div key={p.period} className="rounded-lg border border-slate-100 p-2 text-center dark:border-slate-800">
-                      <div className="text-xs text-slate-500">{p.period}</div>
-                      <div className="font-semibold">{money(p.value)}</div>
-                      <div className="text-xs text-slate-400">{money(p.lower)}–{money(p.upper)}</div>
+                    <div key={p.period} className="rounded-xl border border-slate-100 p-2.5 text-center dark:border-white/[0.06]">
+                      <div className="text-[11px] font-medium text-slate-400">{p.period}</div>
+                      <div className="mt-0.5 text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{money(p.value)}</div>
+                      <div className="mt-0.5 text-[10.5px] text-slate-400">{money(p.lower)}–{money(p.upper)}</div>
                     </div>
                   ))}
                 </div>
