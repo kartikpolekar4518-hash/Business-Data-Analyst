@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Database, BarChart3, MessagesSquare, TrendingUp, FileText, Bell,
@@ -33,6 +33,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const { user, organization, role, logout, can } = useAuth();
   const { theme, toggle } = useTheme();
   const [menu, setMenu] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { data: alerts } = useQuery({ queryKey: ["alerts"], queryFn: () => api.get<{ unread: number }>("/alerts"), refetchInterval: 60000 });
@@ -46,6 +47,17 @@ export function Shell({ children }: { children: ReactNode }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Account menu: close on outside click or Escape so keyboard users can dismiss it
+  // (previously only closed on mouseleave, which a keyboard-only user could never trigger).
+  useEffect(() => {
+    if (!menu) return;
+    const onPointer = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(false); };
+    document.addEventListener("mousedown", onPointer);
+    window.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onPointer); window.removeEventListener("keydown", onKey); };
+  }, [menu]);
 
   const visibleNav = NAV.filter((n) => !n.roles || can(...n.roles));
   const crumb = visibleNav.find((n) => location.pathname.startsWith(n.to))?.label ?? "";
@@ -201,10 +213,11 @@ export function Shell({ children }: { children: ReactNode }) {
               ) : null}
             </NavLink>
 
-            <div className="relative">
+            <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setMenu((m) => !m)}
                 aria-label="Account menu"
+                aria-haspopup="menu"
                 aria-expanded={menu}
                 className="ml-1 flex items-center gap-2 rounded-lg p-1.5 hover:bg-slate-100 dark:hover:bg-white/5 transition-colors"
               >
@@ -215,8 +228,9 @@ export function Shell({ children }: { children: ReactNode }) {
 
               {menu && (
                 <div
+                  role="menu"
+                  aria-label="Account"
                   className="absolute right-0 mt-1.5 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-elevated animate-in dark:border-white/10 dark:bg-[#131315]"
-                  onMouseLeave={() => setMenu(false)}
                 >
                   <div className="px-3 py-2">
                     <p className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{user?.name}</p>
@@ -226,12 +240,14 @@ export function Shell({ children }: { children: ReactNode }) {
                   <hr className="my-1 border-slate-100 dark:border-white/[0.07]" />
                   <NavLink
                     to="/profile"
+                    role="menuitem"
                     className="block rounded-lg px-3 py-1.5 text-[13px] text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/5 transition-colors"
                     onClick={() => setMenu(false)}
                   >
                     Profile
                   </NavLink>
                   <button
+                    role="menuitem"
                     onClick={logout}
                     className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 transition-colors"
                   >

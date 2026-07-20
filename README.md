@@ -106,6 +106,19 @@ npm run setup                          # install + prisma generate + migrate + s
 npm run dev                            # api → :4000, web → :5173
 ```
 
+## Build & run in production (without Docker)
+
+```bash
+npm run typecheck                      # both workspaces — no emitted errors
+npm run build                          # apps/api -> dist/, apps/web -> dist/
+NODE_ENV=production JWT_SECRET=<real-secret> DATABASE_URL=<prod-db> \
+  node apps/api/dist/index.js          # serves the API, and the built web UI if apps/web/dist exists
+```
+
+`apps/api` refuses to boot in production with the public default `JWT_SECRET` — set a real
+one. Run `npx prisma migrate deploy --schema apps/api/prisma/schema.prisma` against the
+production database before starting the server.
+
 ## Sample login credentials
 
 Seeded into the **Acme Retail (Demo)** workspace (password `password123`):

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Search, CornerDownLeft, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
+import { useFocusTrap } from "../lib/useFocusTrap";
 
 export interface CommandItem {
   id: string;
@@ -14,6 +15,8 @@ export function CommandPalette({ open, onClose, items }: { open: boolean; onClos
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
 
   const filtered = useMemo(
     () => items.filter((i) => i.label.toLowerCase().includes(query.toLowerCase())),
@@ -21,7 +24,7 @@ export function CommandPalette({ open, onClose, items }: { open: boolean; onClos
   );
 
   useEffect(() => {
-    if (open) { setQuery(""); setActiveIndex(0); setTimeout(() => inputRef.current?.focus(), 0); }
+    if (open) { setQuery(""); setActiveIndex(0); }
   }, [open]);
 
   useEffect(() => { setActiveIndex(0); }, [query]);
@@ -51,6 +54,7 @@ export function CommandPalette({ open, onClose, items }: { open: boolean; onClos
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center bg-black/40 pt-[14vh] backdrop-blur-[2px]" onClick={onClose}>
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"

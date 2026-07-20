@@ -7,10 +7,10 @@ import * as A from "../engine/analytics.js";
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
 
-function filtersFrom(query: any): A.Filters {
+function filtersFrom(query: Record<string, unknown>): A.Filters {
   const f: A.Filters = {};
   for (const k of ["dateFrom", "dateTo", "region", "state", "category", "department", "product", "customer"] as const) {
-    if (query[k]) (f as any)[k] = String(query[k]);
+    if (query[k]) f[k] = String(query[k]);
   }
   return f;
 }

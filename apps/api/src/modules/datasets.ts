@@ -56,7 +56,7 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
 
   const numericColumns = new Set((d.columns as { name: string; type: string }[])
     .filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
-  const cleaned = cleanRows(originalRows, columns, acceptedTypes, issues as any, numericColumns);
+  const cleaned = cleanRows(originalRows, columns, acceptedTypes, issues, numericColumns);
   const newColumns = Object.keys(cleaned[0] ?? {});
   const profile = profileDataset(cleaned, newColumns.length ? newColumns : columns);
   const { map, columns: annotated } = detectSchema(profile.columns);

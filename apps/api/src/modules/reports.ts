@@ -12,6 +12,8 @@ import { deriveInsights } from "../engine/insights.js";
 export const reportsRouter = Router();
 reportsRouter.use(requireAuth);
 
+type ReportContent = Awaited<ReturnType<typeof buildReport>>;
+
 // Build the full executive report structure from the deterministic engine.
 async function buildReport(organizationId: string, datasetId?: string) {
   const { dataset, rows, schema } = await loadDataset(organizationId, datasetId);
@@ -77,7 +79,7 @@ reportsRouter.get("/:id", wrap(async (req, res) => {
 reportsRouter.get("/:id/pdf", wrap(async (req, res) => {
   const report = await prisma.report.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
   if (!report) throw new HttpError(404, "Report not found");
-  const c = report.content as any;
+  const c = report.content as unknown as ReportContent;
 
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${report.title.replace(/[^\w -]/g, "")}.pdf"`);
@@ -114,7 +116,7 @@ reportsRouter.get("/:id/pdf", wrap(async (req, res) => {
   }
 
   section(doc, "Risks & Recommendations");
-  for (const r of c.recommendations as any[]) {
+  for (const r of c.recommendations) {
     doc.fontSize(11).fillColor("#111827").text(`• ${r.title}`);
     doc.fontSize(9).fillColor("#6b7280").text(`Observed: ${r.observation}`);
     doc.fontSize(9).fillColor("#6b7280").text(`Possible cause: ${r.explanation}`);

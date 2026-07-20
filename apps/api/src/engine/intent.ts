@@ -25,7 +25,8 @@ export interface ChatResult {
   confidence: number;
 }
 
-const METRIC_WORDS: Record<string, string> = {
+type Metric = "revenue" | "profit" | "quantity" | "orders";
+const METRIC_WORDS: Record<string, Metric> = {
   revenue: "revenue", sales: "revenue", income: "revenue",
   profit: "profit", margin: "profit",
   order: "orders", orders: "orders",
@@ -40,8 +41,8 @@ const DIM_WORDS: Record<string, Semantic> = {
   department: "department", month: "date", monthly: "date", time: "date", trend: "date",
 };
 
-function pickMetric(q: string, s: SchemaMap): "revenue" | "profit" | "quantity" | "orders" {
-  for (const [w, m] of Object.entries(METRIC_WORDS)) if (q.includes(w)) return m as any;
+function pickMetric(q: string, s: SchemaMap): Metric {
+  for (const [w, m] of Object.entries(METRIC_WORDS)) if (q.includes(w)) return m;
   if (s.revenue || s.sales) return "revenue";
   return "orders";
 }

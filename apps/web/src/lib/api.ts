@@ -8,6 +8,8 @@ export class ApiError extends Error {
   constructor(public status: number, message: string, public details?: unknown) { super(message); }
 }
 
+interface ApiErrorBody { error?: string; details?: unknown; }
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {};
   const token = getToken();
@@ -23,7 +25,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const data = isJson ? await res.json() : await res.blob();
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith("/auth")) { setToken(null); location.href = "/login"; }
-    throw new ApiError(res.status, (data as any)?.error || res.statusText, (data as any)?.details);
+    const body = isJson ? (data as ApiErrorBody) : undefined;
+    throw new ApiError(res.status, body?.error || res.statusText, body?.details);
   }
   return data as T;
 }

@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, AlertTriangle, TrendingDown, Package, Check } from "lucide-react";
+import { Bell, AlertTriangle, TrendingDown, Package, Check, type LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { Card, CardBody, Badge, Button, Spinner, EmptyState } from "../components/ui";
 import { timeAgo } from "../lib/utils";
 import type { Alert } from "../lib/types";
 
-const ICONS: Record<string, any> = { revenue_drop: TrendingDown, profit_decline: TrendingDown, inventory_shortage: Package, sales_spike: AlertTriangle, forecast_risk: AlertTriangle, unusual_performance: AlertTriangle };
+const ICONS: Record<string, LucideIcon> = { revenue_drop: TrendingDown, profit_decline: TrendingDown, inventory_shortage: Package, sales_spike: AlertTriangle, forecast_risk: AlertTriangle, unusual_performance: AlertTriangle };
 
 const SEVERITY_ICON_BG: Record<string, string> = {
   HIGH: "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400",

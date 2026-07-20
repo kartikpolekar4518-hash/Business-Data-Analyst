@@ -5,12 +5,14 @@ import {
   forwardRef,
   useState,
   useEffect,
+  useRef,
   createContext,
   useContext,
   useCallback,
 } from "react";
 import { cn } from "../lib/utils";
-import { Loader2, X, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { useFocusTrap } from "../lib/useFocusTrap";
+import { Loader2, X, CheckCircle2, AlertCircle, Info, type LucideIcon } from "lucide-react";
 
 // --- Button ---
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
@@ -163,7 +165,7 @@ export const EmptyState = ({
   description,
   action,
 }: {
-  icon: any;
+  icon: LucideIcon;
   title: string;
   description?: string;
   action?: ReactNode;
@@ -199,6 +201,9 @@ export const Modal = ({
   title: string;
   children: ReactNode;
 }) => {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, open);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -213,6 +218,7 @@ export const Modal = ({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}

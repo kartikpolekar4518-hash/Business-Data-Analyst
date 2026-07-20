@@ -109,8 +109,8 @@ export function generateRetailData(): RetailRow[] {
 
 export function toCsv(rows: RetailRow[]): string {
   if (!rows.length) return "";
-  const headers = Object.keys(rows[0]);
+  const headers = Object.keys(rows[0]) as (keyof RetailRow)[];
   const lines = [headers.join(",")];
-  for (const r of rows) lines.push(headers.map((h) => String((r as any)[h])).join(","));
+  for (const r of rows) lines.push(headers.map((h) => String(r[h])).join(","));
   return lines.join("\n");
 }
