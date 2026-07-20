@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
-import { money, num, timeAgo } from "../lib/utils";
+import { money, num, timeAgo, severityTone } from "../lib/utils";
 import { Card, CardHeader, CardBody, Skeleton, EmptyState, ErrorState, Button, Badge } from "../components/ui";
 import { KpiCard } from "../components/Kpi";
 import { TrendChart, BarRankChart } from "../components/charts";
@@ -29,12 +29,6 @@ const impactBadge = {
   HIGH: { tone: "red" as const, label: "High impact" },
   MEDIUM: { tone: "amber" as const, label: "Medium impact" },
   LOW: { tone: "slate" as const, label: "Low impact" },
-} as const;
-
-const severityBadge = {
-  HIGH: { tone: "red" as const, dot: true },
-  MEDIUM: { tone: "amber" as const, dot: true },
-  LOW: { tone: "slate" as const, dot: true },
 } as const;
 
 type InsightIconKey = "growth" | "risk" | "opportunity" | "target" | "default";
@@ -200,7 +194,7 @@ export default function Dashboard() {
           <CardHeader title="Revenue Trend" subtitle="Monthly" />
           <CardBody>
             {ov.data ? (
-              <TrendChart data={ov.data.revenueTrend} />
+              <TrendChart data={ov.data.revenueTrend} ariaLabel="Revenue trend, monthly" />
             ) : (
               <Skeleton className="h-64 w-full" />
             )}
@@ -210,7 +204,7 @@ export default function Dashboard() {
           <CardHeader title="Profit Trend" subtitle="Monthly" />
           <CardBody>
             {ov.data ? (
-              <TrendChart data={ov.data.profitTrend} color="#10b981" />
+              <TrendChart data={ov.data.profitTrend} color="#10b981" ariaLabel="Profit trend, monthly" />
             ) : (
               <Skeleton className="h-64 w-full" />
             )}
@@ -220,7 +214,7 @@ export default function Dashboard() {
           <CardHeader title="Top Products" subtitle="By revenue" />
           <CardBody>
             {ov.data?.topProducts.length ? (
-              <BarRankChart data={ov.data.topProducts} />
+              <BarRankChart data={ov.data.topProducts} ariaLabel="Top products by revenue" />
             ) : (
               <p className="py-8 text-center text-sm text-slate-400">
                 No product column detected
@@ -232,7 +226,7 @@ export default function Dashboard() {
           <CardHeader title="Region Performance" subtitle="By revenue" />
           <CardBody>
             {ov.data?.regions.length ? (
-              <BarRankChart data={ov.data.regions} />
+              <BarRankChart data={ov.data.regions} ariaLabel="Region performance by revenue" />
             ) : (
               <p className="py-8 text-center text-sm text-slate-400">
                 No region column detected
@@ -361,9 +355,7 @@ export default function Dashboard() {
                   </Link>
                 ))
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">
-                  No datasets uploaded yet
-                </div>
+                <EmptyState compact icon={Database} title="No datasets uploaded yet" />
               )}
             </CardBody>
           </Card>
@@ -401,9 +393,7 @@ export default function Dashboard() {
                   </Link>
                 ))
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">
-                  No reports yet
-                </div>
+                <EmptyState compact icon={FileText} title="No reports yet" />
               )}
             </CardBody>
           </Card>
@@ -440,13 +430,7 @@ export default function Dashboard() {
                           {timeAgo(a.createdAt)}
                         </span>
                         <Badge
-                          tone={
-                            a.severity === "HIGH"
-                              ? "red"
-                              : a.severity === "MEDIUM"
-                              ? "amber"
-                              : "slate"
-                          }
+                          tone={severityTone(a.severity)}
                           dot
                         >
                           {a.severity === "HIGH"
@@ -460,9 +444,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">
-                  No alerts
-                </div>
+                <EmptyState compact icon={Bell} title="No alerts" />
               )}
             </CardBody>
           </Card>

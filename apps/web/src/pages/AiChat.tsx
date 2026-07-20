@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Sparkles, User } from "lucide-react";
 import { api, ApiError } from "../lib/api";
-import { Card, CardBody, Button, Input, Badge } from "../components/ui";
+import { Card, CardBody, Button, Input, Badge, Table } from "../components/ui";
 import { BarRankChart, TrendChart } from "../components/charts";
 import { num } from "../lib/utils";
 import type { ChatMessage } from "../lib/types";
@@ -40,7 +40,8 @@ export default function AiChat() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col">
-      <div className="mb-4"><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
+      {/* Tighter mb-4 (not .page-header's mb-8) since this page has a fixed chat viewport height. */}
+      <div className="mb-4"><h1 className="page-title">Chat with your Data</h1><p className="page-subtitle">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (
@@ -63,17 +64,23 @@ export default function AiChat() {
                 {t.result && t.result.confidence > 0 && <div className="mt-2"><Badge tone={t.result.confidence >= 0.7 ? "green" : t.result.confidence >= 0.4 ? "amber" : "slate"}>Confidence {Math.round(t.result.confidence * 100)}%</Badge></div>}
               </div>
               {t.result?.metrics && t.result.metrics.length > 0 && !t.result.chart && (
-                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"><div className="text-xs text-slate-500">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
+                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/50"><div className="text-xs text-slate-500">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
               )}
               {t.result?.chart && (
                 <Card><CardBody>{t.result.chart.type === "bar" ? <BarRankChart data={t.result.chart.data} /> : <TrendChart data={t.result.chart.data} />}</CardBody></Card>
               )}
               {t.result?.table && (
                 <Card><CardBody className="overflow-x-auto p-0">
-                  <table className="w-full text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>
-                  </table>
+                  <Table
+                    columns={t.result.table.columns.map((c, i) => ({
+                      key: String(i),
+                      label: c,
+                      align: t.result!.table!.rows.every((r) => typeof r[i] === "number") ? "right" as const : "left" as const,
+                    }))}
+                    rows={t.result.table.rows}
+                    rowKey={(_, i) => i}
+                    renderCell={(row, col) => { const cell = row[Number(col.key)]; return typeof cell === "number" ? num(cell) : String(cell); }}
+                  />
                 </CardBody></Card>
               )}
             </div>

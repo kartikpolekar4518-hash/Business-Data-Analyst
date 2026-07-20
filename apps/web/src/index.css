@@ -130,17 +130,9 @@ body {
 
 /* ✅ Transition utilities */
 @layer utilities {
-  .animate-in {
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  .slide-in {
-    animation: slideIn 0.2s ease-out;
-  }
-
-  .scale-in {
-    animation: scaleIn 0.15s ease-out;
-  }
+  /* Fade/slide/scale entrance animations live in tailwind.config.js as
+     animate-fade-in / animate-slide-in / animate-scale-in — use those
+     instead of adding new one-off animation classes here. */
 
   /* ✅ Glass effect */
   .glass {

@@ -5,6 +5,13 @@ import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
 import { Button, Input, Label, ErrorState } from "../components/ui";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return <p id={id} className="mt-1 text-xs text-red-600 dark:text-red-400">{message}</p>;
+}
+
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
     <div className="grid min-h-full lg:grid-cols-2">
@@ -41,10 +48,22 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [loading, setLoading] = useState(false);
 
+  const validate = () => {
+    const errs: typeof fieldErrors = {};
+    if (!email.trim()) errs.email = "Email is required.";
+    else if (!EMAIL_RE.test(email)) errs.email = "Enter a valid email address.";
+    if (!password) errs.password = "Password is required.";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(""); setLoading(true);
+    e.preventDefault(); setError("");
+    if (!validate()) return;
+    setLoading(true);
     try { await login(email, password); nav("/dashboard"); }
     catch (err) { setError(err instanceof ApiError ? err.message : "Login failed"); }
     finally { setLoading(false); }
@@ -52,12 +71,17 @@ export function Login() {
 
   return (
     <AuthLayout title="Welcome back" subtitle="Sign in to your workspace.">
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="space-y-4" noValidate>
         {error && <ErrorState message={error} />}
-        <div><Label htmlFor="email">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+        <div>
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setFieldErrors((f) => ({ ...f, email: undefined })); }} error={!!fieldErrors.email} aria-describedby={fieldErrors.email ? "email-error" : undefined} />
+          <FieldError id="email-error" message={fieldErrors.email} />
+        </div>
         <div>
           <div className="flex items-center justify-between"><Label htmlFor="pw">Password</Label><Link to="/forgot-password" className="text-xs text-brand-600 hover:underline">Forgot?</Link></div>
-          <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <Input id="pw" type="password" value={password} onChange={(e) => { setPassword(e.target.value); setFieldErrors((f) => ({ ...f, password: undefined })); }} error={!!fieldErrors.password} aria-describedby={fieldErrors.password ? "pw-error" : undefined} />
+          <FieldError id="pw-error" message={fieldErrors.password} />
         </div>
         <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
         <p className="text-center text-sm text-slate-500">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
@@ -74,11 +98,28 @@ export function Signup() {
   const nav = useNavigate();
   const [form, setForm] = useState({ name: "", email: "", password: "", organizationName: "" });
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof typeof form, string>>>({});
   const [loading, setLoading] = useState(false);
-  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [k]: e.target.value });
+    setFieldErrors((f) => ({ ...f, [k]: undefined }));
+  };
+
+  const validate = () => {
+    const errs: typeof fieldErrors = {};
+    if (!form.name.trim()) errs.name = "Your name is required.";
+    if (!form.email.trim()) errs.email = "Email is required.";
+    else if (!EMAIL_RE.test(form.email)) errs.email = "Enter a valid email address.";
+    if (!form.organizationName.trim()) errs.organizationName = "Organization name is required.";
+    if (form.password.length < 8) errs.password = "Password must be at least 8 characters.";
+    setFieldErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setError(""); setLoading(true);
+    e.preventDefault(); setError("");
+    if (!validate()) return;
+    setLoading(true);
     try { await signup(form); nav("/dashboard"); }
     catch (err) { setError(err instanceof ApiError ? err.message : "Sign up failed"); }
     finally { setLoading(false); }
@@ -86,12 +127,16 @@ export function Signup() {
 
   return (
     <AuthLayout title="Create your workspace" subtitle="Start analyzing your business data in minutes.">
-      <form onSubmit={submit} className="space-y-4">
+      <form onSubmit={submit} className="space-y-4" noValidate>
         {error && <ErrorState message={error} />}
-        <div><Label>Your name</Label><Input value={form.name} onChange={set("name")} required /></div>
-        <div><Label>Work email</Label><Input type="email" value={form.email} onChange={set("email")} required /></div>
-        <div><Label>Organization name</Label><Input value={form.organizationName} onChange={set("organizationName")} required /></div>
-        <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-slate-400">At least 8 characters.</p></div>
+        <div><Label>Your name</Label><Input value={form.name} onChange={set("name")} error={!!fieldErrors.name} aria-describedby={fieldErrors.name ? "name-error" : undefined} /><FieldError id="name-error" message={fieldErrors.name} /></div>
+        <div><Label>Work email</Label><Input type="email" value={form.email} onChange={set("email")} error={!!fieldErrors.email} aria-describedby={fieldErrors.email ? "email-error" : undefined} /><FieldError id="email-error" message={fieldErrors.email} /></div>
+        <div><Label>Organization name</Label><Input value={form.organizationName} onChange={set("organizationName")} error={!!fieldErrors.organizationName} aria-describedby={fieldErrors.organizationName ? "org-error" : undefined} /><FieldError id="org-error" message={fieldErrors.organizationName} /></div>
+        <div>
+          <Label>Password</Label>
+          <Input type="password" value={form.password} onChange={set("password")} error={!!fieldErrors.password} aria-describedby="pw-hint" />
+          {fieldErrors.password ? <FieldError id="pw-hint" message={fieldErrors.password} /> : <p id="pw-hint" className="mt-1 text-xs text-slate-400">At least 8 characters.</p>}
+        </div>
         <Button type="submit" className="w-full" loading={loading}>Create account</Button>
         <p className="text-center text-sm text-slate-500">Have an account? <Link to="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></p>
       </form>

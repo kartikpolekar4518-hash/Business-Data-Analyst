@@ -27,8 +27,8 @@ export default function Forecasts() {
   }
 
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-slate-500">Projections from historical trend. Estimates only — not guarantees.</p></div>
+    <div className="space-y-8">
+      <div className="page-header"><h1 className="page-title">Forecasts</h1><p className="page-subtitle">Projections from historical trend. Estimates only — not guarantees.</p></div>
 
       {can("ADMIN", "MANAGER") && (
         <Card><CardBody>

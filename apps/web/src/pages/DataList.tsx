@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, ErrorState } from "../components/ui";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, ErrorState, Spinner } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
 import type { DatasetSummary } from "../lib/types";
 
@@ -34,20 +34,24 @@ export default function DataList() {
   const canUpload = can("ADMIN", "MANAGER");
 
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Data</h1><p className="text-sm text-slate-500">Upload files or connect a source. We profile and quality-check every dataset automatically.</p></div>
+    <div className="space-y-8">
+      <div className="page-header"><h1 className="page-title">Data</h1><p className="page-subtitle">Upload files or connect a source. We profile and quality-check every dataset automatically.</p></div>
 
       {canUpload && (
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Upload a CSV or Excel file"
           onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
           onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) upload(f); }}
           onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
+          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
           {uploading ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" /> : <UploadCloud className="h-8 w-8 text-slate-400" />}
           <p className="mt-3 font-medium">{uploading ? "Analyzing your data…" : "Drag & drop a file, or click to browse"}</p>
           <p className="mt-1 text-sm text-slate-500">CSV, XLSX or XLS · up to 15 MB</p>
-          <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+          <input ref={inputRef} type="file" tabIndex={-1} accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
         </div>
       )}
 
@@ -55,7 +59,7 @@ export default function DataList() {
         <CardHeader title="Datasets" subtitle={data ? `${data.datasets.length} total` : undefined} />
         <CardBody className="p-0">
           {isError ? <div className="p-6"><ErrorState message="Could not load datasets." retry={() => refetch()} /></div> :
-           isLoading ? <div className="p-6 text-sm text-slate-400">Loading…</div> :
+           isLoading ? <Spinner /> :
            !data?.datasets.length ? <div className="p-6"><EmptyState icon={Database} title="No datasets yet" description="Upload a CSV or Excel file to get started." /></div> :
            <div className="divide-y divide-slate-100 dark:divide-slate-800">
              {data.datasets.map((d) => (

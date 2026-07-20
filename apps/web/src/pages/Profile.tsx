@@ -4,8 +4,8 @@ import { Card, CardHeader, CardBody, Badge } from "../components/ui";
 export default function Profile() {
   const { user, organization, role } = useAuth();
   return (
-    <div className="mx-auto max-w-lg space-y-6">
-      <h1 className="text-2xl font-bold">Profile</h1>
+    <div className="mx-auto max-w-lg space-y-8">
+      <h1 className="page-title">Profile</h1>
       <Card>
         <CardHeader title="Your account" />
         <CardBody className="space-y-4">

@@ -132,15 +132,18 @@ export const Label = ({
 
 export const Input = forwardRef<
   HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => (
+  InputHTMLAttributes<HTMLInputElement> & { error?: boolean }
+>(({ className, error, ...props }, ref) => (
   <input
     ref={ref}
+    aria-invalid={error || undefined}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
+      "h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 outline-none transition",
       "placeholder:text-slate-400",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500",
+      error
+        ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-red-800"
+        : "border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700",
+      "dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500",
       className,
     )}
     {...props}
@@ -211,6 +214,64 @@ export const Badge = ({
 );
 
 // ─────────────────────────────────────────────
+// Table — shared data-table shell (consistent padding/alignment/hover)
+// ─────────────────────────────────────────────
+export interface TableColumn<T> {
+  key: string;
+  label: ReactNode;
+  align?: "left" | "right";
+}
+
+export function Table<T>({
+  columns,
+  rows,
+  rowKey,
+  renderCell,
+}: {
+  columns: TableColumn<T>[];
+  rows: T[];
+  rowKey: (row: T, index: number) => string | number;
+  renderCell: (row: T, column: TableColumn<T>, index: number) => ReactNode;
+}) {
+  return (
+    <table className="w-full text-sm">
+      <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
+        <tr>
+          {columns.map((c) => (
+            <th
+              key={c.key}
+              className={cn(
+                "whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400",
+                c.align === "right" && "text-right",
+              )}
+            >
+              {c.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+        {rows.map((row, i) => (
+          <tr key={rowKey(row, i)} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40">
+            {columns.map((c) => (
+              <td
+                key={c.key}
+                className={cn(
+                  "whitespace-nowrap px-3 py-1.5 text-slate-700 dark:text-slate-300",
+                  c.align === "right" && "text-right",
+                )}
+              >
+                {renderCell(row, c, i)}
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Feedback states
 // ─────────────────────────────────────────────
 export const Spinner = ({ label }: { label?: string }) => (
@@ -234,21 +295,31 @@ export const EmptyState = ({
   title,
   description,
   action,
+  compact = false,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   description?: string;
   action?: ReactNode;
+  /** Smaller footprint for tight contexts like a sidebar feed card. */
+  compact?: boolean;
 }) => (
-  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-14 text-center dark:border-slate-700">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-      <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+  <div
+    className={cn(
+      "flex flex-col items-center justify-center text-center",
+      compact
+        ? "py-6"
+        : "rounded-xl border border-dashed border-border py-14 dark:border-slate-700",
+    )}
+  >
+    <div className={cn("flex items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800", compact ? "h-9 w-9" : "h-12 w-12")}>
+      <Icon className={cn("text-slate-400 dark:text-slate-500", compact ? "h-4 w-4" : "h-6 w-6")} />
     </div>
-    <h3 className="mt-4 text-[15px] font-semibold text-slate-900 dark:text-white">
+    <h3 className={cn("font-semibold text-slate-900 dark:text-white", compact ? "mt-2 text-[13px]" : "mt-4 text-[15px]")}>
       {title}
     </h3>
     {description && (
-      <p className="mt-1 max-w-sm text-[13px] text-slate-500 dark:text-slate-400">
+      <p className={cn("max-w-sm text-slate-500 dark:text-slate-400", compact ? "mt-0.5 text-xs" : "mt-1 text-[13px]")}>
         {description}
       </p>
     )}
@@ -345,7 +416,7 @@ export const Modal = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md scale-in rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
+        className="w-full max-w-md animate-scale-in rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -377,32 +448,49 @@ export const Tabs = ({
   tabs: { id: string; label: string }[];
   active: string;
   onChange: (id: string) => void;
-}) => (
-  <div
-    role="tablist"
-    className="flex gap-1 border-b border-border dark:border-slate-800"
-  >
-    {tabs.map((t) => (
-      <button
-        key={t.id}
-        role="tab"
-        aria-selected={active === t.id}
-        onClick={() => onChange(t.id)}
-        className={cn(
-          "relative px-4 py-2.5 text-sm font-medium transition",
-          active === t.id
-            ? "text-brand-700 dark:text-brand-400"
-            : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200",
-        )}
-      >
-        {t.label}
-        {active === t.id && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-brand-600" />
-        )}
-      </button>
-    ))}
-  </div>
-);
+}) => {
+  const btnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  const move = (delta: number) => {
+    const idx = tabs.findIndex((t) => t.id === active);
+    const next = tabs[(idx + delta + tabs.length) % tabs.length];
+    onChange(next.id);
+    btnRefs.current.get(next.id)?.focus();
+  };
+
+  return (
+    <div
+      role="tablist"
+      className="flex gap-1 border-b border-border dark:border-slate-800"
+      onKeyDown={(e) => {
+        if (e.key === "ArrowRight") { e.preventDefault(); move(1); }
+        else if (e.key === "ArrowLeft") { e.preventDefault(); move(-1); }
+      }}
+    >
+      {tabs.map((t) => (
+        <button
+          key={t.id}
+          ref={(el) => { if (el) btnRefs.current.set(t.id, el); else btnRefs.current.delete(t.id); }}
+          role="tab"
+          aria-selected={active === t.id}
+          tabIndex={active === t.id ? 0 : -1}
+          onClick={() => onChange(t.id)}
+          className={cn(
+            "relative px-4 py-2.5 text-sm font-medium transition",
+            active === t.id
+              ? "text-brand-700 dark:text-brand-400"
+              : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200",
+          )}
+        >
+          {t.label}
+          {active === t.id && (
+            <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-brand-600" />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────
 // Toast
@@ -415,14 +503,35 @@ export const useToast = () => useContext(ToastCtx);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  const dismiss = useCallback((id: number) => {
+    const timer = timers.current.get(id);
+    if (timer) { clearTimeout(timer); timers.current.delete(id); }
+    setToasts((t) => t.filter((x) => x.id !== id));
+  }, []);
+
+  const scheduleDismiss = useCallback((id: number) => {
+    timers.current.set(id, setTimeout(() => dismiss(id), 3500));
+  }, [dismiss]);
+
   const toast = useCallback(
     (message: string, tone: Toast["tone"] = "info") => {
       const id = Date.now() + Math.random();
       setToasts((t) => [...t, { id, message, tone }]);
-      setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
+      scheduleDismiss(id);
     },
-    [],
+    [scheduleDismiss],
   );
+
+  // Pause the auto-dismiss timer while the toast is hovered, so a longer
+  // message doesn't vanish before it can be read.
+  const pause = (id: number) => {
+    const timer = timers.current.get(id);
+    if (timer) { clearTimeout(timer); timers.current.delete(id); }
+  };
+  const resume = (id: number) => scheduleDismiss(id);
+
   const icons = { success: CheckCircle2, error: AlertCircle, info: Info };
   return (
     <ToastCtx.Provider value={{ toast }}>
@@ -436,7 +545,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown animate-in dark:border-slate-700 dark:bg-slate-800"
+              role="status"
+              onMouseEnter={() => pause(t.id)}
+              onMouseLeave={() => resume(t.id)}
+              className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown animate-fade-in dark:border-slate-700 dark:bg-slate-800"
             >
               <Icon
                 className={cn(
@@ -446,7 +558,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   t.tone === "info" && "text-brand-500",
                 )}
               />
-              {t.message}
+              <span className="flex-1">{t.message}</span>
+              <button
+                onClick={() => dismiss(t.id)}
+                aria-label="Dismiss notification"
+                className="shrink-0 rounded p-0.5 text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-300"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           );
         })}

@@ -2,7 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, AlertTriangle, TrendingDown, Package, Check, type LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { Card, CardBody, Badge, Button, Spinner, EmptyState, ErrorState } from "../components/ui";
-import { timeAgo } from "../lib/utils";
+import { timeAgo, severityTone } from "../lib/utils";
 import type { Alert } from "../lib/types";
 
 const ICONS: Record<string, LucideIcon> = { revenue_drop: TrendingDown, profit_decline: TrendingDown, inventory_shortage: Package, sales_spike: AlertTriangle, forecast_risk: AlertTriangle, unusual_performance: AlertTriangle };
@@ -14,8 +14,8 @@ export default function Alerts() {
   async function markRead(id: string) { await api.patch(`/alerts/${id}/read`); qc.invalidateQueries({ queryKey: ["alerts"] }); }
 
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Alerts</h1><p className="text-sm text-slate-500">Automatically flagged risks and anomalies from your data.</p></div>
+    <div className="space-y-8">
+      <div className="page-header"><h1 className="page-title">Alerts</h1><p className="page-subtitle">Automatically flagged risks and anomalies from your data.</p></div>
 
       {isError ? <ErrorState message="Could not load alerts." retry={() => refetch()} /> : isLoading ? <Spinner /> : !data?.alerts.length ? <EmptyState icon={Bell} title="No alerts" description="We'll flag revenue drops, inventory shortages, and unusual performance here." /> : (
         <div className="space-y-2">
@@ -28,7 +28,7 @@ export default function Alerts() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium capitalize">{a.type.replace(/_/g, " ")}</span>
-                      <Badge tone={a.severity === "HIGH" ? "red" : a.severity === "MEDIUM" ? "amber" : "slate"}>{a.severity}</Badge>
+                      <Badge tone={severityTone(a.severity)}>{a.severity}</Badge>
                       {!a.read && <span className="h-2 w-2 rounded-full bg-brand-500" />}
                     </div>
                     <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{a.description}</p>

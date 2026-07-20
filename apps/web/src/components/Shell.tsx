@@ -1,5 +1,5 @@
 import { type ReactNode, useState, useRef, useEffect, useCallback } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   Database,
@@ -221,6 +221,97 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 }
 
 /* ─────────────────────────────────────────────
+   Command palette — ⌘K quick-nav across pages
+   ───────────────────────────────────────────── */
+function useCommandPalette() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  return { open, setOpen };
+}
+
+function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const nav = useNavigate();
+  const { can } = useAuth();
+  const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+
+  const items = NAV_SECTIONS.flatMap((s) => s.items).filter((n) => !n.roles || can(...n.roles));
+  const filtered = query.trim()
+    ? items.filter((n) => n.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : items;
+
+  useEffect(() => { if (open) { setQuery(""); setHighlight(0); } }, [open]);
+  useEffect(() => { setHighlight(0); }, [query]);
+
+  const go = (to: string) => { nav(to); onClose(); };
+
+  if (!open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-4 pt-[15vh] backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Quick navigation"
+        className="w-full max-w-md animate-scale-in overflow-hidden rounded-xl border border-border bg-white shadow-modal dark:border-slate-800 dark:bg-slate-900"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+          else if (e.key === "ArrowDown") { e.preventDefault(); setHighlight((h) => Math.min(h + 1, filtered.length - 1)); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setHighlight((h) => Math.max(h - 1, 0)); }
+          else if (e.key === "Enter") { e.preventDefault(); const item = filtered[highlight]; if (item) go(item.to); }
+        }}
+      >
+        <div className="flex items-center gap-2 border-b border-border px-4 py-3 dark:border-slate-800">
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Jump to a page…"
+            aria-label="Jump to a page"
+            className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400 dark:text-slate-100"
+          />
+        </div>
+        <div className="max-h-72 overflow-y-auto p-1.5">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-6 text-center text-sm text-slate-400">No matching pages</div>
+          ) : (
+            filtered.map((item, i) => (
+              <button
+                key={item.to}
+                onClick={() => go(item.to)}
+                onMouseEnter={() => setHighlight(i)}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors",
+                  i === highlight
+                    ? "bg-brand-50 text-brand-700 dark:bg-brand-950/40 dark:text-brand-300"
+                    : "text-slate-700 dark:text-slate-300",
+                )}
+              >
+                <item.icon className="h-4 w-4 shrink-0 text-slate-400" />
+                {item.label}
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    Header — glass-effect bar with breadcrumb, search, actions
    ───────────────────────────────────────────── */
 function Header({ onMenuClick }: { onMenuClick: () => void }) {
@@ -229,6 +320,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
   const { user, role, logout } = useAuth();
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const palette = useCommandPalette();
 
   const { data: alerts } = useUnreadAlerts();
 
@@ -293,14 +385,19 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="flex-1" />
 
-      {/* Global search */}
-      <button className="group hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-slate-400 transition-all hover:border-slate-300 hover:text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-slate-600 sm:flex">
+      {/* Global search / quick nav */}
+      <button
+        onClick={() => palette.setOpen(true)}
+        aria-label="Open quick navigation"
+        className="group hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-slate-400 transition-all hover:border-slate-300 hover:text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-slate-600 sm:flex"
+      >
         <Search className="h-4 w-4" />
         <span className="text-slate-400">Search</span>
         <kbd className="ml-6 rounded border border-border bg-white px-1.5 py-[1px] text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-800">
           ⌘K
         </kbd>
       </button>
+      <CommandPalette open={palette.open} onClose={() => palette.setOpen(false)} />
 
       {/* Theme toggle */}
       <button

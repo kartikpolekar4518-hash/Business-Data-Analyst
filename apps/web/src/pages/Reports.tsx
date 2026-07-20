@@ -4,7 +4,7 @@ import { FileText, Download, Plus, Eye } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardBody, Button, Spinner, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
-import { money, num, timeAgo } from "../lib/utils";
+import { money, num, timeAgo, severityTone } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }
 interface FullReport {
@@ -45,9 +45,9 @@ export default function Reports() {
   const r = view.data?.report.content;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold">Executive Reports</h1><p className="text-sm text-slate-500">Board-ready summaries of performance, risks, and forecasts.</p></div>
+    <div className="space-y-8">
+      <div className="page-header flex items-center justify-between">
+        <div><h1 className="page-title">Executive Reports</h1><p className="page-subtitle">Board-ready summaries of performance, risks, and forecasts.</p></div>
         {can("ADMIN", "MANAGER") && <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button>}
       </div>
 
@@ -80,7 +80,7 @@ export default function Reports() {
             <section><h4 className="mb-1 font-semibold">Risks & Recommendations</h4>
               {r.recommendations.map((rec, i) => (
                 <div key={i} className="mb-2 rounded-lg border border-slate-100 p-2 dark:border-slate-800">
-                  <div className="flex items-center justify-between"><span className="font-medium">{rec.title}</span><Badge tone={rec.impact === "HIGH" ? "red" : rec.impact === "MEDIUM" ? "amber" : "slate"}>{rec.impact}</Badge></div>
+                  <div className="flex items-center justify-between"><span className="font-medium">{rec.title}</span><Badge tone={severityTone(rec.impact)}>{rec.impact}</Badge></div>
                   <p className="mt-1 text-xs text-slate-500">{rec.observation}</p>
                   <p className="mt-0.5 text-xs text-brand-600">{rec.action}</p>
                 </div>

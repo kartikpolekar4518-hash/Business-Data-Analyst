@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { api } from "../lib/api";
 import { money, num } from "../lib/utils";
-import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, Label } from "../components/ui";
+import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, Label, Table } from "../components/ui";
 import { TrendChart, BarRankChart } from "../components/charts";
 import { KpiCard } from "../components/Kpi";
 import { DollarSign, TrendingUp, ShoppingCart, Percent, BarChart3 } from "lucide-react";
@@ -46,9 +46,9 @@ export default function Analytics() {
   const opts = ov.data?.filterOptions ?? {};
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Analytics</h1><p className="text-sm text-slate-500">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
+    <div className="space-y-8">
+      <div className="page-header flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="page-title">Analytics</h1><p className="page-subtitle">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
         <Button variant="outline" onClick={exportCsv} disabled={!table.data}><Download className="h-4 w-4" />Export CSV</Button>
       </div>
 
@@ -90,10 +90,10 @@ export default function Analytics() {
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card><CardHeader title="Revenue trend" /><CardBody>{ov.data ? <TrendChart data={ov.data.revenueTrend} /> : <Spinner />}</CardBody></Card>
-        <Card><CardHeader title="Category performance" /><CardBody>{ov.data?.categories.length ? <BarRankChart data={ov.data.categories} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
-        <Card><CardHeader title="Top products" /><CardBody>{ov.data?.topProducts.length ? <BarRankChart data={ov.data.topProducts} /> : <p className="py-8 text-center text-sm text-slate-400">No product data</p>}</CardBody></Card>
-        <Card><CardHeader title="Top customers" /><CardBody>{ov.data?.topCustomers.length ? <BarRankChart data={ov.data.topCustomers} /> : <p className="py-8 text-center text-sm text-slate-400">No customer data</p>}</CardBody></Card>
+        <Card><CardHeader title="Revenue trend" /><CardBody>{ov.data ? <TrendChart data={ov.data.revenueTrend} ariaLabel="Revenue trend" /> : <Spinner />}</CardBody></Card>
+        <Card><CardHeader title="Category performance" /><CardBody>{ov.data?.categories.length ? <BarRankChart data={ov.data.categories} ariaLabel="Category performance by revenue" /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
+        <Card><CardHeader title="Top products" /><CardBody>{ov.data?.topProducts.length ? <BarRankChart data={ov.data.topProducts} ariaLabel="Top products by revenue" /> : <p className="py-8 text-center text-sm text-slate-400">No product data</p>}</CardBody></Card>
+        <Card><CardHeader title="Top customers" /><CardBody>{ov.data?.topCustomers.length ? <BarRankChart data={ov.data.topCustomers} ariaLabel="Top customers by revenue" /> : <p className="py-8 text-center text-sm text-slate-400">No customer data</p>}</CardBody></Card>
       </div>
 
       {/* Data table */}
@@ -103,12 +103,16 @@ export default function Analytics() {
           {!table.data ? <Spinner /> : table.data.rows.length === 0 ? (
             <div className="p-6"><EmptyState icon={BarChart3} title="No rows match these filters" description="Try widening the date range or clearing a filter." /></div>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {table.data.rows.slice(0, 100).map((r, i) => <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">{table.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5">{String(r[c] ?? "—")}</td>)}</tr>)}
-              </tbody>
-            </table>
+            <Table
+              columns={table.data.columns.map((c) => ({
+                key: c,
+                label: c,
+                align: table.data!.rows.every((r) => typeof r[c] === "number") ? "right" as const : "left" as const,
+              }))}
+              rows={table.data.rows.slice(0, 100)}
+              rowKey={(_, i) => i}
+              renderCell={(row, col) => String(row[col.key] ?? "—")}
+            />
           )}
         </CardBody>
       </Card>

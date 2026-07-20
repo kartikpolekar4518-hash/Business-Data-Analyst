@@ -26,6 +26,12 @@ export function bytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+// Shared HIGH/MEDIUM/(else) -> Badge tone mapping, used everywhere a
+// severity or impact level needs a color (alerts, quality issues, insights).
+export function severityTone(level: string): "red" | "amber" | "slate" {
+  return level === "HIGH" ? "red" : level === "MEDIUM" ? "amber" : "slate";
+}
+
 export function timeAgo(date: string): string {
   const d = new Date(date).getTime();
   const secs = Math.floor((Date.now() - d) / 1000);

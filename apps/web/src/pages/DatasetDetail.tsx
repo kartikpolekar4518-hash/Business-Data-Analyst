@@ -4,8 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ShieldCheck, Wand2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, ErrorState, useToast } from "../components/ui";
-import { num } from "../lib/utils";
+import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, Skeleton, ErrorState, Table, useToast } from "../components/ui";
+import { num, severityTone } from "../lib/utils";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
 interface Quality { qualityScore: number; rowCount: number; columnCount: number; issues: Issue[]; }
@@ -43,16 +43,16 @@ export default function DatasetDetail() {
 
   const d = meta.data?.dataset;
   if (meta.isError) return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
       <ErrorState message="Could not load this dataset." retry={() => meta.refetch()} />
     </div>
   );
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">{d?.name ?? "Dataset"}</h1><p className="text-sm text-slate-500">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
+      <div className="page-header flex flex-wrap items-center justify-between gap-3">
+        <div><h1 className="page-title">{d?.name ?? (meta.isLoading ? <Skeleton className="h-9 w-48" /> : "Dataset")}</h1><p className="page-subtitle">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : meta.isLoading ? <Skeleton className="mt-1 h-4 w-56" /> : ""}</p></div>
         {d && <div className="flex items-center gap-2"><Badge tone={d.qualityScore >= 90 ? "green" : d.qualityScore >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge><Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge></div>}
       </div>
 
@@ -62,18 +62,16 @@ export default function DatasetDetail() {
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
           <CardBody className="overflow-x-auto p-0">
             {preview.isError ? <ErrorState message="Could not load the data preview." retry={() => preview.refetch()} /> : !preview.data ? <Spinner /> : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
-                  <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {preview.data.rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      {preview.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5 text-slate-700 dark:text-slate-300">{String(row[c] ?? "—")}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <Table
+                columns={preview.data.columns.map((c) => ({
+                  key: c,
+                  label: c,
+                  align: preview.data!.rows.every((r) => typeof r[c] === "number") ? "right" as const : "left" as const,
+                }))}
+                rows={preview.data.rows}
+                rowKey={(_, i) => i}
+                renderCell={(row, col) => String(row[col.key] ?? "—")}
+              />
             )}
           </CardBody>
         </Card>
@@ -93,7 +91,7 @@ export default function DatasetDetail() {
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{i.type.replace(/_/g, " ")}</span>
                     {i.column && <Badge>{i.column}</Badge>}
-                    <Badge tone={i.severity === "HIGH" ? "red" : i.severity === "MEDIUM" ? "amber" : "slate"}>{i.severity}</Badge>
+                    <Badge tone={severityTone(i.severity)}>{i.severity}</Badge>
                     {!i.autoFixable && <Badge tone="slate">manual review</Badge>}
                   </div>
                   <p className="mt-1 text-sm text-slate-500">{i.recommendation} {i.affectedRows > 0 && <span className="text-slate-400">· {num(i.affectedRows)} rows</span>}</p>
@@ -108,14 +106,20 @@ export default function DatasetDetail() {
         <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
           <CardBody className="overflow-x-auto p-0">
             {schema.isError ? <ErrorState message="Could not load the detected schema." retry={() => schema.refetch()} /> : !schema.data ? <Spinner /> : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {schema.data.columns.map((c) => (
-                    <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>
-                  ))}
-                </tbody>
-              </table>
+              <Table
+                columns={[
+                  { key: "name", label: "Column" },
+                  { key: "type", label: "Data type" },
+                  { key: "semantic", label: "Business meaning" },
+                ]}
+                rows={schema.data.columns}
+                rowKey={(c) => c.name}
+                renderCell={(c, col) => {
+                  if (col.key === "name") return <span className="font-medium">{c.name}</span>;
+                  if (col.key === "type") return <Badge>{c.type}</Badge>;
+                  return c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>;
+                }}
+              />
             )}
           </CardBody>
         </Card>
