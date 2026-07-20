@@ -2,7 +2,7 @@
   "name": "decisioniq",
   "version": "0.1.0",
   "private": true,
-  "description": "DecisionIQ — AI Decision Intelligence Platform (deterministic analyst, no LLM key required)",
+  "description": "DecisionIQ — Deterministic Decision Intelligence Platform (rules-and-statistics engine, no LLM or API key required)",
   "workspaces": ["apps/*"],
   "scripts": {
     "dev": "npm run dev --workspace apps/api & npm run dev --workspace apps/web",
