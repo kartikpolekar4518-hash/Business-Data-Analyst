@@ -3,6 +3,8 @@ import { wrap } from "../errors.js";
 import { requireAuth } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
+import type { ColumnProfile } from "../engine/profile.js";
+import { runAnalyzers } from "../engine/statisticalInsights/index.js";
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
@@ -71,4 +73,15 @@ analyticsRouter.get("/table", wrap(async (req, res) => {
   const filtered = A.applyFilters(rows, schema, filtersFrom(req.query));
   const columns = Object.keys(filtered[0] ?? rows[0] ?? {});
   res.json({ columns, rows: filtered.slice(0, 500), total: filtered.length });
+}));
+
+// Statistical Insights: runs the registered analyzer pipeline (summary,
+// distribution, correlation, outliers, trend) over the dataset's numeric
+// columns. Unfiltered, like /ai/insights — a dataset-level view, not a
+// filtered-slice view like the endpoints above.
+analyticsRouter.get("/statistics", wrap(async (req, res) => {
+  const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const columns = dataset.columns as unknown as ColumnProfile[];
+  const insights = runAnalyzers({ rows, columns, schema });
+  res.json({ datasetId: dataset.id, datasetName: dataset.name, insights });
 }));

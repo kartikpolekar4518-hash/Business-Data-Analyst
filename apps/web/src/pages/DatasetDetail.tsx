@@ -5,8 +5,9 @@ import { ArrowLeft, ShieldCheck, Wand2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, useToast } from "../components/ui";
+import { StatisticalInsights } from "../components/StatisticalInsights";
 import { num } from "../lib/utils";
-import type { DatasetSummary } from "../lib/types";
+import type { DatasetSummary, StatisticalInsightsResponse } from "../lib/types";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
 interface Quality { qualityScore: number; rowCount: number; columnCount: number; issues: Issue[]; }
@@ -26,6 +27,14 @@ export default function DatasetDetail() {
   const preview = useQuery({ queryKey: ["preview", datasetId], queryFn: () => api.get<Preview>(`/datasets/${datasetId}/preview`) });
   const quality = useQuery({ queryKey: ["quality", datasetId], queryFn: () => api.get<Quality>(`/datasets/${datasetId}/quality`) });
   const schema = useQuery({ queryKey: ["schema", datasetId], queryFn: () => api.get<Schema>(`/datasets/${datasetId}/schema`) });
+  // Gated (unlike the three tabs above, which fetch eagerly): correlation/distribution
+  // computation is heavier than a preview/quality/schema read, so it only runs once
+  // the user actually opens this tab.
+  const stats = useQuery({
+    queryKey: ["statistics", datasetId],
+    queryFn: () => api.get<StatisticalInsightsResponse>(`/analytics/statistics?datasetId=${datasetId}`),
+    enabled: tab === "statistics",
+  });
 
   const fixable = (quality.data?.issues ?? []).filter((i) => i.autoFixable);
   const toggle = (type: string) => setAccepted((s) => { const n = new Set(s); n.has(type) ? n.delete(type) : n.add(type); return n; });
@@ -56,7 +65,7 @@ export default function DatasetDetail() {
         </div>}
       </div>
 
-      <Tabs tabs={[{ id: "preview", label: "Preview" }, { id: "quality", label: `Quality Report${quality.data ? ` (${quality.data.issues.length})` : ""}` }, { id: "schema", label: "Detected Schema" }]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{ id: "preview", label: "Preview" }, { id: "quality", label: `Quality Report${quality.data ? ` (${quality.data.issues.length})` : ""}` }, { id: "schema", label: "Detected Schema" }, { id: "statistics", label: "Statistics" }]} active={tab} onChange={setTab} />
 
       {tab === "preview" && (
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
@@ -121,6 +130,10 @@ export default function DatasetDetail() {
             )}
           </CardBody>
         </Card>
+      )}
+
+      {tab === "statistics" && (
+        <StatisticalInsights data={stats.data} isLoading={stats.isLoading} isError={stats.isError} />
       )}
     </div>
   );

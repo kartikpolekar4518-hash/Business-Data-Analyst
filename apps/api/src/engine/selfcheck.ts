@@ -7,6 +7,8 @@ import * as A from "./analytics.js";
 import { answer } from "./intent.js";
 import { forecast } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
+import { runAnalyzers, ANALYZERS } from "./statisticalInsights/index.js";
+import type { Analyzer, AnalyzerContext } from "./statisticalInsights/index.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
 const rows = [
@@ -26,7 +28,7 @@ assert(types.has("whitespace"), "should detect whitespace");
 assert(profile.qualityScore < 100 && profile.qualityScore > 0, "quality score in range");
 
 // 2. Schema detection maps business columns.
-const { map } = detectSchema(profile.columns);
+const { map, columns: annotatedColumns } = detectSchema(profile.columns);
 assert(map.revenue === "revenue", "revenue mapped");
 assert(map.date === "order_date", "date mapped");
 assert(map.region === "region", "region mapped");
@@ -81,5 +83,38 @@ assert(fc.points.every((p) => p.lower <= p.value && p.value <= p.upper), "value 
 // 7. Insights separate observation from recommendation.
 const { recommendations, alerts } = deriveInsights(rows, map);
 assert(Array.isArray(recommendations) && Array.isArray(alerts), "insights return arrays");
+
+// 8. Statistical Insights pipeline — every registered analyzer runs against
+// the fixture's numeric columns (revenue, cost) without throwing.
+const statsCtx: AnalyzerContext = { rows, columns: annotatedColumns, schema: map };
+const insights = runAnalyzers(statsCtx);
+for (const a of ANALYZERS) {
+  assert(a.name in insights, `analyzer "${a.name}" is present in the pipeline result`);
+  assert(!insights[a.name].error, `analyzer "${a.name}" ran without error, got: ${insights[a.name].error}`);
+}
+assert(insights.summary.meta.sampleSize === rows.length, "summary sampleSize matches row count");
+const summaryData = insights.summary.data as { column: string }[];
+assert(summaryData.some((s) => s.column === "revenue") && summaryData.some((s) => s.column === "cost"), "summary covers revenue and cost");
+
+// order_id ("1","2","3","3","4") also type-detects as numeric, same as revenue/cost —
+// profileDataset's type detection is value-shape-based, not semantic-aware.
+const distributionData = insights.distribution.data as { column: string; shape: string }[];
+assert(distributionData.some((d) => d.column === "revenue") && distributionData.some((d) => d.column === "cost"),
+  "distribution covers revenue and cost");
+
+const correlationData = insights.correlation.data as { columnA: string; columnB: string }[];
+assert(correlationData.some((c) => (c.columnA === "revenue" && c.columnB === "cost") || (c.columnA === "cost" && c.columnB === "revenue")),
+  "correlation includes the revenue/cost pair");
+
+// order_date + revenue are both detected, so the trend analyzer should produce a result, not null.
+assert(insights.trend.data !== null, "trend analyzer finds a date + revenue series in the fixture");
+
+// 9. Error isolation: one analyzer throwing must not affect the others' results.
+const brokenAnalyzer: Analyzer = { name: "broken", run: () => { throw new Error("intentional selfcheck failure"); } };
+const withBroken = runAnalyzers(statsCtx, [...ANALYZERS, brokenAnalyzer]);
+assert(withBroken.broken.error === "intentional selfcheck failure", "a throwing analyzer surfaces its error");
+assert(withBroken.broken.data === null, "a throwing analyzer's data is null");
+assert(!withBroken.summary.error && (withBroken.summary.data as unknown[]).length === summaryData.length,
+  "other analyzers are unaffected by a sibling analyzer throwing");
 
 console.log("✓ engine selfcheck passed");

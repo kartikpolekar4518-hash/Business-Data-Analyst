@@ -34,3 +34,33 @@ export interface ChatMessage {
   chart?: { type: "bar" | "line"; data: Rank[]; xKey: string; yKey: string };
   metrics?: Rank[];
 }
+
+// --- Statistical Insights (analyzer pipeline) ---
+export interface AnalyzerMeta { analyzer: string; algorithm: string; sampleSize: number; engineVersion: string; executionTimeMs: number; }
+export interface AnalyzerResult<T> { meta: AnalyzerMeta; data: T | null; error?: string; }
+
+export interface ColumnSummary {
+  column: string; count: number; mean: number; median: number; stdDev: number; variance: number;
+  min: number; max: number; q1: number; q3: number;
+  confidenceInterval95: { lower: number; upper: number; marginOfError: number };
+}
+export interface ColumnDistribution { column: string; count: number; skewness: number; kurtosis: number; shape: string; }
+export type CorrelationStrength = "negligible" | "weak" | "moderate" | "strong" | "very strong";
+export interface CorrelationPair {
+  columnA: string; columnB: string; r: number; strength: CorrelationStrength;
+  n: number; pValue: number | null; significant: boolean;
+}
+export interface ColumnOutliers { column: string; count: number; values: number[]; }
+export type TrendDirection = "increasing" | "decreasing" | "flat";
+export interface TrendInsight { metric: "revenue" | "profit" | "orders"; periods: number; correlation: number; direction: TrendDirection; }
+
+export interface StatisticalInsightsResponse {
+  datasetId: string; datasetName: string;
+  insights: {
+    summary: AnalyzerResult<ColumnSummary[]>;
+    distribution: AnalyzerResult<ColumnDistribution[]>;
+    correlation: AnalyzerResult<CorrelationPair[]>;
+    outliers: AnalyzerResult<ColumnOutliers[]>;
+    trend: AnalyzerResult<TrendInsight | null>;
+  };
+}
