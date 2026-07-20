@@ -43,7 +43,7 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
   const { originalname, size, buffer } = req.file;
 
   let parsed;
-  try { parsed = parseFile(buffer, originalname); }
+  try { parsed = parseFile({ buffer, fileName: originalname }); }
   catch (e) { throw new HttpError(400, e instanceof Error ? e.message : "Could not parse file"); }
   if (!parsed.rows.length) throw new HttpError(400, "The file has no data rows");
 

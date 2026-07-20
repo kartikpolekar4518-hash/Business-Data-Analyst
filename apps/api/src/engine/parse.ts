@@ -9,7 +9,7 @@ export interface ParsedFile {
 }
 
 // Parse an uploaded CSV/XLSX/XLS buffer into rows of plain objects.
-export function parseFile(buffer: Buffer, fileName: string): ParsedFile {
+export function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): ParsedFile {
   const MAX_BUFFER = 50 * 1024 * 1024; // 50MB hard limit
   if (buffer.length > MAX_BUFFER) {
     throw new Error(`File exceeds maximum size of 50MB (got ${(buffer.length / 1024 / 1024).toFixed(1)}MB)`);
