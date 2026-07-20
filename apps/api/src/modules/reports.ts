@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import PDFDocument from "pdfkit";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
@@ -11,6 +12,9 @@ import { deriveInsights } from "../engine/insights.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(requireAuth);
+
+// Report generation re-runs the full analytics engine over the dataset — rate-limit it.
+const generateLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: "Too many report generations — max 10 per minute" });
 
 // Build the full executive report structure from the deterministic engine.
 async function buildReport(organizationId: string, datasetId?: string) {
@@ -45,7 +49,7 @@ function buildSummary(ov: ReturnType<typeof A.overview>): string {
 
 const genSchema = z.object({ datasetId: z.string().optional(), title: z.string().optional() });
 
-reportsRouter.post("/generate", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+reportsRouter.post("/generate", generateLimiter, requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const { datasetId, title } = genSchema.parse(req.body ?? {});
   const content = await buildReport(req.auth!.organizationId, datasetId);
   const report = await prisma.report.create({

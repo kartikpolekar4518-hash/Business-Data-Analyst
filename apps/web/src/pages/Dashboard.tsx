@@ -20,7 +20,7 @@ import {
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { money, num, timeAgo } from "../lib/utils";
-import { Card, CardHeader, CardBody, Skeleton, EmptyState, Button, Badge } from "../components/ui";
+import { Card, CardHeader, CardBody, Skeleton, EmptyState, ErrorState, Button, Badge } from "../components/ui";
 import { KpiCard } from "../components/Kpi";
 import { TrendChart, BarRankChart } from "../components/charts";
 import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
@@ -256,7 +256,9 @@ export default function Dashboard() {
             subtitle="Generated from your data"
           />
           <CardBody>
-            {insights.data?.recommendations.length ? (
+            {insights.isError ? (
+              <ErrorState message="Could not load AI recommendations." retry={() => insights.refetch()} />
+            ) : insights.data?.recommendations.length ? (
               <div className="divide-y divide-border dark:divide-slate-800">
                 {insights.data.recommendations.map((r) => (
                   <div
@@ -340,7 +342,9 @@ export default function Dashboard() {
               }
             />
             <CardBody className="space-y-1">
-              {datasets.data?.datasets.slice(0, 4).length ? (
+              {datasets.isError ? (
+                <ErrorState message="Could not load datasets." retry={() => datasets.refetch()} />
+              ) : datasets.data?.datasets.slice(0, 4).length ? (
                 datasets.data.datasets.slice(0, 4).map((d) => (
                   <Link
                     key={d.id}
@@ -378,7 +382,9 @@ export default function Dashboard() {
               }
             />
             <CardBody className="space-y-1">
-              {reports.data?.reports.length ? (
+              {reports.isError ? (
+                <ErrorState message="Could not load reports." retry={() => reports.refetch()} />
+              ) : reports.data?.reports.length ? (
                 reports.data.reports.slice(0, 3).map((r) => (
                   <Link
                     key={r.id}
@@ -416,7 +422,9 @@ export default function Dashboard() {
               }
             />
             <CardBody className="space-y-1">
-              {alerts.data?.alerts.length ? (
+              {alerts.isError ? (
+                <ErrorState message="Could not load alerts." retry={() => alerts.refetch()} />
+              ) : alerts.data?.alerts.length ? (
                 alerts.data.alerts.slice(0, 3).map((a) => (
                   <div
                     key={a.id}

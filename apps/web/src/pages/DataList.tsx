@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState } from "../components/ui";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, ErrorState } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
 import type { DatasetSummary } from "../lib/types";
 
@@ -18,7 +18,7 @@ export default function DataList() {
   const [drag, setDrag] = useState(false);
   const [uploading, setUploading] = useState(false);
 
-  const { data, isLoading } = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
 
   async function upload(file: File) {
     setUploading(true);
@@ -54,7 +54,8 @@ export default function DataList() {
       <Card>
         <CardHeader title="Datasets" subtitle={data ? `${data.datasets.length} total` : undefined} />
         <CardBody className="p-0">
-          {isLoading ? <div className="p-6 text-sm text-slate-400">Loading…</div> :
+          {isError ? <div className="p-6"><ErrorState message="Could not load datasets." retry={() => refetch()} /></div> :
+           isLoading ? <div className="p-6 text-sm text-slate-400">Loading…</div> :
            !data?.datasets.length ? <div className="p-6"><EmptyState icon={Database} title="No datasets yet" description="Upload a CSV or Excel file to get started." /></div> :
            <div className="divide-y divide-slate-100 dark:divide-slate-800">
              {data.datasets.map((d) => (

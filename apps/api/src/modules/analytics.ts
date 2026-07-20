@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import { wrap } from "../errors.js";
 import { requireAuth } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
@@ -7,6 +8,8 @@ import * as A from "../engine/analytics.js";
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
+// Every route here re-runs the full analytics engine over the dataset on each call.
+analyticsRouter.use(rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false, message: "Too many analytics requests — slow down" }));
 
 // Validate filter parameters
 const filterSchema = z.object({
@@ -20,17 +23,14 @@ const filterSchema = z.object({
   customer: z.string().optional(),
 });
 
-function filtersFrom(query: any): A.Filters {
-  try {
-    const validated = filterSchema.parse(query);
-    return Object.fromEntries(
-      Object.entries(validated).filter(([, v]) => v !== undefined)
-    ) as A.Filters;
-  } catch (e) {
-    // Return empty filters if validation fails — don't break the query
-    console.warn("[analytics] Filter validation failed", e);
-    return {};
-  }
+// Throws a ZodError on invalid filters — the wrap()/errorHandler() pipeline
+// turns that into a 400 with field-level details, rather than silently
+// dropping the filter and returning unfiltered (and misleading) results.
+function filtersFrom(query: unknown): A.Filters {
+  const validated = filterSchema.parse(query);
+  return Object.fromEntries(
+    Object.entries(validated).filter(([, v]) => v !== undefined)
+  ) as A.Filters;
 }
 
 const timeSeries = (metric: "revenue" | "profit") =>

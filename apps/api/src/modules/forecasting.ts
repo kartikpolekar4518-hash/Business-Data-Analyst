@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import rateLimit from "express-rate-limit";
 import { prisma } from "../prisma.js";
 import { wrap } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
@@ -16,7 +17,10 @@ const createSchema = z.object({
   datasetId: z.string().optional(),
 });
 
-forecastingRouter.post("/", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+// Forecast generation re-runs the full analytics engine over the dataset — rate-limit it.
+const forecastLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: true, legacyHeaders: false, message: "Too many forecast requests — max 10 per minute" });
+
+forecastingRouter.post("/", forecastLimiter, requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const auth = req.auth!;
   const { metric, horizon, datasetId } = createSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);

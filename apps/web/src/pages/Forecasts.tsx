@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, Info } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Label, Spinner, EmptyState, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Label, Spinner, EmptyState, ErrorState, Badge, useToast } from "../components/ui";
 import { ForecastChart } from "../components/charts";
 import { money, timeAgo } from "../lib/utils";
 
@@ -17,7 +17,7 @@ export default function Forecasts() {
   const [horizon, setHorizon] = useState(3);
   const [running, setRunning] = useState(false);
 
-  const { data, isLoading } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
 
   async function run() {
     setRunning(true);
@@ -44,7 +44,7 @@ export default function Forecasts() {
         <Info className="mt-0.5 h-4 w-4 shrink-0" />Forecasts use a linear-trend model with a 95% confidence band that widens with the horizon. The model can be swapped for a statistical/ML service later without changing this page.
       </div>
 
-      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description="Generate one above to project future performance." /> : (
+      {isError ? <ErrorState message="Could not load forecasts." retry={() => refetch()} /> : isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description="Generate one above to project future performance." /> : (
         <div className="space-y-4">
           {data.forecasts.map((f) => (
             <Card key={f.id}>

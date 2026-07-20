@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -20,6 +21,10 @@ import { settingsRouter } from "./modules/settings.js";
 
 const app = express();
 app.disable("x-powered-by");
+// CSP is left to the default-disabled here: the served SPA loads Google Fonts and
+// Vite-built assets whose exact resource list would need to be audited before a
+// custom policy is written — that's tracked separately, not a Phase-0 change.
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors({ origin: env.appUrl.split(",") }));
 app.use(express.json({ limit: "2mb" }));
 
@@ -71,4 +76,17 @@ process.on("SIGINT", async () => {
   console.log("SIGINT received, shutting down gracefully...");
   server.close(() => console.log("Server closed"));
   await prisma.$disconnect();
+});
+
+// Last-resort safety net: log and exit cleanly rather than leaving the process
+// in an undefined state (route-handler errors already go through errorHandler
+// above; this only catches things outside that boundary).
+process.on("uncaughtException", (err) => {
+  console.error("[fatal] uncaughtException", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[fatal] unhandledRejection", reason);
+  process.exit(1);
 });

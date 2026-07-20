@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, AlertTriangle, TrendingDown, Package, Check, type LucideIcon } from "lucide-react";
 import { api } from "../lib/api";
-import { Card, CardBody, Badge, Button, Spinner, EmptyState } from "../components/ui";
+import { Card, CardBody, Badge, Button, Spinner, EmptyState, ErrorState } from "../components/ui";
 import { timeAgo } from "../lib/utils";
 import type { Alert } from "../lib/types";
 
@@ -9,7 +9,7 @@ const ICONS: Record<string, LucideIcon> = { revenue_drop: TrendingDown, profit_d
 
 export default function Alerts() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["alerts"], queryFn: () => api.get<{ alerts: Alert[]; unread: number }>("/alerts") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["alerts"], queryFn: () => api.get<{ alerts: Alert[]; unread: number }>("/alerts") });
 
   async function markRead(id: string) { await api.patch(`/alerts/${id}/read`); qc.invalidateQueries({ queryKey: ["alerts"] }); }
 
@@ -17,7 +17,7 @@ export default function Alerts() {
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Alerts</h1><p className="text-sm text-slate-500">Automatically flagged risks and anomalies from your data.</p></div>
 
-      {isLoading ? <Spinner /> : !data?.alerts.length ? <EmptyState icon={Bell} title="No alerts" description="We'll flag revenue drops, inventory shortages, and unusual performance here." /> : (
+      {isError ? <ErrorState message="Could not load alerts." retry={() => refetch()} /> : isLoading ? <Spinner /> : !data?.alerts.length ? <EmptyState icon={Bell} title="No alerts" description="We'll flag revenue drops, inventory shortages, and unusual performance here." /> : (
         <div className="space-y-2">
           {data.alerts.map((a) => {
             const Icon = ICONS[a.type] ?? Bell;

@@ -11,6 +11,7 @@ interface Issue { id: string; type: string; column: string | null; affectedRows:
 interface Quality { qualityScore: number; rowCount: number; columnCount: number; issues: Issue[]; }
 interface Preview { columns: string[]; rows: Record<string, unknown>[]; total: number; cleaned: boolean; }
 interface Schema { schemaMap: Record<string, string>; columns: { name: string; type: string; semantic: string }[]; }
+interface DatasetMeta { id: string; name: string; fileName: string; status: string; rowCount: number; columnCount: number; qualityScore: number; }
 
 export default function DatasetDetail() {
   const { datasetId } = useParams();
@@ -21,7 +22,7 @@ export default function DatasetDetail() {
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [cleaning, setCleaning] = useState(false);
 
-  const meta = useQuery({ queryKey: ["dataset", datasetId], queryFn: () => api.get<{ dataset: any }>(`/datasets/${datasetId}`) });
+  const meta = useQuery({ queryKey: ["dataset", datasetId], queryFn: () => api.get<{ dataset: DatasetMeta }>(`/datasets/${datasetId}`) });
   const preview = useQuery({ queryKey: ["preview", datasetId], queryFn: () => api.get<Preview>(`/datasets/${datasetId}/preview`) });
   const quality = useQuery({ queryKey: ["quality", datasetId], queryFn: () => api.get<Quality>(`/datasets/${datasetId}/quality`) });
   const schema = useQuery({ queryKey: ["schema", datasetId], queryFn: () => api.get<Schema>(`/datasets/${datasetId}/schema`) });

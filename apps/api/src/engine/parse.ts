@@ -40,10 +40,22 @@ function parseCsv(buffer: Buffer): ParsedFile {
   }
 }
 
+// XLSX files are zip-compressed: a small file can decompress into a huge sheet
+// (zip-bomb pattern). Cap the decoded sheet's cell count before materializing
+// it into a JS array, so an oversized file fails fast instead of OOM-ing.
+const MAX_CELLS = 2_000_000;
+
 function parseXlsx(buffer: Buffer): ParsedFile {
   try {
     const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
     const sheet = wb.Sheets[wb.SheetNames[0]];
+    if (sheet["!ref"]) {
+      const range = XLSX.utils.decode_range(sheet["!ref"]);
+      const cellCount = (range.e.r - range.s.r + 1) * (range.e.c - range.s.c + 1);
+      if (cellCount > MAX_CELLS) {
+        throw new Error(`Sheet is too large to process (${cellCount.toLocaleString()} cells, max ${MAX_CELLS.toLocaleString()}). Split the file into smaller sheets.`);
+      }
+    }
     const rows = XLSX.utils.sheet_to_json<Row>(sheet, { defval: "", raw: false });
     // Normalize null values to empty string to match CSV behavior
     const normalized = rows.map(r => Object.fromEntries(
