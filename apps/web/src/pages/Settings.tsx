@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, Plus, KeyRound, ShieldAlert } from "lucide-react";
@@ -126,9 +126,9 @@ function ApiKeysTab() {
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
         {can("ADMIN") && (
           <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
-            <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
-            <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
+            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
+            <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
+            <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, key: e.target.value })} /></div>
             <Button onClick={add} disabled={!form.name || !form.provider || form.key.length < 8}>Add key</Button>
           </div>
         )}
@@ -140,8 +140,19 @@ function ApiKeysTab() {
 function PreferencesTab() {
   const { theme, toggle } = useTheme();
   return (
-    <Card><CardHeader title="Preferences" /><CardBody className="max-w-md space-y-4">
-      <div className="flex items-center justify-between"><div><div className="font-medium">Theme</div><div className="text-sm text-slate-500">Current: {theme}</div></div><Button variant="outline" onClick={toggle}>Switch to {theme === "dark" ? "light" : "dark"}</Button></div>
-    </CardBody></Card>
+    <Card>
+      <CardHeader title="Preferences" />
+      <CardBody className="max-w-md space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="font-medium">Theme</div>
+            <div className="text-sm text-slate-500">Current: {theme}</div>
+          </div>
+          <Button variant="outline" onClick={toggle}>
+            Switch to {theme === "dark" ? "light" : "dark"}
+          </Button>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
