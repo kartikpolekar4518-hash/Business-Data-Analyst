@@ -4,7 +4,6 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { env } from "../env.js";
 
 export const settingsRouter = Router();
 settingsRouter.use(requireAuth);
@@ -16,7 +15,7 @@ settingsRouter.get("/", wrap(async (req, res) => {
     select: { id: true, name: true, provider: true, lastFour: true, createdAt: true }, // keyHash never returned
     orderBy: { createdAt: "desc" },
   });
-  res.json({ organization: org, apiKeys, aiEnabled: env.aiEnabled, role: req.auth!.role });
+  res.json({ organization: org, apiKeys, role: req.auth!.role });
 }));
 
 const patchSchema = z.object({ organizationName: z.string().min(1).optional() });
@@ -28,7 +27,7 @@ settingsRouter.patch("/", requireRole("ADMIN"), wrap(async (req, res) => {
 }));
 
 // --- API key management (stored hashed, never returned) ---
-const keySchema = z.object({ name: z.string().min(1), provider: z.string().default("openai"), key: z.string().min(8) });
+const keySchema = z.object({ name: z.string().min(1), provider: z.string().min(1), key: z.string().min(8) });
 
 settingsRouter.post("/api-keys", requireRole("ADMIN"), wrap(async (req, res) => {
   const { name, provider, key } = keySchema.parse(req.body);

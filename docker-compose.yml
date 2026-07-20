@@ -25,7 +25,6 @@ services:
       # The API refuses to boot with this default when NODE_ENV=production.
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       JWT_EXPIRES_IN: 7d
-      OPENAI_API_KEY: ""
       APP_URL: http://localhost:5173
       PORT: 4000
     ports:

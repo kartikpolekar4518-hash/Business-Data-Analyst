@@ -7,9 +7,6 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   appUrl: process.env.APP_URL ?? "http://localhost:5173",
   maxFileSize: Number(process.env.MAX_FILE_SIZE ?? 15 * 1024 * 1024),
-  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
-  openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
-  aiEnabled: Boolean(process.env.OPENAI_API_KEY),
 };
 
 // Fail fast: never sign tokens with a secret that is published in this repo.

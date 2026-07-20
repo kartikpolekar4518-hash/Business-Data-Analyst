@@ -104,9 +104,9 @@ function ApiKeysTab() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ apiKeys: { id: string; name: string; provider: string; lastFour: string }[]; aiEnabled: boolean }>("/settings") });
-  const [form, setForm] = useState({ name: "", key: "" });
-  const add = async () => { try { await api.post("/settings/api-keys", { ...form, provider: "openai" }); toast("Key added securely", "success"); qc.invalidateQueries({ queryKey: ["settings"] }); setForm({ name: "", key: "" }); } catch { toast("Failed", "error"); } };
+  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ apiKeys: { id: string; name: string; provider: string; lastFour: string }[] }>("/settings") });
+  const [form, setForm] = useState({ name: "", provider: "", key: "" });
+  const add = async () => { try { await api.post("/settings/api-keys", form); toast("Key added securely", "success"); qc.invalidateQueries({ queryKey: ["settings"] }); setForm({ name: "", provider: "", key: "" }); } catch { toast("Failed", "error"); } };
   const remove = async (id: string, name: string) => {
     if (!confirm(`Delete the API key "${name}"? This cannot be undone.`)) return;
     await api.del(`/settings/api-keys/${id}`); qc.invalidateQueries({ queryKey: ["settings"] });
@@ -115,7 +115,7 @@ function ApiKeysTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-        The platform runs on a built-in <strong>deterministic analyst</strong> — no API key required. Add an LLM key here only if you want to plug one in later. Keys are stored <strong>hashed</strong> and never returned.
+        DecisionIQ needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong>hashed</strong> and never returned.
       </div>
       <Card><CardHeader title="API keys" /><CardBody className="space-y-3">
         {data?.apiKeys.length ? data.apiKeys.map((k) => (
@@ -126,9 +126,10 @@ function ApiKeysTab() {
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
         {can("ADMIN") && (
           <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="OpenAI prod" /></div>
-            <div className="flex-1"><Label>Secret key</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="sk-…" /></div>
-            <Button onClick={add} disabled={!form.name || form.key.length < 8}>Add key</Button>
+            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
+            <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
+            <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
+            <Button onClick={add} disabled={!form.name || !form.provider || form.key.length < 8}>Add key</Button>
           </div>
         )}
       </CardBody></Card>

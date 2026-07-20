@@ -1,39 +1,39 @@
-# DecisionIQ — Business Decision Intelligence Platform
+# DecisionIQ — Deterministic Decision Intelligence Platform
 
-Upload business data → get automated dashboards, forecasts, alerts, a natural-language analyst you can chat with, and board-ready PDF reports. Multi-tenant, role-based, and works out of the box with included sample retail data.
+Upload business data → get automated dashboards, forecasts, alerts, a
+natural-language query interface, and board-ready PDF reports. Multi-tenant,
+role-based, works out of the box with sample retail data.
 
-> **No external API or AI key required — ever.** DecisionIQ runs entirely on a **built-in deterministic analytics engine**: schema detection, data-quality profiling, natural-language → structured intent, forecasting, and insight generation. It's fast, private, fully offline-capable, and free to run. There is no LLM dependency.
-
----
-
-## Why deterministic over AI/LLM?
-
-Most "AI analytics" tools are wrappers around a language model — unpredictable, expensive to run, and impossible to audit. DecisionIQ takes the opposite approach:
-
-- **Every answer is traceable.** The analytics layer converts natural-language queries into a validated structured intent, then executes it through a controlled query layer. No arbitrary code execution, no hallucinated numbers.
-- **No vendor lock-in.** The engine is pure TypeScript with zero external service dependencies.
-- **Auditable and testable.** Each engine module (`parse`, `profile`, `schema`, `intent`, `forecast`, `insights`) is a pure function you can read, unit-test, and run offline.
-- **Consistent results.** Same data + same question = same answer, every time.
-
-An LLM provider interface (`engine/provider.ts`) exists as an optional extension point if you want to experiment with one later — but it is not used and not needed.
+> **Every result is deterministic and reproducible.** No LLM, no cloud
+> inference service, no non-determinism. Run the same query on the same
+> dataset a million times and you get the same answer a million times.
+> Schema detection, data profiling, natural-language intent parsing,
+> forecasting, and recommendations are all real code you can read, unit
+> test, audit, and run offline.
 
 ---
+
+## Why deterministic
+
+- **Auditable.** Every KPI, forecast, and recommendation has a code path you can read, step through, and unit-test. There is no model that produced the answer — the answer *is* the code path.
+- **Reproducible.** Same input, same output, forever. Regulator-friendly and compatible with financial-controls review.
+- **Private.** Data never leaves your infrastructure. Nothing is sent to a third-party inference service.
+- **Free at rest.** No per-token cost, no rate limits, no vendor bills.
+- **Fast.** Sub-100ms responses on typical business datasets — no network round-trip to a foreign model.
 
 ## Features
 
-- **Auth & organizations** — signup/login/logout, forgot + reset password, JWT, role-based access (ADMIN / MANAGER / VIEWER), full tenant isolation by `organizationId`.
-- **Data upload** — drag & drop CSV/XLSX/XLS, parsed, profiled, and quality-checked automatically. Upload history with row/column counts and a quality score.
-- **Data-quality engine** — detects missing values, duplicates, empty columns, numeric-in-text, outliers, whitespace, inconsistent case/dates, suspicious column names. Accept/reject cleaning suggestions; the **original file is never modified**.
-- **Schema detection** — deterministically maps columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory…) using rule-based logic, no model inference.
-- **Auto dashboards** — KPIs (revenue, profit, orders, customers, growth) with period-over-period comparison, plus revenue/profit trends and product/customer/region/category rankings. Generated dynamically from the detected schema — not hardcoded to one dataset.
-- **Analytics** — filter by region/state/category/department/product/customer + date range; filters live in the URL so a view is shareable. Data table + CSV export.
-- **Chat with your data** — ask in plain English ("top 10 customers", "which month had the highest sales", "predict next month's revenue"). Questions are converted to a **validated structured intent** and executed through the controlled analytics layer. No LLM, no arbitrary SQL.
-- **Forecasting** — linear-trend model with a widening 95% confidence band. Service abstraction is swappable for statistical or Python backends later.
-- **Insights & alerts** — recommendations that separate *observed data* from *possible cause* from *recommended action*; auto-alerts for revenue drops, profit decline, inventory shortage, forecast risk, unusual performance.
+- **Auth & organizations** — signup / login / logout, forgot + reset password, JWT, role-based access (ADMIN / MANAGER / VIEWER), full tenant isolation by `organizationId`.
+- **Data upload** — drag & drop CSV/XLSX/XLS, parsed, profiled, and quality-checked on ingest.
+- **Data-quality engine** — detects missing values, duplicates, empty columns, numeric-in-text, statistical outliers, whitespace, inconsistent case/dates, suspicious column names. Accept/reject cleaning suggestions; the **original file is never modified**.
+- **Schema detection** — rule-based mapping of columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory, …).
+- **Auto dashboards** — KPIs (revenue, profit, margin, orders, customers) with period-over-period comparison, plus revenue/profit trends and product/customer/region/category rankings. Generated dynamically from the detected schema — never hardcoded to one dataset.
+- **Analytics** — filter by date range, region, state, category, department, product, customer; filters live in the URL so a view is shareable. Data table + CSV export.
+- **Natural-language queries** — ask in plain English ("top 10 customers", "which month had the highest sales", "which products are declining"). Questions are matched to a **structured intent** by rules and regex, then executed through a controlled analytics layer. Every routing decision is a code branch — no model interpretation.
+- **Forecasting** — linear-regression trend with a residual-based 95% confidence band that widens with horizon.
+- **Insights & alerts** — recommendations that separate *observed data* from *possible cause* from *recommendation*; automatic alerts for revenue drops, profit decline, inventory shortage, forecast risk, and unusual performance.
 - **Executive reports** — structured report + server-side **PDF export**.
-- **Settings** — company profile, user management, API-key management (stored **hashed**, never returned), theme (dark/light).
-
----
+- **Settings** — company profile, user management, API-key vault (stored **hashed**, never returned), theme (dark/light).
 
 ## Architecture
 
@@ -42,62 +42,50 @@ apps/
   api/                       Express + TypeScript REST API
     prisma/                  schema, migrations, seed, sample-data generator
     src/
-      engine/                deterministic analytics core — pure, testable functions
-        parse.ts             CSV/XLSX → typed row arrays
-        profile.ts           data profiling + quality-issue detection
-        schema.ts            business-semantic column detection + row cleaning
-        analytics.ts         controlled query layer (KPIs, time series, group-by)
-        intent.ts            natural language → validated intent → answer
-        forecast.ts          linear-regression forecasting with confidence intervals
-        insights.ts          recommendation generation + alert seeds
-        provider.ts          optional AI provider abstraction (unused by default)
-      auth/                  JWT middleware, requireAuth, requireRole
-      modules/               one router per domain (uploads, datasets, analytics, ai, …)
-  web/                       React + Vite + TypeScript + Tailwind + Recharts + TanStack Query
+      engine/                deterministic core — pure, testable functions
+        parse.ts             CSV/XLSX -> rows
+        profile.ts           profiling + data-quality issues
+        schema.ts            business-semantic detection + row cleaning
+        analytics.ts         controlled analytics query layer (KPIs, series, group-by)
+        intent.ts            natural-language -> structured intent -> answer
+        forecast.ts          linear-regression forecasting with confidence band
+        insights.ts          recommendations + alert seeds (first-half vs. second-half analysis)
+        selfcheck.ts         runnable assert-based regression suite
+      auth/                  JWT, requireAuth, requireRole
+      modules/               one router per domain (uploads, datasets, analytics, ai, ...)
+  web/                       React + Vite + TS + Tailwind + Recharts + TanStack Query
     src/{components,pages,lib}
 ```
 
-**Design decisions:**
-- Parsed rows are stored as JSON on `Dataset` — correct and simple for files up to ~100k rows. Move to a columnar warehouse if scale demands it.
-- Deterministic engine over LLM — the entire "analytics AI" surface is real, readable, testable code that runs with no internet connection.
-
----
+**Design choices (kept intentionally lean):**
+- Parsed rows are stored as JSON on `Dataset` rather than a per-cell table — correct and simple for MVP-scale files. Move to a columnar warehouse if datasets exceed ~100k rows.
+- One deterministic implementation, no provider abstraction. Predictability *is* the product.
 
 ## Tech stack
 
-| Layer | Technologies |
-|-------|-------------|
-| **Frontend** | React 18, TypeScript, Vite, Tailwind CSS, Recharts, React Router v6, TanStack Query, lucide-react |
-| **Backend** | Node 20+, Express, TypeScript, Zod, JWT, bcrypt, multer, papaparse, xlsx, pdfkit |
-| **Database** | PostgreSQL 14+ + Prisma ORM |
-| **Engine** | Pure TypeScript — no external AI/ML dependencies |
-
----
+**Frontend:** React, TypeScript, Vite, Tailwind, Recharts, React Router, TanStack Query, lucide-react.
+**Backend:** Node, Express, TypeScript, Zod, JWT, bcrypt, multer, papaparse, xlsx, pdfkit.
+**Database:** PostgreSQL + Prisma.
 
 ## Prerequisites
 
 - Node 20+ (tested on 22)
 - PostgreSQL 14+ (or Docker)
 
----
-
 ## Environment variables
 
 Copy `.env.example` → `apps/api/.env`:
 
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `DATABASE_URL` | Postgres connection string | — |
-| `JWT_SECRET` | Secret for signing JWTs | — |
-| `JWT_EXPIRES_IN` | Token lifetime | `7d` |
-| `APP_URL` | Web origin for CORS | `http://localhost:5173` |
-| `PORT` | API port | `4000` |
-| `MAX_FILE_SIZE` | Max upload size in bytes | `15728640` (15 MB) |
-| `OPENAI_API_KEY` | **Not used.** Optional future extension only. | — |
+| Var | Purpose |
+|-----|---------|
+| `DATABASE_URL` | Postgres connection string |
+| `JWT_SECRET` | Secret for signing JWTs (required in production) |
+| `JWT_EXPIRES_IN` | Token lifetime (e.g. `7d`) |
+| `APP_URL` | Web origin(s) for CORS (default `http://localhost:5173`) |
+| `PORT` | API port (default `4000`) |
+| `MAX_FILE_SIZE` | Max upload bytes (default 15 MB) |
 
----
-
-## Quick start — Docker (one command)
+## Quick start (Docker, one command)
 
 Requires only [Docker Desktop](https://www.docker.com/products/docker-desktop/).
 
@@ -107,133 +95,98 @@ cd Business-Data-Analyst
 docker compose up --build
 ```
 
-Wait for `DecisionIQ API listening on :4000`, then open **http://localhost:5173** and log in with the demo credentials below. Database, migrations, seed data, API, and web UI all start automatically.
+Wait for `DecisionIQ API listening on :4000`, then open **http://localhost:4000** and log in with `admin@decisioniq.dev` / `password123`. Database, migrations, demo data, API, and web UI all start automatically.
 
----
-
-## Quick start — local development
+## Quick start (local development)
 
 ```bash
-# 1. Start Postgres (Docker) — or point DATABASE_URL at your own instance
-docker compose up -d db
-
-# 2. Configure environment
-cp .env.example apps/api/.env   # edit DATABASE_URL and JWT_SECRET at minimum
-
-# 3. Install dependencies
-npm install
-
-# 4. Set up the database
-npm run prisma:generate --workspace apps/api   # generate Prisma client
-npm run db:migrate                             # create tables
-npm run db:seed                                # seed demo org, users, retail dataset
-
-# 5. Start both apps (or run each in its own terminal)
-npm run dev          # api → :4000 and web → :5173
+docker compose up -d db                # Start Postgres (or point DATABASE_URL at your own)
+cp .env.example apps/api/.env          # Set at least JWT_SECRET
+npm run setup                          # install + prisma generate + migrate + seed
+npm run dev                            # api → :4000, web → :5173
 ```
 
-Open **http://localhost:5173** and sign in with a demo account.
+## Sample login credentials
 
----
+Seeded into the **Acme Retail (Demo)** workspace (password `password123`):
 
-## Demo credentials
+| Role | Email | Can |
+|------|-------|-----|
+| ADMIN | `admin@decisioniq.dev` | everything: users, settings, API keys, uploads, reports, chat |
+| MANAGER | `manager@decisioniq.dev` | uploads, analytics, chat, reports, forecasts |
+| VIEWER | `viewer@decisioniq.dev` | view dashboards, reports, analytics |
 
-Seeded into the **Acme Retail (Demo)** workspace — password `password123` for all accounts:
+The seed imports a realistic ~1,800-row retail dataset (18 months, 4 regions, 14 products) and writes it to `apps/api/src/sample/retail_sales.csv` so you can re-upload it through the UI.
 
-| Role | Email | Access |
-|------|-------|--------|
-| ADMIN | `admin@decisioniq.dev` | Everything: users, settings, API keys, uploads, reports, analytics |
-| MANAGER | `manager@decisioniq.dev` | Uploads, analytics, reports, forecasts |
-| VIEWER | `viewer@decisioniq.dev` | View dashboards, reports, analytics |
-
-The seed imports a realistic ~1,800-row retail dataset (18 months, 4 regions, 14 products) and also writes it to `apps/api/src/sample/retail_sales.csv` so you can re-upload it through the UI to test the data pipeline.
-
----
-
-## Database
-
-- **Models:** User, Organization, OrganizationMember, PasswordResetToken, Dataset, DataQualityIssue, Report, Forecast, Alert, AIConversation, AIMessage, ApiKey, ActivityLog — all UUIDs, `createdAt`/`updatedAt`, org-scoped, indexed, cascading FKs.
-- **Migrate (dev):** `npm run db:migrate`
-- **Migrate (prod):** `npx prisma migrate deploy --prefix apps/api`
-- **Seed:** `npm run db:seed`
-
----
-
-## API reference
+## API overview
 
 ```
-Auth        POST /api/auth/{signup,login,logout,forgot-password,reset-password}
-            GET  /api/auth/me
-
-Orgs        GET|PATCH /api/organizations/current
-
-Users       GET    /api/users
-            POST   /api/users/invite
-            PATCH  /api/users/:id/role
-            DELETE /api/users/:id
-
-Uploads     POST|GET         /api/uploads
-            GET|DELETE       /api/uploads/:id
-
-Datasets    GET  /api/datasets/:id/{preview,quality,schema}
-            POST /api/datasets/:id/clean
-
-Analytics   GET /api/analytics/{overview,revenue,profit,products,customers,regions,table}
-
-Chat        POST /api/ai/chat              (rate-limited; deterministic engine)
-            GET  /api/ai/insights
-            GET  /api/ai/conversations[/:id]
-
-Forecasts   POST|GET /api/forecasts
-
-Reports     POST /api/reports/generate
-            GET  /api/reports[/:id]
-            GET  /api/reports/:id/pdf
-
-Alerts      GET   /api/alerts
-            PATCH /api/alerts/:id/read
-
-Settings    GET|PATCH /api/settings
-            POST|DELETE /api/settings/api-keys[/:id]
+Auth       POST /api/auth/{signup,login,logout,forgot-password,reset-password}
+           GET  /api/auth/me
+Orgs       GET|PATCH /api/organizations/current
+Users      GET  /api/users
+           POST /api/users/invite
+           PATCH /api/users/:id/role
+           DELETE /api/users/:id
+Uploads    POST|GET /api/uploads
+           DELETE   /api/uploads/:id
+Datasets   GET  /api/datasets/:id/{preview,quality,schema}
+           POST /api/datasets/:id/clean
+Analytics  GET  /api/analytics/{overview,revenue,profit,products,customers,regions,table}
+Query      POST /api/ai/chat          (deterministic NL intent parser)
+           GET  /api/ai/insights      (rule-based dashboard headline + recommendations)
+           GET  /api/ai/conversations[/:id]
+Forecasts  POST|GET /api/forecasts
+Reports    POST /api/reports/generate
+           GET  /api/reports[/:id]
+           GET  /api/reports/:id/pdf
+Alerts     GET  /api/alerts
+           PATCH /api/alerts/:id/read
+Settings   GET|PATCH /api/settings
+           POST|DELETE /api/settings/api-keys[/:id]
 ```
 
----
+> The `/api/ai/*` route prefix is retained for API stability; nothing under it invokes an AI model. The chat endpoint parses natural language with rules + regex and dispatches to the analytics layer.
 
-## Engine self-check
+## Tests
 
-The deterministic engine ships with an assert-based self-test (no test framework required):
+The engine ships with a runnable regression suite (assert-based, no framework):
 
 ```bash
 npx tsx apps/api/src/engine/selfcheck.ts
 ```
 
----
+Covers profiling, schema detection, KPI period-over-period math, row cleaning, NL intent routing, forecasting, and insight derivation. Every bug fixed in this codebase gets a new assert.
+
+## Prisma / database
+
+- Models: `User`, `Organization`, `OrganizationMember`, `PasswordResetToken`, `Dataset`, `DataQualityIssue`, `Report`, `Forecast`, `Alert`, `AIConversation`, `AIMessage`, `ApiKey`, `ActivityLog` — all UUIDs, `createdAt` / `updatedAt`, org-scoped, indexed, cascading FKs.
+- `AIConversation` / `AIMessage` are historical names for the chat-log tables; they store user messages and the deterministic engine's structured responses. No model outputs are stored.
+- Migrate (dev): `npm run db:migrate`
+- Migrate (prod): `npx prisma migrate deploy --schema apps/api/prisma/schema.prisma`
+- Seed: `npm run db:seed`
 
 ## Extending the engine
 
-All analytics logic lives in `apps/api/src/engine/`. Each file is a pure TypeScript module:
+All analytics logic lives in `apps/api/src/engine/`. Each file is a pure TypeScript module — no I/O, no randomness, no external services.
 
 | File | Responsibility |
-|------|---------------|
+|------|----------------|
 | `parse.ts` | CSV/XLSX → typed row arrays |
 | `profile.ts` | Missing values, outliers, duplicates, type mismatches |
 | `schema.ts` | Column → business-semantic mapping (revenue, date, region, …) |
 | `analytics.ts` | KPI computation, time series, group-by aggregations |
+| `statistics.ts` | Numerical primitives (mean, variance, quantiles, distributions, gamma/beta) |
 | `intent.ts` | Natural-language query → structured intent → answer |
-| `forecast.ts` | Linear trend + 95% confidence interval |
+| `forecast.ts` | Linear trend + residual-based 95% confidence interval |
 | `insights.ts` | Recommendations and alert generation |
-| `provider.ts` | Optional AI provider interface (implement here if you add an LLM) |
 
-To add a new insight type, extend `insights.ts`. To support a new column semantic, add a rule in `schema.ts`. Everything is plain TypeScript with no side effects.
-
----
+Add a new insight in `insights.ts`; add a new column semantic in `schema.ts`; add a new NL intent branch in `intent.ts`. Every change gets a regression assert in `selfcheck.ts`.
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---------|-----|
-| `Can't reach database` | Check Postgres is running and `DATABASE_URL` is correct. `docker compose up -d db`. |
-| `No dataset found` on dashboard | Run `npm run db:seed`, or upload a file on `/data`. |
-| Prisma client out of date | `npm run prisma:generate --workspace apps/api` |
-| CORS errors in the browser | Set `APP_URL` in `apps/api/.env` to your web origin. |
-| Fonts don't load offline | Google Fonts are used with a system-font fallback — cosmetic only. |
+- **`Can't reach database`** — is Postgres running and does `DATABASE_URL` match? `docker compose up -d db`.
+- **`No dataset found` on the dashboard** — run the seed, or upload a file on `/data`.
+- **Prisma client out of date** — `npm run prisma:generate --workspace apps/api`.
+- **CORS errors** — set `APP_URL` to your web origin.
+- **Fonts don't load offline** — the app uses Google Fonts with a system-font fallback; purely cosmetic.

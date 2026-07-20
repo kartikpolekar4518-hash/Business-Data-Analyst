@@ -4,7 +4,7 @@ import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
-import { getProvider, aiConfigMessage } from "../engine/provider.js";
+import { answer } from "../engine/intent.js";
 import { deriveInsights } from "../engine/insights.js";
 import * as A from "../engine/analytics.js";
 
@@ -20,7 +20,7 @@ aiRouter.get("/insights", wrap(async (req, res) => {
   const headline = g === null
     ? `Revenue totals $${Math.round(ov.revenue.value).toLocaleString()} across the dataset.`
     : `Revenue ${g >= 0 ? "grew" : "declined"} ${Math.abs(g)}% period-over-period, at a ${ov.profitMargin}% profit margin.`;
-  res.json({ headline, configMessage: aiConfigMessage, recommendations });
+  res.json({ headline, recommendations });
 }));
 
 const chatSchema = z.object({
@@ -36,8 +36,7 @@ aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) =>
   const { message, datasetId, conversationId } = chatSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
 
-  const provider = getProvider();
-  const result = await provider.answer(message, rows, schema);
+  const result = answer(message, rows, schema);
 
   // Persist conversation + both messages.
   const convo = conversationId
@@ -52,7 +51,7 @@ aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) =>
     data: { conversationId: conversation.id, role: "assistant", content: result.explanation, data: result as object },
   });
 
-  res.json({ conversationId: conversation.id, provider: provider.name, configMessage: aiConfigMessage, message: { id: assistant.id, ...result } });
+  res.json({ conversationId: conversation.id, message: { id: assistant.id, ...result } });
 }));
 
 aiRouter.get("/conversations", wrap(async (req, res) => {

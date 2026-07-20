@@ -22,7 +22,7 @@ app.disable("x-powered-by");
 app.use(cors({ origin: env.appUrl.split(",") }));
 app.use(express.json({ limit: "2mb" }));
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, aiEnabled: env.aiEnabled }));
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // (Credential endpoints are rate-limited inside authRouter — /auth/me stays unthrottled
 // since every app load calls it and offices share NAT IPs.)
@@ -32,7 +32,7 @@ app.use("/api/users", usersRouter);
 app.use("/api/uploads", uploadsRouter);
 app.use("/api/datasets", datasetsRouter);
 app.use("/api/analytics", analyticsRouter);
-// AI endpoints are rate-limited (cheap deterministic engine today, but protects a future LLM).
+// NL-query endpoints are rate-limited to bound work on abusive callers (deterministic engine, but each request re-runs analytics).
 app.use("/api/ai", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }), aiRouter);
 app.use("/api/forecasts", forecastingRouter);
 app.use("/api/reports", reportsRouter);
@@ -50,4 +50,4 @@ if (existsSync(webDist)) {
 
 app.use(errorHandler);
 
-app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port} (AI ${env.aiEnabled ? "enabled" : "deterministic"})`));
+app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port}`));

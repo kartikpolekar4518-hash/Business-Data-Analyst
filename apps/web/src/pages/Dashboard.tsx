@@ -10,7 +10,7 @@ import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "..
 
 export default function Dashboard() {
   const ov = useQuery({ queryKey: ["overview"], queryFn: () => api.get<OverviewResponse>("/analytics/overview"), retry: false });
-  const insights = useQuery({ queryKey: ["insights"], queryFn: () => api.get<{ headline: string; configMessage: string | null; recommendations: Recommendation[] }>("/ai/insights"), retry: false });
+  const insights = useQuery({ queryKey: ["insights"], queryFn: () => api.get<{ headline: string; recommendations: Recommendation[] }>("/ai/insights"), retry: false });
   const datasets = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
   const reports = useQuery({ queryKey: ["reports"], queryFn: () => api.get<{ reports: { id: string; title: string; createdAt: string }[] }>("/reports") });
   const alerts = useQuery({ queryKey: ["alerts"], queryFn: () => api.get<{ alerts: Alert[] }>("/alerts") });
@@ -37,7 +37,6 @@ export default function Dashboard() {
           <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-brand-600" />
           <div>
             <p className="text-sm font-medium text-brand-900 dark:text-brand-200">{insights.data.headline}</p>
-            {insights.data.configMessage && <p className="mt-1 text-xs text-brand-700/70 dark:text-brand-300/70">{insights.data.configMessage}</p>}
           </div>
         </div>
       )}

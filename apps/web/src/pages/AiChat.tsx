@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, User, BarChart3 } from "lucide-react";
+import { Send, Sparkles, User } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { Card, CardBody, Button, Input, Badge } from "../components/ui";
 import { BarRankChart, TrendChart } from "../components/charts";
@@ -22,7 +22,6 @@ export default function AiChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>();
-  const [config, setConfig] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [turns, loading]);
@@ -31,8 +30,8 @@ export default function AiChat() {
     if (!question.trim() || loading) return;
     setTurns((t) => [...t, { role: "user", text: question }]); setInput(""); setLoading(true);
     try {
-      const r = await api.post<{ conversationId: string; configMessage: string | null; message: ChatMessage }>("/ai/chat", { message: question, conversationId });
-      setConversationId(r.conversationId); setConfig(r.configMessage);
+      const r = await api.post<{ conversationId: string; message: ChatMessage }>("/ai/chat", { message: question, conversationId });
+      setConversationId(r.conversationId);
       setTurns((t) => [...t, { role: "assistant", text: r.message.explanation, result: r.message }]);
     } catch (e) {
       setTurns((t) => [...t, { role: "assistant", text: e instanceof ApiError ? e.message : "Something went wrong. Upload a dataset first." }]);
@@ -84,7 +83,6 @@ export default function AiChat() {
         <div ref={endRef} />
       </div>
 
-      {config && <p className="mb-2 flex items-center gap-1 text-xs text-slate-400"><BarChart3 className="h-3 w-3" />{config}</p>}
       <form onSubmit={(e) => { e.preventDefault(); ask(input); }} className="flex gap-2">
         <Input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your data…" className="flex-1" />
         <Button type="submit" loading={loading} disabled={!input.trim()} aria-label="Send question"><Send className="h-4 w-4" /></Button>
