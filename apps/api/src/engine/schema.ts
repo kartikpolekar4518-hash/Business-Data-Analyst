@@ -104,5 +104,20 @@ function issueForCol(issues: QualityIssue[], type: string, col: string): boolean
 }
 
 function titleCase(s: string): string {
-  return s.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+  // Capitalize first letter of each word, but preserve known proper-name patterns
+  // like "McDonald", "O'Brien", "van der Waals", "de la Cruz", etc.
+  // General approach: lower-case the whole string, then uppercase first char of each word,
+  // then re-apply common proper-name prefixes/suffixes.
+  const words = s.toLowerCase().split(/(\s+)/);
+  const result = words.map((w) => {
+    // If it's whitespace, return as-is
+    if (/^\s+$/.test(w)) return w;
+    if (!w) return w;
+    // Capitalize first letter
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }).join("");
+
+  // Re-apply known proper-name patterns after title-casing
+  // "Mc" + Upper (e.g., McDonald, McKenzie)
+  return result.replace(/\bMc([a-z])/g, (_, c) => `Mc${c.toUpperCase()}`);
 }

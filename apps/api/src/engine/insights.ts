@@ -112,10 +112,12 @@ function halfSplit(rows: Row[], s: SchemaMap): { first: Row[]; second: Row[] } {
   if (!s.date) return { first: [], second: [] };
   const dated = rows.map((r) => ({ r, d: A.parseDate(r[s.date!]) })).filter((x) => x.d) as { r: Row; d: Date }[];
   dated.sort((a, b) => a.d.getTime() - b.d.getTime());
-  const mid = Math.floor(dated.length / 2);
+  // Find the midpoint date (median date) and split on that boundary
+  const midDate = dated[Math.floor(dated.length / 2)].d;
   const first: Row[] = [], second: Row[] = [];
-  for (let i = 0; i < dated.length; i++) {
-    (i < mid ? first : second).push(dated[i].r);
+  for (const item of dated) {
+    if (item.d < midDate) first.push(item.r);
+    else second.push(item.r);
   }
   return { first, second };
 }

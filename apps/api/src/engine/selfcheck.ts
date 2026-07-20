@@ -49,7 +49,7 @@ assert(ov.orders.changePct === 0, `orders change should be distinct-order based 
 
 // 4. Cleaning removes the duplicate and trims/normalizes — original untouched.
 const numericCols = new Set(profile.columns.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
-const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues as any, numericCols);
+const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues, numericCols);
 assert(cleaned.length === 4, `duplicate removed, expected 4 rows got ${cleaned.length}`);
 assert(rows.length === 5, "original rows unchanged");
 assert(cleaned.every((r) => r.customer_name !== " bo "), "whitespace trimmed");

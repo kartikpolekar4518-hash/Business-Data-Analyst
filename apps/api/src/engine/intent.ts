@@ -25,6 +25,11 @@ export interface ChatResult {
   confidence: number;
 }
 
+// Build a word-boundary regex from a word. Ensures "profit" does not match "profitability".
+function wordMatch(word: string): RegExp {
+  return new RegExp(`\\b${word}\\b`, "i");
+}
+
 const METRIC_WORDS: Record<string, string> = {
   revenue: "revenue", sales: "revenue", income: "revenue",
   profit: "profit", margin: "profit",
@@ -41,12 +46,12 @@ const DIM_WORDS: Record<string, Semantic> = {
 };
 
 function pickMetric(q: string, s: SchemaMap): "revenue" | "profit" | "quantity" | "orders" {
-  for (const [w, m] of Object.entries(METRIC_WORDS)) if (q.includes(w)) return m as any;
+  for (const [w, m] of Object.entries(METRIC_WORDS)) if (wordMatch(w).test(q)) return m as any;
   if (s.revenue || s.sales) return "revenue";
   return "orders";
 }
 function pickDimension(q: string): Semantic | null {
-  for (const [w, d] of Object.entries(DIM_WORDS)) if (q.includes(w)) return d;
+  for (const [w, d] of Object.entries(DIM_WORDS)) if (wordMatch(w).test(q)) return d;
   return null;
 }
 function pickLimit(q: string, def = 10): number {
