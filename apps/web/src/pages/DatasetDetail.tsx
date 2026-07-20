@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ShieldCheck, Wand2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, ErrorState, useToast } from "../components/ui";
 import { num } from "../lib/utils";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
@@ -41,6 +41,12 @@ export default function DatasetDetail() {
   }
 
   const d = meta.data?.dataset;
+  if (meta.isError) return (
+    <div className="space-y-6">
+      <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
+      <ErrorState message="Could not load this dataset." retry={() => meta.refetch()} />
+    </div>
+  );
   return (
     <div className="space-y-6">
       <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
@@ -54,7 +60,7 @@ export default function DatasetDetail() {
       {tab === "preview" && (
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
           <CardBody className="overflow-x-auto p-0">
-            {!preview.data ? <Spinner /> : (
+            {preview.isError ? <ErrorState message="Could not load the data preview." retry={() => preview.refetch()} /> : !preview.data ? <Spinner /> : (
               <table className="w-full text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
                   <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
@@ -77,7 +83,7 @@ export default function DatasetDetail() {
           <CardHeader title="Data Quality Report" subtitle="Review and apply cleaning suggestions. The original file is never modified."
             action={can("ADMIN", "MANAGER") && fixable.length ? <div className="flex gap-2"><Button variant="outline" onClick={acceptAllSafe}>Accept all safe</Button><Button loading={cleaning} disabled={!accepted.size} onClick={applyClean}><Wand2 className="h-4 w-4" />Apply ({accepted.size})</Button></div> : undefined} />
           <CardBody className="space-y-2">
-            {!quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
+            {quality.isError ? <ErrorState message="Could not load the quality report." retry={() => quality.refetch()} /> : !quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
               <div className="flex items-center gap-2 py-6 text-sm text-emerald-600"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
             ) : quality.data.issues.map((i) => (
               <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40">
@@ -100,7 +106,7 @@ export default function DatasetDetail() {
       {tab === "schema" && (
         <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
           <CardBody className="overflow-x-auto p-0">
-            {!schema.data ? <Spinner /> : (
+            {schema.isError ? <ErrorState message="Could not load the detected schema." retry={() => schema.refetch()} /> : !schema.data ? <Spinner /> : (
               <table className="w-full text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">

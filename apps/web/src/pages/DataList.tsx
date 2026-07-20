@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button } from "../components/ui";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
 import type { DatasetSummary } from "../lib/types";
 

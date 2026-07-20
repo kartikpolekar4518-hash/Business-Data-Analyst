@@ -28,9 +28,10 @@ export default function SettingsPage() {
 function OrgTab() {
   const { can } = useAuth();
   const { toast } = useToast();
-  const { data } = useQuery({ queryKey: ["org"], queryFn: () => api.get<{ organization: { name: string; memberCount: number } }>("/organizations/current") });
+  const { data, isError, refetch } = useQuery({ queryKey: ["org"], queryFn: () => api.get<{ organization: { name: string; memberCount: number } }>("/organizations/current") });
   const [name, setName] = useState("");
   const save = async () => { try { await api.patch("/organizations/current", { name: name || data?.organization.name }); toast("Saved", "success"); } catch { toast("Failed", "error"); } };
+  if (isError) return <ErrorState message="Could not load organization settings." retry={() => refetch()} />;
   return (
     <Card><CardHeader title="Company profile" /><CardBody className="max-w-md space-y-4">
       <div><Label>Organization name</Label><Input defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
@@ -45,7 +46,7 @@ function UsersTab() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const { data } = useQuery({ queryKey: ["users"], queryFn: () => api.get<{ users: { membershipId: string; id: string; name: string; email: string; role: Role }[] }>("/users") });
+  const { data, isError, refetch } = useQuery({ queryKey: ["users"], queryFn: () => api.get<{ users: { membershipId: string; id: string; name: string; email: string; role: Role }[] }>("/users") });
 
   const changeRole = async (id: string, role: Role) => { await api.patch(`/users/${id}/role`, { role }); qc.invalidateQueries({ queryKey: ["users"] }); toast("Role updated", "success"); };
   const remove = async (id: string, name: string) => {
@@ -54,6 +55,7 @@ function UsersTab() {
     catch (e) { toast(e instanceof ApiError ? e.message : "Could not remove member", "error"); }
   };
 
+  if (isError) return <ErrorState message="Could not load team members." retry={() => refetch()} />;
   return (
     <Card>
       <CardHeader title="Team members" subtitle={`${data?.users.length ?? 0} members`} action={can("ADMIN") && <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" />Invite</Button>} />
@@ -104,7 +106,7 @@ function ApiKeysTab() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ apiKeys: { id: string; name: string; provider: string; lastFour: string }[] }>("/settings") });
+  const { data, isError, refetch } = useQuery({ queryKey: ["settings"], queryFn: () => api.get<{ apiKeys: { id: string; name: string; provider: string; lastFour: string }[] }>("/settings") });
   const [form, setForm] = useState({ name: "", provider: "", key: "" });
   const add = async () => { try { await api.post("/settings/api-keys", form); toast("Key added securely", "success"); qc.invalidateQueries({ queryKey: ["settings"] }); setForm({ name: "", provider: "", key: "" }); } catch { toast("Failed", "error"); } };
   const remove = async (id: string, name: string) => {
@@ -112,6 +114,7 @@ function ApiKeysTab() {
     await api.del(`/settings/api-keys/${id}`); qc.invalidateQueries({ queryKey: ["settings"] });
   };
 
+  if (isError) return <ErrorState message="Could not load API keys." retry={() => refetch()} />;
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">

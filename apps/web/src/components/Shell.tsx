@@ -18,8 +18,6 @@ import {
   ChevronRight,
   User,
   Shield,
-  HelpCircle,
-  Keyboard,
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -386,20 +384,6 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   <User className="h-4 w-4 text-slate-400" />
                   Profile
                 </NavLink>
-                <button
-                  role="menuitem"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <Keyboard className="h-4 w-4 text-slate-400" />
-                  Keyboard shortcuts
-                </button>
-                <button
-                  role="menuitem"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <HelpCircle className="h-4 w-4 text-slate-400" />
-                  Help & support
-                </button>
               </div>
 
               <hr className="mx-2 mt-1 border-border dark:border-slate-700" />

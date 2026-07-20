@@ -19,10 +19,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const res = await fetch(`/api${path}`, { method, headers, body: payload });
   if (res.status === 204) return undefined as T;
   const isJson = res.headers.get("content-type")?.includes("application/json");
-  const data = isJson ? await res.json() : await res.blob();
+  const data: unknown = isJson ? await res.json() : await res.blob();
   if (!res.ok) {
     if (res.status === 401 && !path.startsWith("/auth")) { setToken(null); location.href = "/login"; }
-    throw new ApiError(res.status, (data as any)?.error || res.statusText, (data as any)?.details);
+    const errBody = isJson ? (data as { error?: string; details?: unknown }) : undefined;
+    throw new ApiError(res.status, errBody?.error || res.statusText, errBody?.details);
   }
   return data as T;
 }

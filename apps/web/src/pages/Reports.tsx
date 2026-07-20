@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Download, Plus, Eye } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Modal, Badge, useToast } from "../components/ui";
+import { Card, CardBody, Button, Spinner, EmptyState, Modal, Badge, useToast } from "../components/ui";
 import { money, num, timeAgo } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }

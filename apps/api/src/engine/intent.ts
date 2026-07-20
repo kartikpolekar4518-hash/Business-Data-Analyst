@@ -62,13 +62,18 @@ function pickLimit(q: string, def = 10): number {
 
 const METRIC_LABEL: Record<string, string> = { revenue: "Revenue", profit: "Profit", quantity: "Quantity", orders: "Orders" };
 
+// Time series only supports revenue/profit/orders — fold "quantity" into the closest series metric.
+function seriesMetric(metric: "revenue" | "profit" | "quantity" | "orders"): "revenue" | "profit" | "orders" {
+  return metric === "orders" ? "orders" : metric === "profit" ? "profit" : "revenue";
+}
+
 export function answer(question: string, rows: Row[], s: SchemaMap): ChatResult {
   const q = question.toLowerCase();
   const metric = pickMetric(q, s);
 
   // --- forecast / prediction ---
   if (/(predict|forecast|next month|next quarter|projection|will be)/.test(q)) {
-    const series = A.timeSeries(rows, s, metric === "orders" ? "orders" : metric === "profit" ? "profit" : "revenue");
+    const series = A.timeSeries(rows, s, seriesMetric(metric));
     if (series.length < 2) return fallback(question, "Not enough time-based history to forecast.");
     const fc = forecast(series.map((p) => ({ period: p.period, value: p.value })), 3);
     const next = fc.points[0];
@@ -84,7 +89,7 @@ export function answer(question: string, rows: Row[], s: SchemaMap): ChatResult 
 
   // --- highest / lowest period ("which month had the highest sales") ---
   if (/(which|what).*(month|period|day).*(highest|most|best|top|lowest|worst|least)/.test(q) || /(highest|lowest|best|worst).*(month|quarter|week|day|period)/.test(q)) {
-    const series = A.timeSeries(rows, s, metric === "orders" ? "orders" : metric === "profit" ? "profit" : "revenue");
+    const series = A.timeSeries(rows, s, seriesMetric(metric));
     if (!series.length) return fallback(question, "No date column detected to analyse by month.");
     const worst = /lowest|worst|least/.test(q);
     const best = [...series].sort((x, y) => (worst ? x.value - y.value : y.value - x.value))[0];
@@ -156,7 +161,7 @@ export function answer(question: string, rows: Row[], s: SchemaMap): ChatResult 
   // --- top N by dimension (default) ---
   const dim = pickDimension(q) ?? (s.customer_name ? "customer_name" : s.product_name ? "product_name" : "region");
   if (dim === "date") {
-    const series = A.timeSeries(rows, s, metric === "orders" ? "orders" : metric === "profit" ? "profit" : "revenue");
+    const series = A.timeSeries(rows, s, seriesMetric(metric));
     return {
       intent: { intent: "trend", metrics: [metric], dimensions: ["date"], filters: {}, limit: series.length, visualization: "line" },
       explanation: `${METRIC_LABEL[metric]} over time, by month.`,
