@@ -20,7 +20,7 @@ export async function loadDataset(organizationId: string, datasetId?: string) {
     : await prisma.dataset.findFirst({ where: { organizationId }, orderBy: { createdAt: "desc" }, ...meta });
   if (!dataset) throw new HttpError(404, "No dataset found. Upload data to get started.");
 
-  const key = `${dataset.id}:${dataset.updatedAt.getTime()}`;
+  const key = `${organizationId}:${dataset.id}:${dataset.updatedAt.getTime()}`;
   let rows = rowCache.get(key);
   if (!rows) {
     const blobs = await prisma.dataset.findUniqueOrThrow({ where: { id: dataset.id }, select: { rows: true, cleanedRows: true } });

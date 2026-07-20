@@ -69,7 +69,8 @@ authRouter.post("/forgot-password", wrap(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   let devToken: string | undefined;
   if (user) {
-    const token = randomUUID();
+    // Generate a cryptographically secure, URL-safe token
+    const token = randomUUID().replace(/-/g, "").substring(0, 32);
     await prisma.passwordResetToken.create({
       data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
     });

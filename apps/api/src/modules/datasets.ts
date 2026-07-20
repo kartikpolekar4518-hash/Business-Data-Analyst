@@ -48,12 +48,21 @@ const cleanSchema = z.object({ acceptedTypes: z.array(z.string()) });
 // Apply accepted cleaning suggestions -> new cleanedRows, re-profile, re-detect schema.
 // Original rows are never modified.
 datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
-  const d = await getOwned(req.auth!.organizationId, req.params.id);
   const { acceptedTypes } = cleanSchema.parse(req.body);
+  const orgId = req.auth!.organizationId;
+  const datasetId = req.params.id;
+  
+  // Fetch dataset + issues in a single transaction to prevent race conditions
+  const [d, issues] = await prisma.$transaction([
+    prisma.dataset.findFirst({ where: { id: datasetId, organizationId: orgId } }),
+    prisma.dataQualityIssue.findMany({ where: { datasetId } }),
+  ]);
+  
+  if (!d) throw new HttpError(404, "Dataset not found");
+  
   const originalRows = d.rows as Row[];
   const columnsList = (d.columns as any[]) || [];
   const columns = columnsList.map((c: any) => c.name);
-  const issues = await prisma.dataQualityIssue.findMany({ where: { datasetId: d.id } });
 
   const numericColumns = new Set(columnsList
     .filter((c: any) => c.type === "number" || c.type === "currency").map((c: any) => c.name));

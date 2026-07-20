@@ -26,7 +26,8 @@ const upload = multer({
   limits: { fileSize: env.maxFileSize },
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(new HttpError(400, `Invalid file type '${file.mimetype}'. Upload CSV or Excel files only."));
+      console.warn(`[upload] Rejected invalid MIME type: ${file.mimetype}`);
+      cb(new HttpError(400, `Invalid file type '${file.mimetype}'. Upload CSV or Excel files only.`));
     } else {
       cb(null, true);
     }
@@ -48,7 +49,16 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
 
   const profile = profileDataset(parsed.rows, parsed.columns);
   const { map, columns } = detectSchema(profile.columns);
-  const fileExt = originalname.split(".").pop()?.toLowerCase() ?? "csv";
+  
+  // Extract and validate file extension
+  let fileExt = "csv";
+  if (originalname.includes(".")) {
+    fileExt = originalname.split(".").pop()!.toLowerCase();
+    if (!["csv", "xlsx", "xls"].includes(fileExt)) {
+      console.warn(`[upload] Invalid file extension: ${fileExt}`);
+      throw new HttpError(400, `Invalid file extension '.${fileExt}'. Upload CSV or Excel files only.`);
+    }
+  }
 
   const dataset = await prisma.dataset.create({
     data: {
