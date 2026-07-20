@@ -14,7 +14,7 @@ body {
 }
 
 .dark body {
-  background-color: #09090b;
+  background-color: #0a0a0b;
   @apply text-slate-100;
 }
 
@@ -31,12 +31,5 @@ body {
   @keyframes slidein {
     from { opacity: 0; transform: translateY(6px) scale(0.99); }
     to   { opacity: 1; transform: none; }
-  }
-
-  /* glass surface for cards in dark mode */
-  .glass-dark {
-    background: rgba(255, 255, 255, 0.03);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
   }
 }
