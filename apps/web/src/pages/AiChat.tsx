@@ -15,8 +15,6 @@ const SUGGESTIONS = [
   "What region is growing fastest?",
 ];
 
-const ASSISTANT_GRADIENT = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)";
-
 interface Turn { role: "user" | "assistant"; text: string; result?: ChatMessage; }
 
 export default function AiChat() {
@@ -62,21 +60,21 @@ export default function AiChat() {
         )}
         {turns.map((t, i) => t.role === "user" ? (
           <div key={i} className="flex justify-end gap-2">
-            <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-br from-brand-500 to-brand-700 px-4 py-2.5 text-[13.5px] text-white shadow-sm shadow-brand-700/20">{t.text}</div>
+            <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-brand-600 px-4 py-2.5 text-[13.5px] text-white shadow-sm-soft">{t.text}</div>
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-white/[0.06]"><User className="h-4 w-4 text-slate-500 dark:text-slate-400" /></div>
           </div>
         ) : (
           <div key={i} className="flex gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white" style={{ background: ASSISTANT_GRADIENT }}><Sparkles className="h-4 w-4" /></div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-white"><Sparkles className="h-4 w-4" /></div>
             <div className="max-w-[85%] space-y-3">
-              <div className="rounded-2xl rounded-tl-sm border border-slate-200/70 bg-white px-4 py-3 text-[13.5px] shadow-card dark:border-white/[0.07] dark:bg-[#111118]">
+              <div className="rounded-2xl rounded-tl-sm border border-slate-200/70 bg-white px-4 py-3 text-[13.5px] shadow-sm-soft dark:border-white/[0.07] dark:bg-[#111113]">
                 <p className="text-slate-700 dark:text-slate-200">{t.text}</p>
                 {t.result && t.result.confidence > 0 && <div className="mt-2"><Badge tone={t.result.confidence >= 0.7 ? "green" : t.result.confidence >= 0.4 ? "amber" : "slate"}>Confidence {Math.round(t.result.confidence * 100)}%</Badge></div>}
               </div>
               {t.result?.metrics && t.result.metrics.length > 0 && !t.result.chart && (
                 <div className="flex flex-wrap gap-2">
                   {t.result.metrics.map((m) => (
-                    <div key={m.label} className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 dark:border-white/[0.07] dark:bg-[#111118]">
+                    <div key={m.label} className="rounded-xl border border-slate-200/70 bg-white px-3 py-2 dark:border-white/[0.07] dark:bg-[#111113]">
                       <div className="text-[11px] text-slate-400">{m.label}</div>
                       <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{num(m.value)}</div>
                     </div>
@@ -103,8 +101,8 @@ export default function AiChat() {
         ))}
         {loading && (
           <div className="flex gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full text-white" style={{ background: ASSISTANT_GRADIENT }}><Sparkles className="h-4 w-4 animate-pulse" /></div>
-            <div className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 text-[13.5px] text-slate-400 shadow-card dark:border-white/[0.07] dark:bg-[#111118]">Analyzing…</div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-white"><Sparkles className="h-4 w-4 animate-pulse" /></div>
+            <div className="rounded-2xl border border-slate-200/70 bg-white px-4 py-3 text-[13.5px] text-slate-400 shadow-sm-soft dark:border-white/[0.07] dark:bg-[#111113]">Analyzing…</div>
           </div>
         )}
         <div ref={endRef} />

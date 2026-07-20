@@ -49,7 +49,7 @@ export default function DataList() {
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition-colors ${drag ? "border-brand-400 bg-brand-50 dark:border-brand-500/50 dark:bg-brand-950/20" : "border-slate-200 hover:border-brand-300 dark:border-white/10 dark:hover:border-brand-500/40"}`}>
           {uploading
             ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
-            : <div className="rounded-xl p-3" style={{ background: "linear-gradient(135deg, rgba(167,139,250,0.12), rgba(109,40,217,0.06))" }}><UploadCloud className="h-6 w-6 text-brand-500" /></div>
+            : <div className="rounded-xl bg-brand-50 p-3 dark:bg-brand-500/10"><UploadCloud className="h-6 w-6 text-brand-600 dark:text-brand-400" /></div>
           }
           <p className="mt-3.5 text-[14px] font-semibold text-slate-800 dark:text-slate-100">{uploading ? "Analyzing your data…" : "Drag & drop a file, or click to browse"}</p>
           <p className="mt-1 text-[12.5px] text-slate-400">CSV, XLSX or XLS · up to 15 MB</p>

@@ -7,8 +7,6 @@ import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
 
-const AVATAR_GRADIENT = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)";
-
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
@@ -73,7 +71,7 @@ function UsersTab() {
         <div className="divide-y divide-slate-100 dark:divide-white/[0.05]">
           {data?.users.map((u) => (
             <div key={u.membershipId} className="flex items-center gap-3 px-5 py-3.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white" style={{ background: AVATAR_GRADIENT }}>{u.name[0]}</div>
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-[13px] font-semibold text-white">{u.name[0]}</div>
               <div className="flex-1">
                 <div className="text-[13.5px] font-semibold text-slate-800 dark:text-slate-100">{u.name} {u.id === user?.id && <span className="text-[11px] font-normal text-slate-400">(you)</span>}</div>
                 <div className="text-[11.5px] text-slate-400">{u.email}</div>

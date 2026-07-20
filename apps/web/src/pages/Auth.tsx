@@ -5,12 +5,6 @@ import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
 import { Button, Input, Label, ErrorState } from "../components/ui";
 
-const LOGO_GRADIENT   = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 60%, #6d28d9 100%)";
-const PANEL_GRADIENT  = "linear-gradient(160deg, #07030f 0%, #110522 45%, #0d1040 100%)";
-const GLOW_1          = "radial-gradient(ellipse at 25% 55%, rgba(139, 92, 246, 0.22) 0%, transparent 55%)";
-const GLOW_2          = "radial-gradient(ellipse at 75% 15%, rgba(99, 102, 241, 0.12) 0%, transparent 45%)";
-const GLOW_3          = "radial-gradient(ellipse at 50% 90%, rgba(109, 40, 217, 0.08) 0%, transparent 40%)";
-
 const FEATURES = [
   { icon: BarChart3,    label: "Auto dashboards",  desc: "Instant charts from any CSV" },
   { icon: MessageSquare, label: "AI chat",          desc: "Ask questions in plain English" },
@@ -21,83 +15,45 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle: st
   return (
     <div className="grid min-h-full lg:grid-cols-2">
       {/* Brand panel */}
-      <div
-        className="relative hidden flex-col justify-between overflow-hidden p-12 text-white lg:flex"
-        style={{ background: PANEL_GRADIENT }}
-      >
-        {/* Layered glows */}
-        <div className="pointer-events-none absolute inset-0" style={{ background: GLOW_1 }} />
-        <div className="pointer-events-none absolute inset-0" style={{ background: GLOW_2 }} />
-        <div className="pointer-events-none absolute inset-0" style={{ background: GLOW_3 }} />
-
-        {/* Subtle grid overlay */}
-        <div
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-          }}
-        />
-
+      <div className="hidden flex-col justify-between bg-[#0a0a0b] p-12 text-white lg:flex">
         {/* Logo */}
-        <div className="relative flex items-center gap-2.5">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-white shadow-lg"
-            style={{ background: LOGO_GRADIENT }}
-          >
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
             <BrainCircuit className="h-5 w-5" />
           </div>
           <span className="text-xl font-bold tracking-tight">DecisionIQ</span>
         </div>
 
         {/* Hero */}
-        <div className="relative">
-          <h1 className="text-[40px] font-bold leading-[1.15] tracking-tight text-white">
-            Turn business data<br />
-            <span
-              className="bg-clip-text text-transparent"
-              style={{ backgroundImage: "linear-gradient(90deg, #c4b5fd, #a78bfa)" }}
-            >
-              into decisions.
-            </span>
+        <div>
+          <h1 className="text-[38px] font-bold leading-[1.15] tracking-tight text-white">
+            Turn business data<br />into decisions.
           </h1>
           <p className="mt-4 max-w-sm text-[14.5px] leading-relaxed text-slate-400">
             Upload a spreadsheet and get automated dashboards, forecasts, alerts, and an AI analyst that answers questions in plain English — no data team required.
           </p>
 
-          {/* Feature pills */}
-          <div className="mt-10 grid grid-cols-3 gap-3">
+          {/* Feature list */}
+          <div className="mt-10 divide-y divide-white/[0.08] border-t border-white/[0.08]">
             {FEATURES.map((f) => (
-              <div
-                key={f.label}
-                className="rounded-xl p-3"
-                style={{
-                  background: "rgba(255,255,255,0.04)",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  backdropFilter: "blur(8px)",
-                }}
-              >
-                <f.icon className="h-5 w-5 text-brand-300 mb-2" />
-                <p className="text-[12.5px] font-semibold text-white leading-tight">{f.label}</p>
-                <p className="mt-0.5 text-[11px] text-slate-500">{f.desc}</p>
+              <div key={f.label} className="flex items-center gap-3 py-3.5">
+                <f.icon className="h-4 w-4 shrink-0 text-brand-400" />
+                <p className="text-[13px] font-medium text-white">{f.label}</p>
+                <p className="ml-auto text-[12px] text-slate-500">{f.desc}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative text-[11px] text-slate-600">© {new Date().getFullYear()} DecisionIQ</p>
+        <p className="text-[11px] text-slate-600">© {new Date().getFullYear()} DecisionIQ</p>
       </div>
 
       {/* Form panel */}
-      <div className="flex items-center justify-center p-6 bg-white dark:bg-[#09090b]">
+      <div className="flex items-center justify-center p-6 bg-white dark:bg-[#0a0a0b]">
         <div className="w-full max-w-[360px]">
           {/* Mobile logo */}
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-white"
-              style={{ background: LOGO_GRADIENT }}
-            >
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white">
               <BrainCircuit className="h-4 w-4" />
             </div>
             <span className="text-lg font-bold tracking-tight">DecisionIQ</span>

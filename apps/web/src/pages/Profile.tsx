@@ -1,8 +1,6 @@
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Badge } from "../components/ui";
 
-const AVATAR_GRADIENT = "linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)";
-
 export default function Profile() {
   const { user, organization, role } = useAuth();
   return (
@@ -12,7 +10,7 @@ export default function Profile() {
         <CardHeader title="Your account" />
         <CardBody className="space-y-5">
           <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full text-2xl font-semibold text-white shadow-lg shadow-brand-700/20" style={{ background: AVATAR_GRADIENT }}>
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-600 text-2xl font-semibold text-white">
               {user?.name?.[0]}
             </div>
             <div>

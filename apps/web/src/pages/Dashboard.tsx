@@ -52,28 +52,20 @@ export default function Dashboard() {
 
       {/* AI insight banner */}
       {insights.data && (
-        <div
-          className="relative flex items-start gap-3.5 overflow-hidden rounded-xl p-4"
-          style={{
-            background: "linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(109,40,217,0.04) 100%)",
-            border: "1px solid rgba(139,92,246,0.18)",
-          }}
-        >
-          <div
-            className="pointer-events-none absolute inset-0 opacity-30"
-            style={{ background: "radial-gradient(ellipse at 0% 50%, rgba(167,139,250,0.15), transparent 60%)" }}
-          />
-          <div className="mt-0.5 shrink-0 rounded-lg p-1.5" style={{ background: "rgba(124,58,237,0.12)" }}>
-            <Sparkles className="h-4 w-4 text-brand-500" />
+        <div className="flex items-start gap-3.5 rounded-xl border border-slate-200/70 bg-white p-4 shadow-sm-soft dark:border-white/[0.08] dark:bg-[#111113]">
+          <div className="mt-0.5 shrink-0 rounded-lg bg-brand-50 p-1.5 dark:bg-brand-500/10">
+            <Sparkles className="h-4 w-4 text-brand-600 dark:text-brand-400" />
           </div>
-          <p className="relative text-[13.5px] font-medium text-slate-700 dark:text-slate-200">
+          <p className="text-[13.5px] font-medium text-slate-700 dark:text-slate-200">
             {insights.data.headline}
           </p>
         </div>
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">Overview</p>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         {!o
           ? Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-28" />)
           : <>
@@ -84,38 +76,44 @@ export default function Dashboard() {
               <KpiCard label="Margin"    value={`${o.profitMargin}%`}         icon={Percent}                   tooltip="Profit as a share of revenue." />
             </>
         }
+        </div>
       </div>
 
       {/* Charts */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader title="Revenue Trend" subtitle="Monthly" />
-          <CardBody>{ov.data ? <TrendChart data={ov.data.revenueTrend} /> : <Skeleton className="h-64" />}</CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Profit Trend" subtitle="Monthly" />
-          <CardBody>{ov.data ? <TrendChart data={ov.data.profitTrend} color="#10b981" /> : <Skeleton className="h-64" />}</CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Top Products" subtitle="By revenue" />
-          <CardBody>
-            {ov.data?.topProducts.length
-              ? <BarRankChart data={ov.data.topProducts} />
-              : <p className="py-8 text-center text-[13px] text-slate-400">No product column detected</p>}
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title="Region Performance" subtitle="By revenue" />
-          <CardBody>
-            {ov.data?.regions.length
-              ? <BarRankChart data={ov.data.regions} />
-              : <p className="py-8 text-center text-[13px] text-slate-400">No region column detected</p>}
-          </CardBody>
-        </Card>
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">Performance</p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader title="Revenue Trend" subtitle="Monthly" />
+            <CardBody>{ov.data ? <TrendChart data={ov.data.revenueTrend} /> : <Skeleton className="h-64" />}</CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="Profit Trend" subtitle="Monthly" />
+            <CardBody>{ov.data ? <TrendChart data={ov.data.profitTrend} color="#10b981" /> : <Skeleton className="h-64" />}</CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="Top Products" subtitle="By revenue" />
+            <CardBody>
+              {ov.data?.topProducts.length
+                ? <BarRankChart data={ov.data.topProducts} />
+                : <p className="py-8 text-center text-[13px] text-slate-400">No product column detected</p>}
+            </CardBody>
+          </Card>
+          <Card>
+            <CardHeader title="Region Performance" subtitle="By revenue" />
+            <CardBody>
+              {ov.data?.regions.length
+                ? <BarRankChart data={ov.data.regions} />
+                : <p className="py-8 text-center text-[13px] text-slate-400">No region column detected</p>}
+            </CardBody>
+          </Card>
+        </div>
       </div>
 
       {/* Recommendations + activity */}
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div>
+        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">Insights</p>
+        <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title="AI Recommendations" subtitle="Generated from your data" />
           <CardBody className="space-y-3">
@@ -207,6 +205,7 @@ export default function Dashboard() {
               }
             </CardBody>
           </Card>
+        </div>
         </div>
       </div>
 
