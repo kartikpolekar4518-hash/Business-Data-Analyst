@@ -37,6 +37,18 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND }: { da
   );
 });
 
+export const Sparkline = memo(function Sparkline({ data, color = BRAND }: { data: { value: number }[]; color?: string }) {
+  const gradientId = useId();
+  return (
+    <ResponsiveContainer width="100%" height={36}>
+      <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.25} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
+        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={1.5} fill={`url(#${gradientId})`} dot={false} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+});
+
 export const BarRankChart = memo(function BarRankChart({ data, horizontal = true }: { data: { label: string; value: number }[]; horizontal?: boolean }) {
   const { grid, tick, tooltipStyle } = useAxis();
   return (

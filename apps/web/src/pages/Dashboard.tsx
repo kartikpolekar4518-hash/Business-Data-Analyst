@@ -25,6 +25,9 @@ import { KpiCard } from "../components/Kpi";
 import { TrendChart, BarRankChart } from "../components/charts";
 import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
 
+// Profit's hue, shared by its KPI sparkline and trend chart so one metric = one color.
+const PROFIT = "#0ea5e9";
+
 const impactBadge = {
   HIGH: { tone: "red" as const, label: "High impact" },
   MEDIUM: { tone: "amber" as const, label: "Medium impact" },
@@ -161,6 +164,7 @@ export default function Dashboard() {
                 changePct={overview.revenue.changePct}
                 icon={DollarSign}
                 accent
+                series={ov.data?.revenueTrend}
                 tooltip="Sum of revenue (or quantity × unit price) across all rows. Comparison splits the data at its median date."
               />
               <KpiCard
@@ -168,6 +172,8 @@ export default function Dashboard() {
                 value={money(overview.profit.value)}
                 changePct={overview.profit.changePct}
                 icon={TrendingUp}
+                series={ov.data?.profitTrend}
+                seriesColor={PROFIT}
                 tooltip="Revenue minus cost. Margin shown separately."
               />
               <KpiCard
@@ -175,6 +181,7 @@ export default function Dashboard() {
                 value={num(overview.orders.value)}
                 changePct={overview.orders.changePct}
                 icon={ShoppingCart}
+                series={ov.data?.orderTrend}
                 tooltip="Distinct order IDs (or row count if no order ID column)."
               />
               <KpiCard
@@ -182,12 +189,14 @@ export default function Dashboard() {
                 value={num(overview.customers.value)}
                 changePct={overview.customers.changePct}
                 icon={Users}
+                series={ov.data?.customerTrend}
                 tooltip="Distinct customers detected in the dataset."
               />
               <KpiCard
                 label="Margin"
                 value={`${overview.profitMargin}%`}
                 icon={Percent}
+                series={ov.data?.marginTrend}
                 tooltip="Profit as a share of revenue."
               />
             </>
@@ -210,7 +219,7 @@ export default function Dashboard() {
           <CardHeader title="Profit Trend" subtitle="Monthly" />
           <CardBody>
             {ov.data ? (
-              <TrendChart data={ov.data.profitTrend} color="#0ea5e9" />
+              <TrendChart data={ov.data.profitTrend} color={PROFIT} />
             ) : (
               <Skeleton className="h-64 w-full" />
             )}

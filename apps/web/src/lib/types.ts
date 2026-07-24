@@ -11,6 +11,7 @@ export interface OverviewResponse {
   schema: Record<string, string>;
   overview: Overview;
   revenueTrend: Point[]; profitTrend: Point[];
+  orderTrend: Point[]; customerTrend: Point[]; marginTrend: Point[];
   topProducts: Rank[]; topCustomers: Rank[]; regions: Rank[]; categories: Rank[];
   filterOptions: Record<string, string[]>;
 }

@@ -119,6 +119,34 @@ export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profi
   return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, value]) => ({ period, value: round(value) }));
 }
 
+// Monthly series for the remaining KPI sparklines, using the same distinct-count /
+// ratio definitions as overview() so each sparkline matches its KPI value.
+export function kpiTrends(rows: Row[], s: SchemaMap, f: Filters = {}) {
+  if (!s.date) return { orders: [], customers: [], margin: [] };
+  const filtered = applyFilters(rows, s, f);
+  const orderCol = s.order_id;
+  const custCol = s.customer_id ?? s.customer_name;
+  const b = new Map<string, { orders: Set<string>; n: number; custs: Set<string>; profit: number; rev: number }>();
+  for (const r of filtered) {
+    const d = parseDate(r[s.date!]);
+    if (!d) continue;
+    const key = monthKey(d);
+    let e = b.get(key);
+    if (!e) { e = { orders: new Set(), n: 0, custs: new Set(), profit: 0, rev: 0 }; b.set(key, e); }
+    e.n++;
+    if (orderCol) e.orders.add(str(r[orderCol]));
+    if (custCol) e.custs.add(str(r[custCol]));
+    e.profit += rowProfit(r, s);
+    e.rev += rowRevenue(r, s);
+  }
+  const periods = [...b.keys()].sort((a, z) => a.localeCompare(z));
+  return {
+    orders: periods.map((p) => ({ period: p, value: orderCol ? b.get(p)!.orders.size : b.get(p)!.n })),
+    customers: periods.map((p) => ({ period: p, value: custCol ? b.get(p)!.custs.size : 0 })),
+    margin: periods.map((p) => { const e = b.get(p)!; return { period: p, value: e.rev ? round((e.profit / e.rev) * 100) : 0 }; }),
+  };
+}
+
 // Generic group-by ranking. dimension is a semantic; metric is revenue/profit/quantity/orders.
 export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: "revenue" | "profit" | "quantity" | "orders", f: Filters = {}, limit = 10) {
   const col = s[dimension];

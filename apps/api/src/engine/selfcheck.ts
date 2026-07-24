@@ -47,6 +47,14 @@ assert(inRange.length === 5, `dateTo must include its own day, expected 5 rows g
 assert(ov.customers.previous === 2, `customers 'previous' should be prior-period distinct count (2), got ${ov.customers.previous}`);
 assert(ov.orders.changePct === 0, `orders change should be distinct-order based (0), got ${ov.orders.changePct}`);
 
+// 3c. KPI sparkline trends match overview definitions: distinct orders/customers per
+// month (the March duplicate row must not inflate the count) and margin as a ratio.
+const trends = A.kpiTrends(rows, map);
+assert(trends.orders.length === 4, `4 monthly buckets, got ${trends.orders.length}`);
+assert(trends.orders.every((p) => p.value === 1), "one distinct order per month (duplicate not double-counted)");
+assert(trends.customers.every((p) => p.value === 1), "one distinct customer per month");
+assert(trends.margin[0].value === 40 && trends.margin[3].value === 0, `margin is profit/revenue % (40 then 0), got ${trends.margin[0].value}/${trends.margin[3].value}`);
+
 // 4. Cleaning removes the duplicate and trims/normalizes — original untouched.
 const numericCols = new Set(profile.columns.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
 const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues, numericCols);

@@ -48,6 +48,7 @@ const groupByDimension = (key: "product_name" | "customer_name" | "region", limi
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const f = filtersFrom(req.query);
+  const trends = A.kpiTrends(rows, schema, f);
   res.json({
     datasetId: dataset.id,
     datasetName: dataset.name,
@@ -55,6 +56,9 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     overview: A.overview(rows, schema, f),
     revenueTrend: A.timeSeries(rows, schema, "revenue", f),
     profitTrend: A.timeSeries(rows, schema, "profit", f),
+    orderTrend: trends.orders,
+    customerTrend: trends.customers,
+    marginTrend: trends.margin,
     topProducts: A.groupBy(rows, schema, "product_name", "revenue", f, 8),
     topCustomers: A.groupBy(rows, schema, "customer_name", "revenue", f, 8),
     regions: A.groupBy(rows, schema, "region", "revenue", f, 10),
