@@ -25,6 +25,7 @@ import {
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
+import { useFocusTrap } from "../lib/useFocusTrap";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
@@ -67,7 +68,9 @@ const NAV_SECTIONS = [
    ───────────────────────────────────────────── */
 function useUnreadAlerts() {
   return useQuery({
-    queryKey: ["alerts", "unread"],
+    // Shares the ["alerts"] cache/request with Dashboard and the Alerts page — the
+    // endpoint returns { alerts, unread } and we read only unread here.
+    queryKey: ["alerts"],
     queryFn: () => api.get<{ unread: number }>("/alerts"),
     refetchInterval: 60000,
   });
@@ -86,43 +89,6 @@ function AlertBadge() {
       {alerts.unread > 99 ? "99+" : alerts.unread}
     </span>
   );
-}
-
-/* ─────────────────────────────────────────────
-   Focus trap hook
-   ───────────────────────────────────────────── */
-function useFocusTrap(active: boolean, containerRef: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    if (!active || !containerRef.current) return;
-
-    const container = containerRef.current;
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    // Focus the first element when activated
-    first?.focus();
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-
-    container.addEventListener("keydown", onKeyDown);
-    return () => container.removeEventListener("keydown", onKeyDown);
-  }, [active, containerRef]);
 }
 
 /* ─────────────────────────────────────────────
@@ -248,16 +214,18 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [menu]);
 
-  // Restore focus when menu closes
+  // Restore focus to the trigger only when the menu closes (not on initial mount)
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
   const handleMenuToggle = useCallback(() => {
     setMenu((m) => !m);
   }, []);
 
   useEffect(() => {
-    if (!menu && triggerRef.current) {
-      triggerRef.current.focus();
+    if (wasOpen.current && !menu) {
+      triggerRef.current?.focus();
     }
+    wasOpen.current = menu;
   }, [menu]);
 
   // Breadcrumb resolution

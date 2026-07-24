@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
   DollarSign,
@@ -31,12 +30,6 @@ const impactBadge = {
   LOW: { tone: "slate" as const, label: "Low impact" },
 } as const;
 
-const severityBadge = {
-  HIGH: { tone: "red" as const, dot: true },
-  MEDIUM: { tone: "amber" as const, dot: true },
-  LOW: { tone: "slate" as const, dot: true },
-} as const;
-
 type InsightIconKey = "growth" | "risk" | "opportunity" | "target" | "default";
 
 const insightIconMap: Record<InsightIconKey, typeof Zap> = {
@@ -47,17 +40,17 @@ const insightIconMap: Record<InsightIconKey, typeof Zap> = {
   default: BrainCircuit,
 };
 
-function InsightIcon({ label }: { label: string }) {
-  const key = useMemo<InsightIconKey>(() => {
-    const lower = label.toLowerCase();
-    if (lower.includes("growth") || lower.includes("revenue") || lower.includes("profit")) return "growth";
-    if (lower.includes("risk") || lower.includes("alert") || lower.includes("decline")) return "risk";
-    if (lower.includes("opportunity") || lower.includes("recommend")) return "opportunity";
-    if (lower.includes("target") || lower.includes("goal")) return "target";
-    return "default";
-  }, [label]);
+function insightIconKey(label: string): InsightIconKey {
+  const lower = label.toLowerCase();
+  if (lower.includes("growth") || lower.includes("revenue") || lower.includes("profit")) return "growth";
+  if (lower.includes("risk") || lower.includes("alert") || lower.includes("decline")) return "risk";
+  if (lower.includes("opportunity") || lower.includes("recommend")) return "opportunity";
+  if (lower.includes("target") || lower.includes("goal")) return "target";
+  return "default";
+}
 
-  const Icon = insightIconMap[key];
+function InsightIcon({ label }: { label: string }) {
+  const Icon = insightIconMap[insightIconKey(label)];
   return <Icon className="h-4 w-4" />;
 }
 
@@ -258,9 +251,11 @@ export default function Dashboard() {
           <CardBody>
             {insights.data?.recommendations.length ? (
               <div className="divide-y divide-border dark:divide-slate-800">
-                {insights.data.recommendations.map((r) => (
+                {insights.data.recommendations.map((r, i) => {
+                  const badge = impactBadge[r.impact] ?? impactBadge.LOW;
+                  return (
                   <div
-                    key={r.title}
+                    key={i}
                     className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
                   >
                     {/* Impact indicator */}
@@ -283,10 +278,10 @@ export default function Dashboard() {
                           {r.title}
                         </h4>
                         <Badge
-                          tone={impactBadge[r.impact].tone}
+                          tone={badge.tone}
                           dot
                         >
-                          {impactBadge[r.impact].label}
+                          {badge.label}
                         </Badge>
                       </div>
 
@@ -309,7 +304,8 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">

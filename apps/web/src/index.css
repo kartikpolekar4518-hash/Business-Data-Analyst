@@ -156,6 +156,20 @@ body {
   }
 }
 
+/* Keyframes for the raw-CSS animations above (.skeleton, .scale-in). Defined here —
+   not only in tailwind.config — because Tailwind's JIT emits a theme keyframe only
+   alongside a used animate-* utility, and neither animate-shimmer nor animate-scale-in
+   is used anywhere. */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes scaleIn {
+  0% { opacity: 0; transform: scale(0.95); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
 /* ✅ Motion preference respect */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

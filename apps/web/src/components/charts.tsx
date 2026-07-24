@@ -62,7 +62,7 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
   const { grid, tick, tooltipStyle } = useAxis();
   const data = [
     ...history.map((h) => ({ label: h.period, actual: h.value })),
-    ...points.map((p) => ({ label: p.period, forecast: p.value, lower: p.lower, upper: p.upper })),
+    ...points.map((p) => ({ label: p.period, forecast: p.value, band: [p.lower, p.upper] as [number, number] })),
   ];
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -71,9 +71,8 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={(v) => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v} />
         <Tooltip contentStyle={tooltipStyle} />
-        {/* Confidence band: render two overlapping areas to create a band effect */}
-        <Area dataKey="upper" stroke="none" fill="#f59e0b" fillOpacity={0.12} />
-        <Area dataKey="lower" stroke="none" fill="#f59e0b" fillOpacity={0.12} />
+        {/* Confidence band: one Area whose value is the [lower, upper] range Recharts fills between */}
+        <Area dataKey="band" stroke="none" fill="#f59e0b" fillOpacity={0.12} />
         <Line dataKey="actual" stroke={BRAND} strokeWidth={2} dot={false} type="monotone" />
         <Line dataKey="forecast" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} type="monotone" />
       </ComposedChart>
