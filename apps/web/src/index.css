@@ -40,7 +40,7 @@ body {
 /* ✅ Focus ring system */
 *:focus-visible {
   @apply outline-none;
-  box-shadow: 0 0 0 3px rgba(51,102,245,0.25);
+  box-shadow: 0 0 0 3px rgba(16,185,129,0.25);
   border-radius: 4px;
 }
 
