@@ -161,7 +161,6 @@ export default function Dashboard() {
                 changePct={overview.revenue.changePct}
                 icon={DollarSign}
                 accent
-                series={ov.data?.revenueTrend}
                 tooltip="Sum of revenue (or quantity × unit price) across all rows. Comparison splits the data at its median date."
               />
               <KpiCard
@@ -169,7 +168,6 @@ export default function Dashboard() {
                 value={money(overview.profit.value)}
                 changePct={overview.profit.changePct}
                 icon={TrendingUp}
-                series={ov.data?.profitTrend}
                 tooltip="Revenue minus cost. Margin shown separately."
               />
               <KpiCard

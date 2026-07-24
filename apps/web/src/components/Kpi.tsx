@@ -1,6 +1,5 @@
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Sparkline } from "./charts";
 
 export function KpiCard({
   label,
@@ -9,7 +8,6 @@ export function KpiCard({
   icon: Icon,
   tooltip,
   accent = false,
-  series,
 }: {
   label: string;
   value: string;
@@ -17,7 +15,6 @@ export function KpiCard({
   icon: LucideIcon;
   tooltip?: string;
   accent?: boolean;
-  series?: { value: number }[];
 }) {
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
@@ -71,13 +68,6 @@ export function KpiCard({
           <span className="ml-0.5 text-slate-400 dark:text-slate-500">
             vs prev. period
           </span>
-        </div>
-      )}
-
-      {/* Sparkline — real trend series when available */}
-      {series && series.length > 1 && (
-        <div className="mt-3 -mx-1">
-          <Sparkline data={series} color={down ? "#ef4444" : "#10b981"} />
         </div>
       )}
 
