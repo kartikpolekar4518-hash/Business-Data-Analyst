@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type { Prisma } from "@prisma/client";
 import multer from "multer";
 import rateLimit from "express-rate-limit";
 import { prisma } from "../prisma.js";
@@ -71,10 +72,10 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
       rowCount: profile.rowCount,
       columnCount: profile.columnCount,
       qualityScore: profile.qualityScore,
-      columns: columns as Record<string, unknown>,
-      schemaMap: map as Record<string, unknown>,
-      profile: profile as Record<string, unknown>,
-      rows: parsed.rows as Record<string, unknown>[],
+      columns: columns as unknown as Prisma.InputJsonValue,
+      schemaMap: map as unknown as Prisma.InputJsonValue,
+      profile: profile as unknown as Prisma.InputJsonValue,
+      rows: parsed.rows as unknown as Prisma.InputJsonValue,
       issues: { create: profile.issues.map((i) => ({ ...i })) },
     },
     include: { issues: true },
