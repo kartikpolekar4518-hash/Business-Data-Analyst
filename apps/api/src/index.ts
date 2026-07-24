@@ -17,6 +17,7 @@ import { forecastingRouter } from "./modules/forecasting.js";
 import { reportsRouter } from "./modules/reports.js";
 import { alertsRouter } from "./modules/alerts.js";
 import { settingsRouter } from "./modules/settings.js";
+import { errorsRouter } from "./modules/errors.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -46,6 +47,8 @@ app.use("/api/forecasts", forecastingRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/settings", settingsRouter);
+// Client error reports are unauthenticated but rate-limited to bound abuse.
+app.use("/api/errors", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }), errorsRouter);
 
 // Serve the built web app if present (single-container / production mode).
 // Non-/api routes fall back to index.html for client-side routing.

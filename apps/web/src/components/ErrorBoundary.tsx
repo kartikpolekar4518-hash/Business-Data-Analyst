@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
+import { api } from "../lib/api";
 
 interface Props {
   children: ReactNode;
@@ -22,6 +23,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Error boundary caught:", error, errorInfo);
+    // Report to the backend for monitoring; ignore failures so error handling never throws.
+    api.post("/errors", {
+      error: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    }).catch(() => {});
   }
 
   render() {
