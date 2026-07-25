@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { assertWithinLimit } from "./billing.js";
 
 export const usersRouter = Router();
 usersRouter.use(requireAuth);
@@ -30,6 +31,7 @@ const inviteSchema = z.object({
 // pulling someone's account into another org would breach tenant isolation.
 usersRouter.post("/invite", requireRole("ADMIN"), wrap(async (req, res) => {
   const auth = req.auth!;
+  await assertWithinLimit(auth.organizationId, "seats");
   const { name, email, password, role } = inviteSchema.parse(req.body);
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) throw new HttpError(409, "A user with this email already exists");

@@ -16,6 +16,7 @@ import { aiRouter } from "./modules/ai.js";
 import { forecastingRouter } from "./modules/forecasting.js";
 import { reportsRouter } from "./modules/reports.js";
 import { alertsRouter } from "./modules/alerts.js";
+import { billingRouter } from "./modules/billing.js";
 import { settingsRouter } from "./modules/settings.js";
 import { INDUSTRIES } from "./engine/industries.js";
 
@@ -50,6 +51,7 @@ app.use("/api/forecasts", forecastingRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/billing", billingRouter);
 
 // Serve the built web app if present (single-container / production mode).
 // Non-/api routes fall back to index.html for client-side routing.

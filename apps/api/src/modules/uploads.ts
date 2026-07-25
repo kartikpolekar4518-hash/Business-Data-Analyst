@@ -10,6 +10,7 @@ import { profileDataset } from "../engine/profile.js";
 import { detectSchema } from "../engine/schema.js";
 import { getPack, suggestIndustry } from "../engine/industries.js";
 import { generateRetailData, generatePharmacyData, generateSaasData } from "../sample/generators.js";
+import { assertWithinLimit } from "./billing.js";
 import { refreshAlerts } from "./alerts.js";
 import { stripRows } from "./context.js";
 
@@ -49,6 +50,7 @@ const uploadLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 
 uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.single("file"), wrap(async (req, res) => {
   const auth = req.auth!;
   if (!req.file) throw new HttpError(400, "No file uploaded");
+  await assertWithinLimit(auth.organizationId, "datasets");
   const { originalname, size, buffer } = req.file;
 
   let parsed;
@@ -102,6 +104,7 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
 // parse->profile->schema pipeline as a real upload.
 uploadsRouter.post("/sample", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const auth = req.auth!;
+  await assertWithinLimit(auth.organizationId, "datasets");
   const org = await prisma.organization.findUnique({ where: { id: auth.organizationId }, select: { industry: true } });
   const set = SAMPLE_SETS[org?.industry ?? "retail"] ?? SAMPLE_SETS.retail;
   const rows = set.rows();

@@ -7,21 +7,86 @@ import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { useIndustries } from "../lib/industries";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
+import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
-  const tabs = [{ id: "organization", label: "Organization" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
+  const tabs = [{ id: "organization", label: "Organization" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500">Manage your workspace, team, and integrations.</p></div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
       {!can("ADMIN") && tab !== "preferences" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
+      {tab === "billing" && <BillingTab />}
       {tab === "users" && <UsersTab />}
       {tab === "api-keys" && <ApiKeysTab />}
       {tab === "preferences" && <PreferencesTab />}
+    </div>
+  );
+}
+
+interface Subscription {
+  plan: string;
+  planStatus: string;
+  limits: { datasets: number; seats: number; reportsPerMonth: number };
+  usage: { datasets: number; seats: number; reportsPerMonth: number };
+  billingConfigured: boolean;
+}
+
+function BillingTab() {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState<string>();
+
+  const sub = useQuery({ queryKey: ["subscription"], queryFn: () => api.get<Subscription>("/billing/subscription") });
+  const plansQ = useQuery({ queryKey: ["plans"], queryFn: () => api.get<{ plans: Plan[] }>("/billing/plans") });
+
+  const select = async (plan: string) => {
+    setBusy(plan);
+    try {
+      const r = await api.post<{ mock?: boolean }>("/billing/checkout", { plan });
+      await qc.invalidateQueries({ queryKey: ["subscription"] });
+      toast(r.mock ? `Switched to the ${plan} plan (demo mode)` : "Redirecting to checkout…", "success");
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Couldn't change plan", "error");
+    } finally {
+      setBusy(undefined);
+    }
+  };
+
+  if (sub.isError || plansQ.isError) return <ErrorState message="Couldn't load billing information." retry={() => { sub.refetch(); plansQ.refetch(); }} />;
+  const s = sub.data;
+  const plans = plansQ.data?.plans ?? [];
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader title="Current plan" subtitle={s ? `You're on the ${s.plan} plan` : undefined} action={s && <Badge tone={s.plan === "free" ? "slate" : "blue"}>{s.plan.toUpperCase()}</Badge>} />
+        <CardBody className="space-y-4">
+          {!s ? <p className="text-sm text-slate-400">Loading…</p> : (
+            <>
+              <UsageMeter label="Datasets" used={s.usage.datasets} limit={s.limits.datasets} />
+              <UsageMeter label="Team members" used={s.usage.seats} limit={s.limits.seats} />
+              <UsageMeter label="Reports this month" used={s.usage.reportsPerMonth} limit={s.limits.reportsPerMonth} />
+              {!s.billingConfigured && (
+                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+                  Payments aren't connected in this environment, so plan changes apply immediately in demo mode. Set <code>STRIPE_SECRET_KEY</code> to enable real checkout.
+                </p>
+              )}
+            </>
+          )}
+        </CardBody>
+      </Card>
+
+      {can("ADMIN") ? (
+        <PlanCards plans={plans} currentPlan={s?.plan} onSelect={select} busyKey={busy} ctaLabel="Switch plan" />
+      ) : (
+        <PlanCards plans={plans} currentPlan={s?.plan} />
+      )}
     </div>
   );
 }
