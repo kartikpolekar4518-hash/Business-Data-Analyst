@@ -18,7 +18,7 @@ import { api } from "../lib/api";
 import { money, num, timeAgo } from "../lib/utils";
 import { industryLabel } from "../lib/industries";
 import { kpiIcon, fmtKpi } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Skeleton, EmptyState, Button, Badge } from "../components/ui";
+import { Card, CardHeader, CardBody, Skeleton, EmptyState, ErrorState, Button, Badge } from "../components/ui";
 import { KpiCard } from "../components/Kpi";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
 import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
@@ -278,7 +278,9 @@ export default function Dashboard() {
             subtitle="Generated from your data"
           />
           <CardBody>
-            {insights.data?.recommendations.length ? (
+            {insights.isError ? (
+              <ErrorState message="Couldn't load recommendations." retry={() => insights.refetch()} />
+            ) : insights.data?.recommendations.length ? (
               <div className="divide-y divide-border dark:divide-white/[0.06]">
                 {insights.data.recommendations.map((r) => {
                   const Icon = insightIconMap[insightKey(r.title)];

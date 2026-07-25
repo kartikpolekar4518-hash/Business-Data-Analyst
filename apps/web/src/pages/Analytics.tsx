@@ -4,7 +4,7 @@ import { Download } from "lucide-react";
 import { api } from "../lib/api";
 import { num } from "../lib/utils";
 import { kpiIcon, fmtKpi } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, Label } from "../components/ui";
+import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, ErrorState, Label } from "../components/ui";
 import { TrendChart, BarRankChart } from "../components/charts";
 import { KpiCard } from "../components/Kpi";
 import { BarChart3 } from "lucide-react";
@@ -98,7 +98,7 @@ export default function Analytics() {
       <Card>
         <CardHeader title="Filtered rows" subtitle={table.data ? `Showing first ${Math.min(100, table.data.rows.length)} of ${num(table.data.total)} rows — CSV export includes up to 500` : undefined} />
         <CardBody className="overflow-x-auto p-0">
-          {!table.data ? <Spinner /> : (
+          {table.isError ? <div className="p-5"><ErrorState message="Couldn't load the filtered rows." retry={() => table.refetch()} /></div> : !table.data ? <Spinner /> : (
             <table className="w-full text-sm">
               <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
