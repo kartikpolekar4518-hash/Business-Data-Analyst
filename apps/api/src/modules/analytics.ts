@@ -55,6 +55,7 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     overview: A.overview(rows, schema, f),
     revenueTrend: A.timeSeries(rows, schema, "revenue", f),
     profitTrend: A.timeSeries(rows, schema, "profit", f),
+    ordersTrend: A.timeSeries(rows, schema, "orders", f),
     topProducts: A.groupBy(rows, schema, "product_name", "revenue", f, 8),
     topCustomers: A.groupBy(rows, schema, "customer_name", "revenue", f, 8),
     regions: A.groupBy(rows, schema, "region", "revenue", f, 10),

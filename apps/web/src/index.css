@@ -18,7 +18,13 @@ body {
 }
 
 .dark body {
-  @apply bg-slate-950 text-slate-100;
+  @apply text-slate-100;
+  background-color: #060a13;
+  background-image:
+    radial-gradient(55rem 55rem at 100% -12%, rgba(89, 140, 255, 0.12), transparent 60%),
+    radial-gradient(48rem 48rem at -12% 8%, rgba(139, 92, 246, 0.10), transparent 58%),
+    radial-gradient(40rem 40rem at 60% 120%, rgba(34, 211, 238, 0.06), transparent 60%);
+  background-attachment: fixed;
 }
 
 /* ✅ Thin scrollbars — modern & unobtrusive */
@@ -74,11 +80,17 @@ body {
   }
 
   .dark .card {
-    @apply border-slate-800 bg-slate-900;
+    @apply border-white/[0.06] bg-slate-900/70 backdrop-blur-sm;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 40px -20px rgba(0, 0, 0, 0.8);
   }
 
   .card:hover {
     @apply shadow-card-hover;
+  }
+
+  .dark .card:hover {
+    @apply border-brand-500/25;
+    box-shadow: 0 0 0 1px rgba(89, 140, 255, 0.12), 0 22px 45px -22px rgba(0, 0, 0, 0.9);
   }
 
   /* ✅ Page header */

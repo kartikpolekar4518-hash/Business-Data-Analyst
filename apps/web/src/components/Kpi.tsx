@@ -1,5 +1,6 @@
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
+import { Sparkline, CHART } from "./charts";
 
 export function KpiCard({
   label,
@@ -8,6 +9,8 @@ export function KpiCard({
   icon: Icon,
   tooltip,
   accent = false,
+  spark,
+  accentColor = CHART.blue,
 }: {
   label: string;
   value: string;
@@ -15,6 +18,8 @@ export function KpiCard({
   icon: LucideIcon;
   tooltip?: string;
   accent?: boolean;
+  spark?: number[];
+  accentColor?: string;
 }) {
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
@@ -23,58 +28,67 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "group relative rounded-xl border bg-white p-5 shadow-card transition-all duration-200",
-        "dark:border-slate-800 dark:bg-slate-900",
+        "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-all duration-200",
+        "dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm dark:hover:border-brand-500/30",
         accent
-          ? "border-brand-200 dark:border-brand-900"
-          : "border-border",
+          ? "border-brand-200 dark:border-brand-500/25"
+          : "border-border dark:border-white/[0.06]",
       )}
     >
+      {/* Accent glow wash on hover (dark) */}
+      <span
+        className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:group-hover:opacity-60"
+        style={{ background: accentColor }}
+        aria-hidden="true"
+      />
+
       {/* Header row: label + icon */}
-      <div className="flex items-center justify-between">
-        <span className="text-[13px] font-medium text-slate-500 dark:text-slate-400">
+      <div className="relative flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {label}
         </span>
         <div
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg",
             accent
-              ? "bg-brand-500 text-white shadow-sm shadow-brand-500/20"
-              : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+              ? "text-white shadow-sm"
+              : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300",
           )}
+          style={accent ? { background: accentColor, boxShadow: `0 4px 14px -4px ${accentColor}` } : undefined}
         >
           <Icon className="h-[16px] w-[16px]" />
         </div>
       </div>
 
       {/* Value */}
-      <div className="mt-3 text-[26px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">
+      <div className="relative mt-3 text-[27px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">
         {value}
       </div>
 
-      {/* Trend indicator */}
-      {changePct != null && (
-        <div
-          className={cn(
-            "mt-2 flex items-center gap-1 text-xs font-medium",
-            up && "text-emerald-600 dark:text-emerald-400",
-            down && "text-red-600 dark:text-red-400",
-            !up && !down && "text-slate-500 dark:text-slate-400",
-          )}
-        >
-          <Trend className="h-3.5 w-3.5" />
-          {changePct > 0 ? "+" : ""}
-          {changePct}%
-          <span className="ml-0.5 text-slate-400 dark:text-slate-500">
-            vs prev. period
+      {/* Bottom row: trend pill + sparkline */}
+      <div className="relative mt-3 flex items-end justify-between gap-2">
+        {changePct != null ? (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold",
+              up && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+              down && "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
+              !up && !down && "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400",
+            )}
+          >
+            <Trend className="h-3.5 w-3.5" />
+            {changePct > 0 ? "+" : ""}
+            {changePct}%
           </span>
-        </div>
-      )}
-
-      {/* Accent stripe at top for primary KPI */}
-      {accent && (
-        <span className="absolute inset-x-0 -top-px mx-auto h-0.5 w-10 rounded-full bg-brand-500" />
-      )}
+        ) : (
+          <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
+        )}
+        {spark && spark.length > 1 && (
+          <div className="opacity-90">
+            <Sparkline data={spark} color={accentColor} />
+          </div>
+        )}
+      </div>
 
       {/* Tooltip */}
       {tooltip && (
