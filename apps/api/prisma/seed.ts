@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { generateRetailData, generatePharmacyData, generateSaasData, toCsv } from "./sampleData.js";
+import { generateRetailData, generatePharmacyData, generateSaasData, toCsv } from "../src/sample/generators.js";
 import { profileDataset } from "../src/engine/profile.js";
 import { detectSchema } from "../src/engine/schema.js";
 import { getPack } from "../src/engine/industries.js";

@@ -56,7 +56,7 @@ export default function Reports() {
         {can("ADMIN", "MANAGER") && <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button>}
       </div>
 
-      {isLoading ? <Spinner /> : !data?.reports.length ? <EmptyState icon={FileText} title="No reports yet" description="Generate an executive report from your latest dataset." /> : (
+      {isLoading ? <Spinner /> : !data?.reports.length ? <EmptyState icon={FileText} title="No reports yet" description={can("ADMIN", "MANAGER") ? "Generate an executive report from your latest dataset." : "Ask an admin or manager to generate a report."} /> : (
         <Card><CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.reports.map((rep) => (
             <div key={rep.id} className="flex items-center gap-3 px-5 py-3">

@@ -44,7 +44,7 @@ export default function Forecasts() {
         <Info className="mt-0.5 h-4 w-4 shrink-0" />Forecasts use a linear-trend model with a 95% confidence band that widens with the horizon. The model can be swapped for a statistical/ML service later without changing this page.
       </div>
 
-      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description="Generate one above to project future performance." /> : (
+      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description={can("ADMIN", "MANAGER") ? "Generate one above to project future performance." : "Ask an admin or manager to create a forecast."} /> : (
         <div className="space-y-4">
           {data.forecasts.map((f) => {
             // "orders" is a count, not currency — format it as a plain number.
