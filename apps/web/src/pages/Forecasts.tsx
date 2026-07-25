@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Button, Select, Label, Spinner, EmptyState, Badge, useToast } from "../components/ui";
 import { ForecastChart } from "../components/charts";
-import { money, timeAgo } from "../lib/utils";
+import { money, timeAgo, cap } from "../lib/utils";
 
 interface Forecast { id: string; metric: string; horizon: number; method: string; history: { period: string; value: number }[]; points: { period: string; value: number; lower: number; upper: number }[]; createdAt: string; }
 
@@ -69,4 +69,3 @@ export default function Forecasts() {
     </div>
   );
 }
-const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

@@ -6,6 +6,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, useToast } from "../components/ui";
 import { num } from "../lib/utils";
+import type { DatasetSummary } from "../lib/types";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
 interface Quality { qualityScore: number; rowCount: number; columnCount: number; issues: Issue[]; }
@@ -21,7 +22,7 @@ export default function DatasetDetail() {
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [cleaning, setCleaning] = useState(false);
 
-  const meta = useQuery({ queryKey: ["dataset", datasetId], queryFn: () => api.get<{ dataset: any }>(`/datasets/${datasetId}`) });
+  const meta = useQuery({ queryKey: ["dataset", datasetId], queryFn: () => api.get<{ dataset: DatasetSummary }>(`/datasets/${datasetId}`) });
   const preview = useQuery({ queryKey: ["preview", datasetId], queryFn: () => api.get<Preview>(`/datasets/${datasetId}/preview`) });
   const quality = useQuery({ queryKey: ["quality", datasetId], queryFn: () => api.get<Quality>(`/datasets/${datasetId}/quality`) });
   const schema = useQuery({ queryKey: ["schema", datasetId], queryFn: () => api.get<Schema>(`/datasets/${datasetId}/schema`) });
@@ -46,7 +47,7 @@ export default function DatasetDetail() {
       <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div><h1 className="text-2xl font-bold">{d?.name ?? "Dataset"}</h1><p className="text-sm text-slate-500">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
-        {d && <div className="flex items-center gap-2"><Badge tone={d.qualityScore >= 90 ? "green" : d.qualityScore >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge><Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge></div>}
+        {d && <div className="flex items-center gap-2"><Badge tone={(d.qualityScore ?? 0) >= 90 ? "green" : (d.qualityScore ?? 0) >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge><Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge></div>}
       </div>
 
       <Tabs tabs={[{ id: "preview", label: "Preview" }, { id: "quality", label: `Quality Report${quality.data ? ` (${quality.data.issues.length})` : ""}` }, { id: "schema", label: "Detected Schema" }]} active={tab} onChange={setTab} />
@@ -56,8 +57,9 @@ export default function DatasetDetail() {
           <CardBody className="overflow-x-auto p-0">
             {!preview.data ? <Spinner /> : (
               <table className="w-full text-sm">
+                <caption className="sr-only">Dataset preview rows</caption>
                 <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
-                  <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
+                  <tr>{preview.data.columns.map((c) => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {preview.data.rows.map((row, i) => (
@@ -102,7 +104,8 @@ export default function DatasetDetail() {
           <CardBody className="overflow-x-auto p-0">
             {!schema.data ? <Spinner /> : (
               <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
+                <caption className="sr-only">Detected schema by column</caption>
+                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th scope="col" className="px-4 py-2 font-medium">Column</th><th scope="col" className="px-4 py-2 font-medium">Data type</th><th scope="col" className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {schema.data.columns.map((c) => (
                     <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>

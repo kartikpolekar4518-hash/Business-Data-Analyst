@@ -14,17 +14,15 @@ import {
   Moon,
   LogOut,
   BrainCircuit,
-  Search,
   ChevronRight,
   User,
   Shield,
-  HelpCircle,
-  Keyboard,
   ChevronDown,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
+import { useFocusTrap } from "../lib/useFocusTrap";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
@@ -66,8 +64,10 @@ const NAV_SECTIONS = [
    Shared hook — unread alert count (fetched once)
    ───────────────────────────────────────────── */
 function useUnreadAlerts() {
+  // Shares the ["alerts"] cache with the Alerts and Dashboard pages (same
+  // endpoint) instead of fetching /alerts under a separate key.
   return useQuery({
-    queryKey: ["alerts", "unread"],
+    queryKey: ["alerts"],
     queryFn: () => api.get<{ unread: number }>("/alerts"),
     refetchInterval: 60000,
   });
@@ -86,43 +86,6 @@ function AlertBadge() {
       {alerts.unread > 99 ? "99+" : alerts.unread}
     </span>
   );
-}
-
-/* ─────────────────────────────────────────────
-   Focus trap hook
-   ───────────────────────────────────────────── */
-function useFocusTrap(active: boolean, containerRef: React.RefObject<HTMLElement | null>) {
-  useEffect(() => {
-    if (!active || !containerRef.current) return;
-
-    const container = containerRef.current;
-    const focusable = container.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-    );
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-
-    // Focus the first element when activated
-    first?.focus();
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "Tab") return;
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-
-    container.addEventListener("keydown", onKeyDown);
-    return () => container.removeEventListener("keydown", onKeyDown);
-  }, [active, containerRef]);
 }
 
 /* ─────────────────────────────────────────────
@@ -295,15 +258,6 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="flex-1" />
 
-      {/* Global search */}
-      <button className="group hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-slate-400 transition-all hover:border-slate-300 hover:text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-slate-600 sm:flex">
-        <Search className="h-4 w-4" />
-        <span className="text-slate-400">Search</span>
-        <kbd className="ml-6 rounded border border-border bg-white px-1.5 py-[1px] text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-800">
-          ⌘K
-        </kbd>
-      </button>
-
       {/* Theme toggle */}
       <button
         onClick={toggle}
@@ -386,20 +340,6 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   <User className="h-4 w-4 text-slate-400" />
                   Profile
                 </NavLink>
-                <button
-                  role="menuitem"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <Keyboard className="h-4 w-4 text-slate-400" />
-                  Keyboard shortcuts
-                </button>
-                <button
-                  role="menuitem"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <HelpCircle className="h-4 w-4 text-slate-400" />
-                  Help & support
-                </button>
               </div>
 
               <hr className="mx-2 mt-1 border-border dark:border-slate-700" />

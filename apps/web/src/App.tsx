@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "./lib/auth";
+import { useAuth, type Role } from "./lib/auth";
 import { Shell } from "./components/Shell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Spinner } from "./components/ui";
@@ -19,11 +19,14 @@ const Alerts = lazy(() => import("./pages/Alerts"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 
-function Protected({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+function Protected({ children, roles }: { children: React.ReactNode; roles?: Role[] }) {
+  const { user, loading, can } = useAuth();
   const location = useLocation();
   if (loading) return <div className="grid h-full place-items-center"><Spinner label="Loading DecisionIQ…" /></div>;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+  // Role-restricted pages (e.g. chat is write-only for ADMIN/MANAGER) redirect
+  // VIEWERs to the dashboard instead of rendering a page that only 403s.
+  if (roles && !can(...roles)) return <Navigate to="/dashboard" replace />;
   return <Shell><Suspense fallback={<Spinner />}>{children}</Suspense></Shell>;
 }
 
@@ -47,7 +50,7 @@ export default function App() {
         <Route path="/data" element={<Protected><DataList /></Protected>} />
         <Route path="/data/:datasetId" element={<Protected><DatasetDetail /></Protected>} />
         <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
-        <Route path="/ai-chat" element={<Protected><AiChat /></Protected>} />
+        <Route path="/ai-chat" element={<Protected roles={["ADMIN", "MANAGER"]}><AiChat /></Protected>} />
         <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
         <Route path="/reports" element={<Protected><Reports /></Protected>} />
         <Route path="/alerts" element={<Protected><Alerts /></Protected>} />

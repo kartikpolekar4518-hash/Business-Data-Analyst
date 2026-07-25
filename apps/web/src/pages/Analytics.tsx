@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { api } from "../lib/api";
 import { money, num } from "../lib/utils";
@@ -23,8 +24,22 @@ export default function Analytics() {
   const query = Object.fromEntries(params.entries());
   const qs = params.toString();
 
+  const LIMIT = 50;
+  const [page, setPage] = useState(0);
+  // Reset to the first page whenever the filters change.
+  useEffect(() => { setPage(0); }, [qs]);
+
+  const tableParams = new URLSearchParams(params);
+  tableParams.set("page", String(page));
+  tableParams.set("limit", String(LIMIT));
+
   const ov = useQuery({ queryKey: ["analytics", qs], queryFn: () => api.get<OverviewResponse>(`/analytics/overview${qs ? `?${qs}` : ""}`), retry: false });
-  const table = useQuery({ queryKey: ["analyticsTable", qs], queryFn: () => api.get<{ columns: string[]; rows: Record<string, unknown>[]; total: number }>(`/analytics/table${qs ? `?${qs}` : ""}`), retry: false });
+  const table = useQuery({
+    queryKey: ["analyticsTable", qs, page],
+    queryFn: () => api.get<{ columns: string[]; rows: Record<string, unknown>[]; total: number; page: number; limit: number; hasMore: boolean }>(`/analytics/table?${tableParams.toString()}`),
+    retry: false,
+    placeholderData: keepPreviousData,
+  });
 
   const setFilter = (key: string, value: string) => {
     const next = new URLSearchParams(params);
@@ -33,12 +48,11 @@ export default function Analytics() {
   };
   const clear = () => setParams(new URLSearchParams(), { replace: true });
 
-  function exportCsv() {
-    if (!table.data) return;
-    const { columns, rows } = table.data;
-    const csv = [columns.join(","), ...rows.map((r) => columns.map((c) => JSON.stringify(r[c] ?? "")).join(","))].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+  // Export the full filtered result set server-side (not just the visible page).
+  async function exportCsv() {
+    const url = await api.blob(`/analytics/export${qs ? `?${qs}` : ""}`);
     const a = document.createElement("a"); a.href = url; a.download = "analytics-export.csv"; a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (ov.isError) return <EmptyState icon={BarChart3} title="No data to analyze" description="Upload a dataset first." />;
@@ -98,17 +112,32 @@ export default function Analytics() {
 
       {/* Data table */}
       <Card>
-        <CardHeader title="Filtered rows" subtitle={table.data ? `Showing first ${Math.min(100, table.data.rows.length)} of ${num(table.data.total)} rows — CSV export includes up to 500` : undefined} />
+        <CardHeader
+          title="Filtered rows"
+          subtitle={table.data && table.data.total > 0
+            ? `Showing rows ${page * LIMIT + 1}–${page * LIMIT + table.data.rows.length} of ${num(table.data.total)} · Export CSV downloads all filtered rows`
+            : table.data ? "No rows match the current filters" : undefined}
+        />
         <CardBody className="overflow-x-auto p-0">
           {!table.data ? <Spinner /> : (
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
+              <caption className="sr-only">Filtered dataset rows, paginated</caption>
+              <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{table.data.columns.map((c) => <th key={c} scope="col" className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {table.data.rows.slice(0, 100).map((r, i) => <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">{table.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5">{String(r[c] ?? "—")}</td>)}</tr>)}
+                {table.data.rows.map((r, i) => <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">{table.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5">{String(r[c] ?? "—")}</td>)}</tr>)}
               </tbody>
             </table>
           )}
         </CardBody>
+        {table.data && table.data.total > LIMIT && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm dark:border-slate-800">
+            <span className="text-slate-500">Page {page + 1} of {Math.max(1, Math.ceil(table.data.total / LIMIT))}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={!table.data.hasMore} onClick={() => setPage((p) => p + 1)}>Next</Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

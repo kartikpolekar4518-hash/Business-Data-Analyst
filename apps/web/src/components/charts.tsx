@@ -24,6 +24,7 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND }: { da
   const gradientId = useId();
   const norm = data.map((d) => ({ label: d.label ?? d.period, value: d.value }));
   return (
+    <div role="img" aria-label={`Trend chart with ${norm.length} data points`}>
     <ResponsiveContainer width="100%" height={260}>
       <AreaChart data={norm} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.3} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
@@ -34,12 +35,14 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND }: { da
         <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gradientId})`} />
       </AreaChart>
     </ResponsiveContainer>
+    </div>
   );
 });
 
 export const BarRankChart = memo(function BarRankChart({ data, horizontal = true }: { data: { label: string; value: number }[]; horizontal?: boolean }) {
   const { grid, tick, tooltipStyle } = useAxis();
   return (
+    <div role="img" aria-label={`Bar chart ranking ${data.length} items`}>
     <ResponsiveContainer width="100%" height={Math.max(220, data.length * 34)}>
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={!horizontal} vertical={horizontal} />
@@ -55,6 +58,7 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
         <Bar dataKey="value" fill={BRAND} radius={[4, 4, 4, 4]} />
       </BarChart>
     </ResponsiveContainer>
+    </div>
   );
 });
 
@@ -65,6 +69,7 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
     ...points.map((p) => ({ label: p.period, forecast: p.value, lower: p.lower, upper: p.upper })),
   ];
   return (
+    <div role="img" aria-label={`Forecast chart: ${history.length} historical and ${points.length} projected points`}>
     <ResponsiveContainer width="100%" height={300}>
       <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
@@ -78,5 +83,6 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
         <Line dataKey="forecast" stroke="#f59e0b" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} type="monotone" />
       </ComposedChart>
     </ResponsiveContainer>
+    </div>
   );
 });

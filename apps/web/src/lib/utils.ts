@@ -15,6 +15,8 @@ export function num(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+export const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+
 export function pct(n: number | null | undefined): string {
   if (n == null) return "—";
   return `${n > 0 ? "+" : ""}${n}%`;

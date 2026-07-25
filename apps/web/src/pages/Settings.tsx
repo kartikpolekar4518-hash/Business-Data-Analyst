@@ -33,7 +33,7 @@ function OrgTab() {
   const save = async () => { try { await api.patch("/organizations/current", { name: name || data?.organization.name }); toast("Saved", "success"); } catch { toast("Failed", "error"); } };
   return (
     <Card><CardHeader title="Company profile" /><CardBody className="max-w-md space-y-4">
-      <div><Label>Organization name</Label><Input defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
+      <div><Label htmlFor="org-name">Organization name</Label><Input id="org-name" defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
       <div className="text-sm text-slate-500">{data?.organization.memberCount ?? 0} members</div>
       {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
     </CardBody></Card>
@@ -90,10 +90,10 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
     <Modal open={open} onClose={onClose} title="Invite team member">
       <form onSubmit={submit} className="space-y-3">
         {error && <ErrorState message={error} />}
-        <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-        <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-        <div><Label>Temporary password</Label><Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} /></div>
-        <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
+        <div><Label htmlFor="invite-name">Name</Label><Input id="invite-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+        <div><Label htmlFor="invite-email">Email</Label><Input id="invite-email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+        <div><Label htmlFor="invite-password">Temporary password</Label><Input id="invite-password" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} /></div>
+        <div><Label htmlFor="invite-role">Role</Label><Select id="invite-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
         <Button type="submit" className="w-full" loading={loading}>Add member</Button>
       </form>
     </Modal>
@@ -126,9 +126,9 @@ function ApiKeysTab() {
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
         {can("ADMIN") && (
           <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
-            <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
-            <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
+            <div className="w-40"><Label htmlFor="key-name">Name</Label><Input id="key-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
+            <div className="w-40"><Label htmlFor="key-provider">Provider</Label><Input id="key-provider" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
+            <div className="flex-1"><Label htmlFor="key-secret">Secret</Label><Input id="key-secret" type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
             <Button onClick={add} disabled={!form.name || !form.provider || form.key.length < 8}>Add key</Button>
           </div>
         )}
