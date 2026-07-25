@@ -1,17 +1,25 @@
-export interface Kpi { value: number; previous: number; changePct: number | null; }
-export interface Overview {
-  revenue: Kpi; profit: Kpi; orders: Kpi; customers: Kpi;
-  growth: number | null; profitMargin: number;
-}
 export interface Point { label?: string; period?: string; value: number; }
 export interface Rank { label: string; value: number; }
 
+// Config-driven KPI + chart descriptor produced by the org's industry pack.
+export interface KpiResult {
+  key: string; label: string; icon: string;
+  format: "money" | "number" | "percent";
+  value: number; changePct: number | null; tooltip?: string; spark?: number[];
+}
+export interface RankSection {
+  title: string; subtitle: string; emptyText: string;
+  format: "money" | "number"; data: Rank[];
+}
 export interface OverviewResponse {
   datasetId: string; datasetName: string;
+  industry: string; suggestedIndustry: string;
   schema: Record<string, string>;
-  overview: Overview;
-  revenueTrend: Point[]; profitTrend: Point[]; ordersTrend?: Point[];
-  topProducts: Rank[]; topCustomers: Rank[]; regions: Rank[]; categories: Rank[];
+  kpis: KpiResult[];
+  trend: { title: string; subtitle: string; revenue: Point[]; profit: Point[] };
+  composition: { title: string; subtitle: string; centerLabel: string; data: Rank[] };
+  ranking: RankSection;
+  secondary: RankSection;
   filterOptions: Record<string, string[]>;
 }
 

@@ -1,5 +1,6 @@
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
+import type { IndustryPack } from "./industries.js";
 
 // The controlled analytics query layer. Everything the "AI" and dashboards can
 // compute goes through these deterministic functions — no arbitrary SQL/code.
@@ -103,6 +104,26 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
     growth: pctChange(curRev, prevRev),
     profitMargin: revenue ? Math.round((profit / revenue) * 1000) / 10 : 0,
   };
+}
+
+// Config-driven KPIs. Each industry pack supplies KPI definitions; this evaluates
+// them against the same filtered/current/previous split the retail overview uses,
+// so pharmacy, SaaS, etc. get period-over-period change for free.
+export interface KpiResult {
+  key: string; label: string; icon: string;
+  format: "money" | "number" | "percent";
+  value: number; changePct: number | null; tooltip?: string;
+  spark?: number[];
+}
+
+export function computeKpis(rows: Row[], s: SchemaMap, pack: IndustryPack, f: Filters = {}): KpiResult[] {
+  const filtered = applyFilters(rows, s, f);
+  const { current, previous } = splitPeriods(filtered, s);
+  return pack.kpis.map((def) => ({
+    key: def.key, label: def.label, icon: def.icon, format: def.format, tooltip: def.tooltip,
+    value: round(def.value(filtered, s)),
+    changePct: def.noChange ? null : pctChange(def.value(current, s), def.value(previous, s)),
+  }));
 }
 
 export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profit" | "orders", f: Filters = {}) {

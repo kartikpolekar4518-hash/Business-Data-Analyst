@@ -11,7 +11,7 @@ interface AuthState {
   role: Role | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (data: { name: string; email: string; password: string; organizationName: string }) => Promise<void>;
+  signup: (data: { name: string; email: string; password: string; organizationName: string; industry?: string }) => Promise<void>;
   logout: () => void;
   can: (...roles: Role[]) => boolean;
 }
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const login = async (email: string, password: string) => apply(await api.post<Session>("/auth/login", { email, password }));
-  const signup = async (data: { name: string; email: string; password: string; organizationName: string }) => apply(await api.post<Session>("/auth/signup", data));
+  const signup = async (data: { name: string; email: string; password: string; organizationName: string; industry?: string }) => apply(await api.post<Session>("/auth/signup", data));
   const logout = () => {
     setToken(null);
     setUser(null);

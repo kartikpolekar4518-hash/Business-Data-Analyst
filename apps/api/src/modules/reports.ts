@@ -6,41 +6,19 @@ import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
-import { forecast } from "../engine/forecast.js";
-import { deriveInsights } from "../engine/insights.js";
+import { getPack } from "../engine/industries.js";
+import { composeReport, fmtKpiValue } from "../engine/report.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(requireAuth);
 
-// Build the full executive report structure from the deterministic engine.
+// Build the full executive report structure from the deterministic engine,
+// tailored to the org's industry pack (KPIs, section titles, and wording).
 async function buildReport(organizationId: string, datasetId?: string) {
   const { dataset, rows, schema } = await loadDataset(organizationId, datasetId);
-  const ov = A.overview(rows, schema);
-  const revSeries = A.timeSeries(rows, schema, "revenue");
-  const fc = revSeries.length >= 2 ? forecast(revSeries.map((p) => ({ period: p.period, value: p.value })), 3) : null;
-  const { recommendations } = deriveInsights(rows, schema);
-
-  return {
-    datasetId: dataset.id,
-    datasetName: dataset.name,
-    generatedAt: new Date().toISOString(),
-    summary: buildSummary(ov),
-    kpis: {
-      revenue: ov.revenue.value, profit: ov.profit.value, orders: ov.orders.value,
-      customers: ov.customers.value, growth: ov.growth, profitMargin: ov.profitMargin,
-    },
-    topProducts: A.groupBy(rows, schema, "product_name", "revenue", {}, 5),
-    topCustomers: A.groupBy(rows, schema, "customer_name", "revenue", {}, 5),
-    regions: A.groupBy(rows, schema, "region", "revenue", {}, 5),
-    forecast: fc ? { metric: "revenue", points: fc.points } : null,
-    recommendations,
-  };
-}
-
-function buildSummary(ov: ReturnType<typeof A.overview>): string {
-  const g = ov.growth;
-  const dir = g === null ? "held steady" : g >= 0 ? `grew ${g}%` : `declined ${Math.abs(g)}%`;
-  return `Revenue reached ${money(ov.revenue.value)} with ${money(ov.profit.value)} profit (${ov.profitMargin}% margin) across ${ov.orders.value.toLocaleString()} orders and ${ov.customers.value.toLocaleString()} customers. Revenue ${dir} versus the prior period.`;
+  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
+  const content = composeReport(getPack(org?.industry), rows, schema);
+  return { datasetId: dataset.id, datasetName: dataset.name, ...content };
 }
 
 const genSchema = z.object({ datasetId: z.string().optional(), title: z.string().optional() });
@@ -95,17 +73,26 @@ reportsRouter.get("/:id/pdf", wrap(async (req, res) => {
   doc.moveDown(1);
 
   section(doc, "Key Metrics");
-  const k = c.kpis;
-  kv(doc, "Revenue", money(k.revenue));
-  kv(doc, "Profit", `${money(k.profit)}  (${k.profitMargin}% margin)`);
-  kv(doc, "Orders", String(k.orders));
-  kv(doc, "Customers", String(k.customers));
-  kv(doc, "Growth", k.growth === null ? "n/a" : `${k.growth}%`);
+  // Pack-driven KPIs (new shape). Legacy reports stored the old fixed object; render both.
+  if (Array.isArray(c.kpis)) {
+    for (const k of c.kpis as A.KpiResult[]) kv(doc, k.label, fmtKpiValue(k));
+  } else {
+    const k = c.kpis;
+    kv(doc, "Revenue", money(k.revenue));
+    kv(doc, "Profit", `${money(k.profit)}  (${k.profitMargin}% margin)`);
+    kv(doc, "Orders", String(k.orders));
+    kv(doc, "Customers", String(k.customers));
+    kv(doc, "Growth", k.growth === null ? "n/a" : `${k.growth}%`);
+  }
   doc.moveDown(0.6);
 
-  list(doc, "Top Products", c.topProducts);
-  list(doc, "Top Customers", c.topCustomers);
-  list(doc, "Regional Performance", c.regions);
+  if (Array.isArray(c.sections)) {
+    for (const s of c.sections) list(doc, s.title, s.items, s.format);
+  } else {
+    list(doc, "Top Products", c.topProducts);
+    list(doc, "Top Customers", c.topCustomers);
+    list(doc, "Regional Performance", c.regions);
+  }
 
   if (c.forecast) {
     section(doc, "Forecast (estimate)");
@@ -133,10 +120,11 @@ function section(doc: PDFKit.PDFDocument, title: string) {
 function kv(doc: PDFKit.PDFDocument, k: string, v: string) {
   doc.fontSize(10).fillColor("#6b7280").text(k + ":  ", { continued: true }).fillColor("#111827").text(v);
 }
-function list(doc: PDFKit.PDFDocument, title: string, items: { label: string; value: number }[]) {
+function list(doc: PDFKit.PDFDocument, title: string, items: { label: string; value: number }[], format: "money" | "number" = "money") {
   if (!items?.length) return;
   section(doc, title);
-  for (const it of items) doc.fontSize(10).fillColor("#374151").text(`${it.label}: ${money(it.value)}`);
+  const fmt = format === "number" ? (v: number) => Math.round(v).toLocaleString("en-US") : money;
+  for (const it of items) doc.fontSize(10).fillColor("#374151").text(`${it.label}: ${fmt(it.value)}`);
   doc.moveDown(0.4);
 }
 const money = A.fmtMoney;

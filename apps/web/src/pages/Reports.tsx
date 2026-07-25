@@ -7,15 +7,20 @@ import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Modal, Badge, 
 import { money, num, timeAgo } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }
+interface ReportKpi { key: string; label: string; format: "money" | "number" | "percent"; value: number; changePct: number | null; }
+interface ReportSection { title: string; format: "money" | "number"; items: { label: string; value: number }[]; }
 interface FullReport {
   id: string; title: string; content: {
-    summary: string; generatedAt: string;
-    kpis: { revenue: number; profit: number; orders: number; customers: number; growth: number | null; profitMargin: number };
-    topProducts: { label: string; value: number }[]; topCustomers: { label: string; value: number }[]; regions: { label: string; value: number }[];
+    summary: string; generatedAt: string; industry?: string;
+    kpis: ReportKpi[];
+    sections: ReportSection[];
     forecast: { points: { period: string; value: number; lower: number; upper: number }[] } | null;
     recommendations: { title: string; observation: string; explanation: string; action: string; impact: string }[];
   };
 }
+
+const fmtVal = (k: { format: string; value: number }) =>
+  k.format === "money" ? money(k.value) : k.format === "percent" ? `${Math.round(k.value * 10) / 10}%` : num(k.value);
 
 export default function Reports() {
   const { can } = useAuth();
@@ -70,12 +75,9 @@ export default function Reports() {
           <div className="max-h-[70vh] space-y-4 overflow-y-auto text-sm">
             <section><h4 className="mb-1 font-semibold">Executive Summary</h4><p className="text-slate-600 dark:text-slate-400">{r.summary}</p></section>
             <section className="grid grid-cols-3 gap-2">
-              <Kpi label="Revenue" value={money(r.kpis.revenue)} /><Kpi label="Profit" value={money(r.kpis.profit)} /><Kpi label="Margin" value={`${r.kpis.profitMargin}%`} />
-              <Kpi label="Orders" value={num(r.kpis.orders)} /><Kpi label="Customers" value={num(r.kpis.customers)} /><Kpi label="Growth" value={r.kpis.growth == null ? "—" : `${r.kpis.growth}%`} />
+              {(Array.isArray(r.kpis) ? r.kpis : []).map((k) => <Kpi key={k.key} label={k.label} value={fmtVal(k)} />)}
             </section>
-            <ReportList title="Top Products" items={r.topProducts} />
-            <ReportList title="Top Customers" items={r.topCustomers} />
-            <ReportList title="Regional Performance" items={r.regions} />
+            {(Array.isArray(r.sections) ? r.sections : []).map((s) => <ReportList key={s.title} title={s.title} items={s.items} format={s.format} />)}
             {r.forecast && <section><h4 className="mb-1 font-semibold">Forecast (estimate)</h4>{r.forecast.points.map((p) => <div key={p.period} className="flex justify-between text-slate-600 dark:text-slate-400"><span>{p.period}</span><span>{money(p.value)} <span className="text-slate-400">({money(p.lower)}–{money(p.upper)})</span></span></div>)}</section>}
             <section><h4 className="mb-1 font-semibold">Risks & Recommendations</h4>
               {r.recommendations.map((rec, i) => (
@@ -95,6 +97,6 @@ export default function Reports() {
 }
 
 const Kpi = ({ label, value }: { label: string; value: string }) => <div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800/50"><div className="text-xs text-slate-500">{label}</div><div className="font-semibold">{value}</div></div>;
-const ReportList = ({ title, items }: { title: string; items: { label: string; value: number }[] }) => items.length ? (
-  <section><h4 className="mb-1 font-semibold">{title}</h4>{items.map((it) => <div key={it.label} className="flex justify-between text-slate-600 dark:text-slate-400"><span>{it.label}</span><span>{money(it.value)}</span></div>)}</section>
+const ReportList = ({ title, items, format = "money" }: { title: string; items: { label: string; value: number }[]; format?: "money" | "number" }) => items.length ? (
+  <section><h4 className="mb-1 font-semibold">{title}</h4>{items.map((it) => <div key={it.label} className="flex justify-between text-slate-600 dark:text-slate-400"><span>{it.label}</span><span>{format === "number" ? num(it.value) : money(it.value)}</span></div>)}</section>
 ) : null;

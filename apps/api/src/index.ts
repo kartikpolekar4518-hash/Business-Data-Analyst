@@ -17,6 +17,7 @@ import { forecastingRouter } from "./modules/forecasting.js";
 import { reportsRouter } from "./modules/reports.js";
 import { alertsRouter } from "./modules/alerts.js";
 import { settingsRouter } from "./modules/settings.js";
+import { INDUSTRIES } from "./engine/industries.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -31,6 +32,9 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Public: the industry list is the single source of truth for signup + settings.
+app.get("/api/industries", (_req, res) => res.json({ industries: INDUSTRIES }));
 
 // (Credential endpoints are rate-limited inside authRouter — /auth/me stays unthrottled
 // since every app load calls it and offices share NAT IPs.)

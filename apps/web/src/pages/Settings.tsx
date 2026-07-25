@@ -5,6 +5,7 @@ import { Trash2, Plus, KeyRound, ShieldAlert } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
+import { useIndustries } from "../lib/industries";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
 
 export default function SettingsPage() {
@@ -27,13 +28,30 @@ export default function SettingsPage() {
 
 function OrgTab() {
   const { can } = useAuth();
+  const qc = useQueryClient();
   const { toast } = useToast();
-  const { data } = useQuery({ queryKey: ["org"], queryFn: () => api.get<{ organization: { name: string; memberCount: number } }>("/organizations/current") });
+  const industries = useIndustries();
+  const { data } = useQuery({ queryKey: ["org"], queryFn: () => api.get<{ organization: { name: string; industry: string; memberCount: number } }>("/organizations/current") });
   const [name, setName] = useState("");
-  const save = async () => { try { await api.patch("/organizations/current", { name: name || data?.organization.name }); toast("Saved", "success"); } catch { toast("Failed", "error"); } };
+  const [industry, setIndustry] = useState<string | null>(null);
+  const save = async () => {
+    try {
+      await api.patch("/organizations/current", { name: name || data?.organization.name, industry: industry ?? data?.organization.industry });
+      await qc.invalidateQueries({ queryKey: ["org"] });
+      await qc.invalidateQueries({ queryKey: ["overview"] });
+      toast("Saved", "success");
+    } catch { toast("Failed", "error"); }
+  };
   return (
     <Card><CardHeader title="Company profile" /><CardBody className="max-w-md space-y-4">
       <div><Label>Organization name</Label><Input defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
+      <div>
+        <Label>Business type</Label>
+        <Select value={industry ?? data?.organization.industry ?? "generic"} onChange={(e) => setIndustry(e.target.value)} disabled={!can("ADMIN")}>
+          {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+        </Select>
+        <p className="mt-1 text-xs text-slate-400">Your dashboards, KPIs, and labels adapt to this.</p>
+      </div>
       <div className="text-sm text-slate-500">{data?.organization.memberCount ?? 0} members</div>
       {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
     </CardBody></Card>

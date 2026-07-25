@@ -2,14 +2,21 @@ import type { Row } from "./parse.js";
 import type { ColumnProfile, QualityIssue } from "./profile.js";
 
 // Business semantics we can recognise. This is the deterministic "AI schema detection".
+// The base set is retail/sales; industry packs (engine/industries.ts) add vocabulary
+// like `medicine_name` or `subscription_id` on top via detectSchema's `extraRules`.
 export type Semantic =
   | "order_id" | "customer_id" | "customer_name" | "product_id" | "product_name"
   | "revenue" | "sales" | "cost" | "profit" | "quantity" | "unit_price"
   | "date" | "region" | "state" | "city" | "category" | "department" | "inventory"
+  // industry-pack vocabulary
+  | "prescription_id" | "medicine_name" | "patient_id"
+  | "subscription_id" | "plan"
   | "none";
 
+export type SemanticRule = { semantic: Semantic; patterns: RegExp[] };
+
 // Ordered rules: name patterns matched against normalized column names.
-const RULES: { semantic: Semantic; patterns: RegExp[] }[] = [
+const RULES: SemanticRule[] = [
   { semantic: "order_id", patterns: [/^order[_ ]?id$/, /^order[_ ]?no/, /^invoice/, /^transaction[_ ]?id/] },
   { semantic: "customer_id", patterns: [/^customer[_ ]?id$/, /^cust[_ ]?id/, /^client[_ ]?id/] },
   { semantic: "customer_name", patterns: [/customer[_ ]?name/, /client[_ ]?name/, /^customer$/, /^client$/] },
@@ -32,12 +39,16 @@ const RULES: { semantic: Semantic; patterns: RegExp[] }[] = [
 
 export type SchemaMap = Partial<Record<Semantic, string>>;
 
-export function detectSchema(columns: ColumnProfile[]): { map: SchemaMap; columns: (ColumnProfile & { semantic: Semantic })[] } {
+// `extraRules` are an industry pack's vocabulary; they run BEFORE the base retail
+// rules so pack-specific meanings (e.g. "medicine" -> medicine_name) win over the
+// generic product_name match. Called without a pack, behaviour is unchanged.
+export function detectSchema(columns: ColumnProfile[], extraRules: SemanticRule[] = []): { map: SchemaMap; columns: (ColumnProfile & { semantic: Semantic })[] } {
+  const rules = extraRules.length ? [...extraRules, ...RULES] : RULES;
   const map: SchemaMap = {};
   const annotated = columns.map((c) => {
     const norm = c.name.toLowerCase().trim();
     let semantic: Semantic = "none";
-    for (const rule of RULES) {
+    for (const rule of rules) {
       if (rule.patterns.some((p) => p.test(norm))) {
         semantic = rule.semantic;
         break;

@@ -2,11 +2,12 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { api } from "../lib/api";
-import { money, num } from "../lib/utils";
+import { num } from "../lib/utils";
+import { kpiIcon, fmtKpi } from "../lib/kpi";
 import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, Label } from "../components/ui";
 import { TrendChart, BarRankChart } from "../components/charts";
 import { KpiCard } from "../components/Kpi";
-import { DollarSign, TrendingUp, ShoppingCart, Percent, BarChart3 } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import type { OverviewResponse } from "../lib/types";
 
 const FILTERS = [
@@ -42,7 +43,6 @@ export default function Analytics() {
   }
 
   if (ov.isError) return <EmptyState icon={BarChart3} title="No data to analyze" description="Upload a dataset first." />;
-  const o = ov.data?.overview;
   const opts = ov.data?.filterOptions ?? {};
 
   return (
@@ -78,22 +78,20 @@ export default function Analytics() {
         </div>
       </CardBody></Card>
 
-      {/* KPIs */}
+      {/* KPIs (driven by the industry pack) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {!o ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />) : <>
-          <KpiCard label="Revenue" value={money(o.revenue.value)} changePct={o.revenue.changePct} icon={DollarSign} />
-          <KpiCard label="Profit" value={money(o.profit.value)} changePct={o.profit.changePct} icon={TrendingUp} />
-          <KpiCard label="Orders" value={num(o.orders.value)} changePct={o.orders.changePct} icon={ShoppingCart} />
-          <KpiCard label="Margin" value={`${o.profitMargin}%`} icon={Percent} />
-        </>}
+        {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />)
+          : ov.data.kpis.slice(0, 4).map((k) => (
+              <KpiCard key={k.key} label={k.label} value={fmtKpi(k)} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} />
+            ))}
       </div>
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card><CardHeader title="Revenue trend" /><CardBody>{ov.data ? <TrendChart data={ov.data.revenueTrend} /> : <Spinner />}</CardBody></Card>
-        <Card><CardHeader title="Category performance" /><CardBody>{ov.data?.categories.length ? <BarRankChart data={ov.data.categories} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
-        <Card><CardHeader title="Top products" /><CardBody>{ov.data?.topProducts.length ? <BarRankChart data={ov.data.topProducts} /> : <p className="py-8 text-center text-sm text-slate-400">No product data</p>}</CardBody></Card>
-        <Card><CardHeader title="Top customers" /><CardBody>{ov.data?.topCustomers.length ? <BarRankChart data={ov.data.topCustomers} /> : <p className="py-8 text-center text-sm text-slate-400">No customer data</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.trend.title ?? "Revenue trend"} /><CardBody>{ov.data ? <TrendChart data={ov.data.trend.revenue} /> : <Spinner />}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
       </div>
 
       {/* Data table */}
