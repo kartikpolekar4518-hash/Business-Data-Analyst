@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Button, Select, Label, Spinner, EmptyState, Badge, useToast } from "../components/ui";
 import { ForecastChart } from "../components/charts";
-import { money, timeAgo } from "../lib/utils";
+import { money, num, timeAgo } from "../lib/utils";
 
 interface Forecast { id: string; metric: string; horizon: number; method: string; history: { period: string; value: number }[]; points: { period: string; value: number; lower: number; upper: number }[]; createdAt: string; }
 
@@ -44,9 +44,12 @@ export default function Forecasts() {
         <Info className="mt-0.5 h-4 w-4 shrink-0" />Forecasts use a linear-trend model with a 95% confidence band that widens with the horizon. The model can be swapped for a statistical/ML service later without changing this page.
       </div>
 
-      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description="Generate one above to project future performance." /> : (
+      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description={can("ADMIN", "MANAGER") ? "Generate one above to project future performance." : "Ask an admin or manager to create a forecast."} /> : (
         <div className="space-y-4">
-          {data.forecasts.map((f) => (
+          {data.forecasts.map((f) => {
+            // "orders" is a count, not currency — format it as a plain number.
+            const fmt = f.metric === "orders" ? num : money;
+            return (
             <Card key={f.id}>
               <CardHeader title={`${cap(f.metric)} forecast · ${f.horizon} months`} subtitle={`${f.method.replace(/_/g, " ")} · ${timeAgo(f.createdAt)}`}
                 action={<Badge tone="amber">estimate</Badge>} />
@@ -56,14 +59,15 @@ export default function Forecasts() {
                   {f.points.map((p) => (
                     <div key={p.period} className="rounded-lg border border-slate-100 p-2 text-center dark:border-slate-800">
                       <div className="text-xs text-slate-500">{p.period}</div>
-                      <div className="font-semibold">{money(p.value)}</div>
-                      <div className="text-xs text-slate-400">{money(p.lower)}–{money(p.upper)}</div>
+                      <div className="font-semibold">{fmt(p.value)}</div>
+                      <div className="text-xs text-slate-400">{fmt(p.lower)}–{fmt(p.upper)}</div>
                     </div>
                   ))}
                 </div>
               </CardBody>
             </Card>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

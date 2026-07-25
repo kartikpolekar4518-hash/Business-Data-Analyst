@@ -6,6 +6,8 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Spinner } from "./components/ui";
 import { Login, Signup, ForgotPassword, ResetPassword } from "./pages/Auth";
 
+const Landing = lazy(() => import("./pages/Landing"));
+
 // Route-level code splitting: chart-heavy pages (and recharts itself) load on
 // demand instead of shipping in the login bundle.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -34,10 +36,19 @@ function PublicOnly({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Marketing landing at "/" — sent straight to the app once signed in.
+function LandingRoute() {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="grid h-full place-items-center"><Spinner /></div>;
+  if (user) return <Navigate to="/dashboard" replace />;
+  return <Suspense fallback={<Spinner />}><Landing /></Suspense>;
+}
+
 export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
+        <Route path="/" element={<LandingRoute />} />
         <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
         <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
         <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
@@ -55,7 +66,7 @@ export default function App() {
         <Route path="/settings/:tab" element={<Protected><SettingsPage /></Protected>} />
         <Route path="/profile" element={<Protected><Profile /></Protected>} />
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ErrorBoundary>
   );

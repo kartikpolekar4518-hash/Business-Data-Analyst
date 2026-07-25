@@ -46,6 +46,10 @@ model Organization {
   id          String               @id @default(uuid())
   name        String
   industry    String               @default("generic") // industry pack key: retail | pharmacy | saas | generic
+  plan        String               @default("free")     // billing tier key: free | pro | business
+  planStatus  String               @default("active")   // active | past_due | canceled
+  stripeCustomerId     String?     // set once the org starts a Stripe checkout
+  stripeSubscriptionId String?
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   members     OrganizationMember[]

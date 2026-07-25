@@ -12,14 +12,18 @@ import {
   Target,
   Zap,
   Sparkles,
+  MessagesSquare,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { api } from "../lib/api";
+import { api, ApiError } from "../lib/api";
 import { money, num, timeAgo } from "../lib/utils";
+import { useAuth } from "../lib/auth";
 import { industryLabel } from "../lib/industries";
 import { kpiIcon, fmtKpi } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Skeleton, EmptyState, Button, Badge } from "../components/ui";
+import { Card, CardHeader, CardBody, Skeleton, ErrorState, Button, Badge, useToast } from "../components/ui";
 import { KpiCard } from "../components/Kpi";
+import { EmptyWorkspace, GettingStartedChecklist, WelcomeTour, type ChecklistStep } from "../components/Onboarding";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
 import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
 
@@ -49,8 +53,11 @@ function insightKey(label: string): InsightIconKey {
 
 export default function Dashboard() {
   const qc = useQueryClient();
+  const { can, organization } = useAuth();
+  const { toast } = useToast();
   const [dismissedSuggestion, setDismissedSuggestion] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
 
   const ov = useQuery({
     queryKey: ["overview"],
@@ -74,6 +81,29 @@ export default function Dashboard() {
     queryKey: ["alerts"],
     queryFn: () => api.get<{ alerts: Alert[] }>("/alerts"),
   });
+  // Extra signals for the getting-started checklist (cheap list endpoints).
+  const forecasts = useQuery({
+    queryKey: ["forecasts"],
+    queryFn: () => api.get<{ forecasts: unknown[] }>("/forecasts"),
+    enabled: can("ADMIN", "MANAGER"),
+  });
+  const conversations = useQuery({
+    queryKey: ["conversations"],
+    queryFn: () => api.get<{ conversations: unknown[] }>("/ai/conversations"),
+    enabled: can("ADMIN", "MANAGER"),
+  });
+
+  const loadSample = async () => {
+    setLoadingSample(true);
+    try {
+      await api.post("/uploads/sample");
+      await qc.invalidateQueries();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Couldn't load sample data", "error");
+    } finally {
+      setLoadingSample(false);
+    }
+  };
 
   const switchIndustry = async (industry: string) => {
     setSwitching(true);
@@ -97,24 +127,46 @@ export default function Dashboard() {
     setDismissedSuggestion(true);
   };
 
+  // Getting-started checklist dismissal + one-time welcome tour.
+  const dismissKey = `diq_onboard_dismissed:${organization?.id ?? "org"}`;
+  const [checklistDismissed, setChecklistDismissed] = useState(true);
+  const [tourOpen, setTourOpen] = useState(false);
+  useEffect(() => {
+    setChecklistDismissed(localStorage.getItem(dismissKey) === "1");
+  }, [dismissKey]);
+  useEffect(() => {
+    if (ov.data && localStorage.getItem("diq_tour_seen") !== "1") setTourOpen(true);
+  }, [ov.data]);
+  const dismissChecklist = () => {
+    localStorage.setItem(dismissKey, "1");
+    setChecklistDismissed(true);
+  };
+  const closeTour = () => {
+    localStorage.setItem("diq_tour_seen", "1");
+    setTourOpen(false);
+  };
+
   if (ov.isError) {
     return (
-      <div className="mx-auto max-w-md pt-16">
-        <EmptyState
-          icon={Database}
-          title="No data yet"
-          description="Upload a CSV or Excel file to generate your dashboard automatically."
-          action={
-            <Link to="/data">
-              <Button>Upload data</Button>
-            </Link>
-          }
-        />
-      </div>
+      <EmptyWorkspace
+        canUpload={can("ADMIN", "MANAGER")}
+        onLoadSample={loadSample}
+        loadingSample={loadingSample}
+      />
     );
   }
 
   const data = ov.data;
+
+  // Getting-started checklist (ADMIN/MANAGER only — the roles that can act).
+  const checklistSteps: ChecklistStep[] = [
+    { key: "data", label: "Add your data", to: "/data", icon: Database, done: (datasets.data?.datasets.length ?? 0) > 0 },
+    { key: "ask", label: "Ask a question in chat", to: "/ai-chat", icon: MessagesSquare, done: (conversations.data?.conversations.length ?? 0) > 0 },
+    { key: "forecast", label: "Create a forecast", to: "/forecasts", icon: TrendingUp, done: (forecasts.data?.forecasts.length ?? 0) > 0 },
+    { key: "report", label: "Generate a report", to: "/reports", icon: FileText, done: (reports.data?.reports.length ?? 0) > 0 },
+  ];
+  const checklistComplete = checklistSteps.every((s) => s.done);
+  const showChecklist = can("ADMIN", "MANAGER") && !!data && !checklistComplete && !checklistDismissed;
   const showSuggestion =
     !dismissedSuggestion && data && data.suggestedIndustry && data.suggestedIndustry !== data.industry;
 
@@ -129,6 +181,13 @@ export default function Dashboard() {
             : "Loading your workspace..."}
         </p>
       </div>
+
+      {/* ─── Getting-started checklist ─── */}
+      {showChecklist && (
+        <GettingStartedChecklist steps={checklistSteps} onDismiss={dismissChecklist} />
+      )}
+
+      <WelcomeTour open={tourOpen} onClose={closeTour} />
 
       {/* ─── Industry suggestion banner ─── */}
       {showSuggestion && (
@@ -278,7 +337,9 @@ export default function Dashboard() {
             subtitle="Generated from your data"
           />
           <CardBody>
-            {insights.data?.recommendations.length ? (
+            {insights.isError ? (
+              <ErrorState message="Couldn't load recommendations." retry={() => insights.refetch()} />
+            ) : insights.data?.recommendations.length ? (
               <div className="divide-y divide-border dark:divide-white/[0.06]">
                 {insights.data.recommendations.map((r) => {
                   const Icon = insightIconMap[insightKey(r.title)];

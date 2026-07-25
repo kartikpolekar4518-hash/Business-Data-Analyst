@@ -14,14 +14,10 @@ import {
   Moon,
   LogOut,
   BrainCircuit,
-  Search,
   ChevronRight,
   User,
   Shield,
-  HelpCircle,
-  Keyboard,
   ChevronDown,
-  Calendar,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -296,22 +292,6 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
 
       <div className="flex-1" />
 
-      {/* Global search */}
-      <button className="group hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-slate-400 transition-all hover:border-slate-300 hover:text-slate-500 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 sm:flex">
-        <Search className="h-4 w-4" />
-        <span className="text-slate-400">Search</span>
-        <kbd className="ml-6 rounded border border-border bg-white px-1.5 py-[1px] text-[11px] font-medium text-slate-400 dark:border-white/10 dark:bg-white/5">
-          ⌘K
-        </kbd>
-      </button>
-
-      {/* Date range chip */}
-      <button className="hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm font-medium text-slate-600 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-white/20 md:flex">
-        <Calendar className="h-4 w-4 text-slate-400" />
-        Last 30 days
-        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-      </button>
-
       {/* Theme toggle */}
       <button
         onClick={toggle}
@@ -394,20 +374,15 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
                   <User className="h-4 w-4 text-slate-400" />
                   Profile
                 </NavLink>
-                <button
+                <NavLink
+                  to="/settings"
                   role="menuitem"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  onClick={() => setMenu(false)}
                 >
-                  <Keyboard className="h-4 w-4 text-slate-400" />
-                  Keyboard shortcuts
-                </button>
-                <button
-                  role="menuitem"
-                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
-                >
-                  <HelpCircle className="h-4 w-4 text-slate-400" />
-                  Help & support
-                </button>
+                  <Settings className="h-4 w-4 text-slate-400" />
+                  Settings
+                </NavLink>
               </div>
 
               <hr className="mx-2 mt-1 border-border dark:border-slate-700" />

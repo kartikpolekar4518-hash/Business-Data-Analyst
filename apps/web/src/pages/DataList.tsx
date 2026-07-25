@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug } from "lucide-react";
+import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, Sparkles } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button } from "../components/ui";
@@ -9,6 +9,8 @@ import { bytes, num, timeAgo } from "../lib/utils";
 import type { DatasetSummary } from "../lib/types";
 
 const CONNECTORS = ["PostgreSQL", "MySQL", "SQL Server", "Google Sheets"];
+const ALLOWED_EXT = ["csv", "xlsx", "xls"];
+const MAX_FILE_BYTES = 15 * 1024 * 1024; // keep in sync with the API's MAX_FILE_SIZE default
 
 export default function DataList() {
   const { can } = useAuth();
@@ -17,10 +19,16 @@ export default function DataList() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [loadingSample, setLoadingSample] = useState(false);
 
   const { data, isLoading } = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
 
   async function upload(file: File) {
+    // Validate client-side before the round-trip so mistakes fail instantly.
+    const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
+    if (!ALLOWED_EXT.includes(ext)) { toast(`Unsupported file type “.${ext || "?"}”. Upload a CSV, XLSX or XLS file.`, "error"); return; }
+    if (file.size > MAX_FILE_BYTES) { toast(`That file is ${bytes(file.size)} — the limit is 15 MB.`, "error"); return; }
+
     setUploading(true);
     try {
       const fd = new FormData(); fd.append("file", file);
@@ -29,6 +37,16 @@ export default function DataList() {
       qc.invalidateQueries({ queryKey: ["datasets"] });
     } catch (e) { toast(e instanceof ApiError ? e.message : "Upload failed", "error"); }
     finally { setUploading(false); }
+  }
+
+  async function loadSample() {
+    setLoadingSample(true);
+    try {
+      await api.post("/uploads/sample");
+      toast("Sample dataset loaded — explore your dashboard", "success");
+      qc.invalidateQueries();
+    } catch (e) { toast(e instanceof ApiError ? e.message : "Couldn't load sample data", "error"); }
+    finally { setLoadingSample(false); }
   }
 
   const canUpload = can("ADMIN", "MANAGER");
@@ -51,11 +69,20 @@ export default function DataList() {
         </div>
       )}
 
+      {canUpload && (
+        <div className="flex items-center gap-3 text-sm text-slate-500">
+          <span>No file handy?</span>
+          <Button variant="outline" size="sm" loading={loadingSample} onClick={loadSample}>
+            <Sparkles className="h-4 w-4" /> Load sample data
+          </Button>
+        </div>
+      )}
+
       <Card>
         <CardHeader title="Datasets" subtitle={data ? `${data.datasets.length} total` : undefined} />
         <CardBody className="p-0">
           {isLoading ? <div className="p-6 text-sm text-slate-400">Loading…</div> :
-           !data?.datasets.length ? <div className="p-6"><EmptyState icon={Database} title="No datasets yet" description="Upload a CSV or Excel file to get started." /></div> :
+           !data?.datasets.length ? <div className="p-6"><EmptyState icon={Database} title="No datasets yet" description={canUpload ? "Upload a CSV or Excel file, or load sample data, to get started." : "No data has been added yet. Ask an admin or manager to upload a dataset."} /></div> :
            <div className="divide-y divide-slate-100 dark:divide-slate-800">
              {data.datasets.map((d) => (
                <Link key={d.id} to={`/data/${d.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">

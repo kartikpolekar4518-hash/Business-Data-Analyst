@@ -4,13 +4,14 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ShieldCheck, Wand2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Badge, Button, Tabs, Spinner, ErrorState, useToast } from "../components/ui";
 import { num } from "../lib/utils";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
 interface Quality { qualityScore: number; rowCount: number; columnCount: number; issues: Issue[]; }
 interface Preview { columns: string[]; rows: Record<string, unknown>[]; total: number; cleaned: boolean; }
 interface Schema { schemaMap: Record<string, string>; columns: { name: string; type: string; semantic: string }[]; }
+interface DatasetMeta { id: string; name: string; fileName: string; rowCount: number; columnCount: number; qualityScore: number; status: string; }
 
 export default function DatasetDetail() {
   const { datasetId } = useParams();
@@ -21,7 +22,7 @@ export default function DatasetDetail() {
   const [accepted, setAccepted] = useState<Set<string>>(new Set());
   const [cleaning, setCleaning] = useState(false);
 
-  const meta = useQuery({ queryKey: ["dataset", datasetId], queryFn: () => api.get<{ dataset: any }>(`/datasets/${datasetId}`) });
+  const meta = useQuery({ queryKey: ["dataset", datasetId], queryFn: () => api.get<{ dataset: DatasetMeta }>(`/datasets/${datasetId}`) });
   const preview = useQuery({ queryKey: ["preview", datasetId], queryFn: () => api.get<Preview>(`/datasets/${datasetId}/preview`) });
   const quality = useQuery({ queryKey: ["quality", datasetId], queryFn: () => api.get<Quality>(`/datasets/${datasetId}/quality`) });
   const schema = useQuery({ queryKey: ["schema", datasetId], queryFn: () => api.get<Schema>(`/datasets/${datasetId}/schema`) });
@@ -35,7 +36,10 @@ export default function DatasetDetail() {
     try {
       const r = await api.post<{ newQualityScore: number }>(`/datasets/${datasetId}/clean`, { acceptedTypes: [...accepted] });
       toast(`Cleaned dataset — quality now ${r.newQualityScore}/100`, "success");
-      qc.invalidateQueries(); setAccepted(new Set());
+      // Refresh only this dataset's views (plus the list), not the entire cache.
+      for (const key of ["dataset", "preview", "quality", "schema"]) qc.invalidateQueries({ queryKey: [key, datasetId] });
+      qc.invalidateQueries({ queryKey: ["datasets"] });
+      setAccepted(new Set());
     } catch { toast("Cleaning failed", "error"); }
     finally { setCleaning(false); }
   }
@@ -54,7 +58,7 @@ export default function DatasetDetail() {
       {tab === "preview" && (
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
           <CardBody className="overflow-x-auto p-0">
-            {!preview.data ? <Spinner /> : (
+            {preview.isError ? <div className="p-5"><ErrorState message="Couldn't load the data preview." retry={() => preview.refetch()} /></div> : !preview.data ? <Spinner /> : (
               <table className="w-full text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
                   <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
@@ -77,7 +81,7 @@ export default function DatasetDetail() {
           <CardHeader title="Data Quality Report" subtitle="Review and apply cleaning suggestions. The original file is never modified."
             action={can("ADMIN", "MANAGER") && fixable.length ? <div className="flex gap-2"><Button variant="outline" onClick={acceptAllSafe}>Accept all safe</Button><Button loading={cleaning} disabled={!accepted.size} onClick={applyClean}><Wand2 className="h-4 w-4" />Apply ({accepted.size})</Button></div> : undefined} />
           <CardBody className="space-y-2">
-            {!quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
+            {quality.isError ? <ErrorState message="Couldn't load the quality report." retry={() => quality.refetch()} /> : !quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
               <div className="flex items-center gap-2 py-6 text-sm text-emerald-600"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
             ) : quality.data.issues.map((i) => (
               <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40">
@@ -100,7 +104,7 @@ export default function DatasetDetail() {
       {tab === "schema" && (
         <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
           <CardBody className="overflow-x-auto p-0">
-            {!schema.data ? <Spinner /> : (
+            {schema.isError ? <div className="p-5"><ErrorState message="Couldn't load the detected schema." retry={() => schema.refetch()} /></div> : !schema.data ? <Spinner /> : (
               <table className="w-full text-sm">
                 <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">

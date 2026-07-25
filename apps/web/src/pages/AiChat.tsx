@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Sparkles, User } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Send, Sparkles, User, Plus, History, MessageSquare } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { Card, CardBody, Button, Input, Badge } from "../components/ui";
 import { BarRankChart, TrendChart } from "../components/charts";
-import { num } from "../lib/utils";
+import { num, timeAgo, cn } from "../lib/utils";
 import type { ChatMessage } from "../lib/types";
+
+interface ConversationSummary { id: string; title: string; createdAt: string; _count: { messages: number } }
+interface StoredMessage { id: string; role: string; content: string; data: ChatMessage | null }
 
 const SUGGESTIONS = [
   "Show the top 10 customers",
@@ -18,11 +22,15 @@ const SUGGESTIONS = [
 interface Turn { role: "user" | "assistant"; text: string; result?: ChatMessage; }
 
 export default function AiChat() {
+  const qc = useQueryClient();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string>();
+  const [historyOpen, setHistoryOpen] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+
+  const conversations = useQuery({ queryKey: ["conversations"], queryFn: () => api.get<{ conversations: ConversationSummary[] }>("/ai/conversations") });
 
   useEffect(() => endRef.current?.scrollIntoView({ behavior: "smooth" }), [turns, loading]);
 
@@ -33,14 +41,53 @@ export default function AiChat() {
       const r = await api.post<{ conversationId: string; message: ChatMessage }>("/ai/chat", { message: question, conversationId });
       setConversationId(r.conversationId);
       setTurns((t) => [...t, { role: "assistant", text: r.message.explanation, result: r.message }]);
+      qc.invalidateQueries({ queryKey: ["conversations"] }); // history + dashboard checklist
     } catch (e) {
       setTurns((t) => [...t, { role: "assistant", text: e instanceof ApiError ? e.message : "Something went wrong. Upload a dataset first." }]);
     } finally { setLoading(false); }
   }
 
+  function newChat() {
+    setConversationId(undefined); setTurns([]); setHistoryOpen(false);
+  }
+
+  async function openConversation(id: string) {
+    setHistoryOpen(false);
+    try {
+      const { conversation } = await api.get<{ conversation: { messages: StoredMessage[] } }>(`/ai/conversations/${id}`);
+      setConversationId(id);
+      setTurns(conversation.messages.map((m) => m.role === "user"
+        ? { role: "user", text: m.content }
+        : { role: "assistant", text: m.content, result: m.data ?? undefined }));
+    } catch { /* stale/deleted conversation — leave current view */ }
+  }
+
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col">
-      <div className="mb-4"><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="relative">
+            <Button variant="outline" size="sm" onClick={() => setHistoryOpen((o) => !o)} aria-expanded={historyOpen}>
+              <History className="h-4 w-4" /> History
+            </Button>
+            {historyOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} aria-hidden="true" />
+                <div className="absolute right-0 top-full z-50 mt-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800">
+                  {conversations.data?.conversations.length ? conversations.data.conversations.map((c) => (
+                    <button key={c.id} onClick={() => openConversation(c.id)} className={cn("flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700", c.id === conversationId && "bg-slate-100 dark:bg-slate-700")}>
+                      <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
+                      <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-700 dark:text-slate-200">{c.title}</span><span className="text-xs text-slate-400">{timeAgo(c.createdAt)} · {c._count.messages} messages</span></span>
+                    </button>
+                  )) : <p className="px-3 py-4 text-center text-xs text-slate-400">No past conversations yet</p>}
+                </div>
+              </>
+            )}
+          </div>
+          <Button variant="outline" size="sm" onClick={newChat}><Plus className="h-4 w-4" /> New chat</Button>
+        </div>
+      </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (

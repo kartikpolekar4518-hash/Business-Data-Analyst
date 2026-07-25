@@ -66,9 +66,11 @@ export function Login() {
         </div>
         <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
         <p className="text-center text-sm text-slate-500">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
-        <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
-          <strong>Demo:</strong> admin@decisioniq.dev · manager@decisioniq.dev · viewer@decisioniq.dev — password <code>password123</code>
-        </div>
+        {import.meta.env.DEV && (
+          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+            <strong>Demo:</strong> admin@decisioniq.dev · manager@decisioniq.dev · viewer@decisioniq.dev — password <code>password123</code>
+          </div>
+        )}
       </form>
     </AuthLayout>
   );

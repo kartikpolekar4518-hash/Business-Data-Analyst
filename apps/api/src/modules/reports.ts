@@ -4,6 +4,7 @@ import PDFDocument from "pdfkit";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
+import { assertWithinLimit } from "./billing.js";
 import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
 import { getPack } from "../engine/industries.js";
@@ -25,6 +26,7 @@ const genSchema = z.object({ datasetId: z.string().optional(), title: z.string()
 
 reportsRouter.post("/generate", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const { datasetId, title } = genSchema.parse(req.body ?? {});
+  await assertWithinLimit(req.auth!.organizationId, "reportsPerMonth");
   const content = await buildReport(req.auth!.organizationId, datasetId);
   const report = await prisma.report.create({
     data: {

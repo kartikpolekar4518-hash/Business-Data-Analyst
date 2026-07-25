@@ -7,21 +7,86 @@ import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { useIndustries } from "../lib/industries";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
+import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
-  const tabs = [{ id: "organization", label: "Organization" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
+  const tabs = [{ id: "organization", label: "Organization" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500">Manage your workspace, team, and integrations.</p></div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
       {!can("ADMIN") && tab !== "preferences" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
+      {tab === "billing" && <BillingTab />}
       {tab === "users" && <UsersTab />}
       {tab === "api-keys" && <ApiKeysTab />}
       {tab === "preferences" && <PreferencesTab />}
+    </div>
+  );
+}
+
+interface Subscription {
+  plan: string;
+  planStatus: string;
+  limits: { datasets: number; seats: number; reportsPerMonth: number };
+  usage: { datasets: number; seats: number; reportsPerMonth: number };
+  billingConfigured: boolean;
+}
+
+function BillingTab() {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [busy, setBusy] = useState<string>();
+
+  const sub = useQuery({ queryKey: ["subscription"], queryFn: () => api.get<Subscription>("/billing/subscription") });
+  const plansQ = useQuery({ queryKey: ["plans"], queryFn: () => api.get<{ plans: Plan[] }>("/billing/plans") });
+
+  const select = async (plan: string) => {
+    setBusy(plan);
+    try {
+      const r = await api.post<{ mock?: boolean }>("/billing/checkout", { plan });
+      await qc.invalidateQueries({ queryKey: ["subscription"] });
+      toast(r.mock ? `Switched to the ${plan} plan (demo mode)` : "Redirecting to checkout…", "success");
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : "Couldn't change plan", "error");
+    } finally {
+      setBusy(undefined);
+    }
+  };
+
+  if (sub.isError || plansQ.isError) return <ErrorState message="Couldn't load billing information." retry={() => { sub.refetch(); plansQ.refetch(); }} />;
+  const s = sub.data;
+  const plans = plansQ.data?.plans ?? [];
+
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader title="Current plan" subtitle={s ? `You're on the ${s.plan} plan` : undefined} action={s && <Badge tone={s.plan === "free" ? "slate" : "blue"}>{s.plan.toUpperCase()}</Badge>} />
+        <CardBody className="space-y-4">
+          {!s ? <p className="text-sm text-slate-400">Loading…</p> : (
+            <>
+              <UsageMeter label="Datasets" used={s.usage.datasets} limit={s.limits.datasets} />
+              <UsageMeter label="Team members" used={s.usage.seats} limit={s.limits.seats} />
+              <UsageMeter label="Reports this month" used={s.usage.reportsPerMonth} limit={s.limits.reportsPerMonth} />
+              {!s.billingConfigured && (
+                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+                  Payments aren't connected in this environment, so plan changes apply immediately in demo mode. Set <code>STRIPE_SECRET_KEY</code> to enable real checkout.
+                </p>
+              )}
+            </>
+          )}
+        </CardBody>
+      </Card>
+
+      {can("ADMIN") ? (
+        <PlanCards plans={plans} currentPlan={s?.plan} onSelect={select} busyKey={busy} ctaLabel="Switch plan" />
+      ) : (
+        <PlanCards plans={plans} currentPlan={s?.plan} />
+      )}
     </div>
   );
 }
@@ -95,25 +160,53 @@ function UsersTab() {
 function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "VIEWER" });
+  const [form, setForm] = useState({ name: "", email: "", role: "VIEWER" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [invited, setInvited] = useState<{ email: string; tempPassword?: string } | null>(null);
+
+  const reset = () => { setForm({ name: "", email: "", role: "VIEWER" }); setError(""); setInvited(null); };
+  const close = () => { reset(); onClose(); };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true);
-    try { await api.post("/users/invite", form); toast("Member added", "success"); qc.invalidateQueries({ queryKey: ["users"] }); onClose(); setForm({ name: "", email: "", password: "", role: "VIEWER" }); }
-    catch (err) { setError(err instanceof ApiError ? err.message : "Failed"); }
+    try {
+      const r = await api.post<{ tempPassword?: string }>("/users/invite", form);
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast("Member added", "success");
+      setInvited({ email: form.email, tempPassword: r.tempPassword });
+    } catch (err) { setError(err instanceof ApiError ? err.message : "Failed"); }
     finally { setLoading(false); }
   };
+
   return (
-    <Modal open={open} onClose={onClose} title="Invite team member">
-      <form onSubmit={submit} className="space-y-3">
-        {error && <ErrorState message={error} />}
-        <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-        <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-        <div><Label>Temporary password</Label><Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} /></div>
-        <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
-        <Button type="submit" className="w-full" loading={loading}>Add member</Button>
-      </form>
+    <Modal open={open} onClose={close} title="Invite team member">
+      {invited ? (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
+            <strong>{invited.email}</strong> can now sign in.
+          </div>
+          {invited.tempPassword && (
+            <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
+              <div className="text-xs text-slate-500">Share this one-time password securely — it won't be shown again:</div>
+              <code className="mt-1 block select-all break-all font-mono text-slate-900 dark:text-slate-100">{invited.tempPassword}</code>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={reset}>Invite another</Button>
+            <Button className="flex-1" onClick={close}>Done</Button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-3">
+          {error && <ErrorState message={error} />}
+          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+          <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+          <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
+          <p className="text-xs text-slate-400">We'll generate a one-time password you can share with them.</p>
+          <Button type="submit" className="w-full" loading={loading}>Create account</Button>
+        </form>
+      )}
     </Modal>
   );
 }

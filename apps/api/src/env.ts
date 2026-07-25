@@ -12,6 +12,9 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   appUrl: process.env.APP_URL ?? "http://localhost:5173",
   maxFileSize: Number(process.env.MAX_FILE_SIZE ?? 15 * 1024 * 1024),
+  // Billing: set STRIPE_SECRET_KEY to enable real checkout. When unset, plan
+  // changes fall back to a dev-only mock (never allowed in production).
+  stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
 };
 
 // Fail fast: never sign tokens with a secret that is published in this repo.

@@ -9,8 +9,17 @@ import { parseFile } from "../engine/parse.js";
 import { profileDataset } from "../engine/profile.js";
 import { detectSchema } from "../engine/schema.js";
 import { getPack, suggestIndustry } from "../engine/industries.js";
+import { generateRetailData, generatePharmacyData, generateSaasData } from "../sample/generators.js";
+import { assertWithinLimit } from "./billing.js";
 import { refreshAlerts } from "./alerts.js";
 import { stripRows } from "./context.js";
+
+// Industry → (sample rows, human dataset name). Falls back to retail.
+const SAMPLE_SETS: Record<string, { rows: () => Record<string, unknown>[]; name: string; file: string }> = {
+  retail: { rows: () => generateRetailData() as unknown as Record<string, unknown>[], name: "Sample Retail Sales", file: "sample_retail_sales.csv" },
+  pharmacy: { rows: generatePharmacyData, name: "Sample Pharmacy Sales", file: "sample_pharmacy_sales.csv" },
+  saas: { rows: generateSaasData, name: "Sample Subscriptions", file: "sample_saas_subscriptions.csv" },
+};
 
 export const uploadsRouter = Router();
 uploadsRouter.use(requireAuth);
@@ -41,6 +50,7 @@ const uploadLimiter = rateLimit({ windowMs: 60_000, limit: 10, standardHeaders: 
 uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.single("file"), wrap(async (req, res) => {
   const auth = req.auth!;
   if (!req.file) throw new HttpError(400, "No file uploaded");
+  await assertWithinLimit(auth.organizationId, "datasets");
   const { originalname, size, buffer } = req.file;
 
   let parsed;
@@ -86,6 +96,46 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
 
   await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.uploaded", detail: originalname, actorId: auth.userId } });
   await refreshAlerts(auth.organizationId); // alerts derive on data change, not on read
+  res.status(201).json({ dataset: stripRows(dataset), suggestedIndustry });
+}));
+
+// Load a ready-made sample dataset so a new workspace can see the full product
+// before uploading anything. Uses the same generators as the seed and the same
+// parse->profile->schema pipeline as a real upload.
+uploadsRouter.post("/sample", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const auth = req.auth!;
+  await assertWithinLimit(auth.organizationId, "datasets");
+  const org = await prisma.organization.findUnique({ where: { id: auth.organizationId }, select: { industry: true } });
+  const set = SAMPLE_SETS[org?.industry ?? "retail"] ?? SAMPLE_SETS.retail;
+  const rows = set.rows();
+  const columns = Object.keys(rows[0]);
+
+  const profile = profileDataset(rows, columns);
+  const { map, columns: annotated } = detectSchema(profile.columns, getPack(org?.industry).rules);
+  const suggestedIndustry = suggestIndustry(profile.columns);
+
+  const dataset = await prisma.dataset.create({
+    data: {
+      organizationId: auth.organizationId,
+      name: set.name,
+      fileName: set.file,
+      fileType: "csv",
+      fileSize: 0,
+      status: "PROFILED",
+      rowCount: profile.rowCount,
+      columnCount: profile.columnCount,
+      qualityScore: profile.qualityScore,
+      columns: annotated as object,
+      schemaMap: map as object,
+      profile: profile as object,
+      rows: rows as object,
+      issues: { create: profile.issues.map((i) => ({ ...i })) },
+    },
+    include: { issues: true },
+  });
+
+  await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.sampleLoaded", detail: set.name, actorId: auth.userId } });
+  await refreshAlerts(auth.organizationId);
   res.status(201).json({ dataset: stripRows(dataset), suggestedIndustry });
 }));
 
