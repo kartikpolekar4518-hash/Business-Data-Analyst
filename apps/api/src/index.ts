@@ -19,6 +19,7 @@ import { alertsRouter } from "./modules/alerts.js";
 import { billingRouter } from "./modules/billing.js";
 import { settingsRouter } from "./modules/settings.js";
 import { INDUSTRIES } from "./engine/industries.js";
+import { PLANS } from "./billing/plans.js";
 
 const app = express();
 app.disable("x-powered-by");
@@ -36,6 +37,9 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Public: the industry list is the single source of truth for signup + settings.
 app.get("/api/industries", (_req, res) => res.json({ industries: INDUSTRIES }));
+
+// Public: plan catalogue for the marketing/landing page (secrets stripped).
+app.get("/api/plans", (_req, res) => res.json({ plans: PLANS.map(({ stripePriceId, ...p }) => p) }));
 
 // (Credential endpoints are rate-limited inside authRouter — /auth/me stays unthrottled
 // since every app load calls it and offices share NAT IPs.)
