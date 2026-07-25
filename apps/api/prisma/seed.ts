@@ -12,6 +12,12 @@ const prisma = new PrismaClient();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function main() {
+  // Guard: don't wipe/reseed a database that already has data (the compose
+  // command runs this on every boot). Set FORCE_SEED=true to reseed anyway.
+  if (process.env.FORCE_SEED !== "true" && (await prisma.organization.count()) > 0) {
+    console.log("Database already contains data — skipping seed (set FORCE_SEED=true to reseed).");
+    return;
+  }
   console.log("Seeding DecisionIQ demo data...");
 
   // 1. Demo organization

@@ -1,20 +1,27 @@
 # DecisionIQ all-in-one image: API + built web UI served on one port.
+# Workspace-aware, reproducible install via the committed root lockfile.
 FROM node:22-alpine
 WORKDIR /app
 
-# Install deps (cached layers)
-COPY apps/api/package.json api/package.json
-RUN cd api && npm install
-COPY apps/web/package.json web/package.json
-RUN cd web && npm install
+# Install with the committed lockfile (reproducible). Copy the root + workspace
+# manifests first so the dependency layer is cached across source changes.
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+RUN npm ci
 
 # Build API + web
-COPY apps/api api
-COPY apps/web web
-RUN cd api && npx prisma generate && npm run build
-RUN cd web && npm run build
+COPY apps/api apps/api
+COPY apps/web apps/web
+RUN npm run prisma:generate --workspace apps/api \
+ && npm run build --workspace apps/api \
+ && npm run build --workspace apps/web
 
-WORKDIR /app/api
-ENV WEB_DIST=/app/web/dist
+# Run as the built-in non-root user (needs write access for the seed's sample CSV).
+RUN chown -R node:node /app
+USER node
+
+ENV WEB_DIST=/app/apps/web/dist
+WORKDIR /app/apps/api
 EXPOSE 4000
 CMD ["node", "dist/index.js"]
