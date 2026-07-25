@@ -5,7 +5,6 @@ import { prisma } from "../prisma.js";
 import { requireAuth } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
-import { detectSchema, type SchemaMap } from "../engine/schema.js";
 import type { ColumnProfile } from "../engine/profile.js";
 import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industries.js";
 
@@ -51,21 +50,25 @@ const groupByDimension = (key: "product_name" | "customer_name" | "region", limi
 
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
-  const { dataset, rows } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const { dataset, rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
   const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
   const pack = getPack(org?.industry);
   const f = filtersFrom(req.query);
 
-  // Re-detect the schema with the org's industry vocabulary so a company that
-  // switches its business type gets a re-tailored dashboard without re-uploading.
-  const cols = ((dataset.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
-  const schema: SchemaMap = cols.length ? detectSchema(cols, pack.rules).map : (dataset.schemaMap as SchemaMap);
+  // The stored schema is kept pack-correct at write time, so it is used directly.
+  // The column profile is fetched only here (not in loadDataset) to power the
+  // "switch industry?" suggestion banner without bloating other analytics reads.
+  const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
+  const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
 
   const revenueTrend = A.timeSeries(rows, schema, "revenue", f);
   const profitTrend = A.timeSeries(rows, schema, "profit", f);
   const sparkOf = (t: { value: number }[]) => (t.length > 1 ? t.map((p) => p.value) : undefined);
+  // Margin series by period-keyed lookup (not index) so it stays correct even if
+  // the revenue/profit trend arrays ever diverge in length or ordering.
+  const revByPeriod = new Map(revenueTrend.map((p) => [p.period, p.value]));
   const marginSpark = revenueTrend.length > 1
-    ? profitTrend.map((p, i) => { const r = revenueTrend[i]?.value; return r ? (p.value / r) * 100 : 0; })
+    ? profitTrend.map((p) => { const r = revByPeriod.get(p.period); return r ? (p.value / r) * 100 : 0; })
     : undefined;
 
   const kpis = A.computeKpis(rows, schema, pack, f).map((k) => ({

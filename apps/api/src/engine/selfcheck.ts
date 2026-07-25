@@ -8,6 +8,7 @@ import { answer } from "./intent.js";
 import { forecast } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
 import { getPack, suggestIndustry } from "./industries.js";
+import { composeReport } from "./report.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
 const rows = [
@@ -129,5 +130,19 @@ assert(subKpi("revenue") === 227, `saas MRR expected 227, got ${subKpi("revenue"
 assert(subKpi("subscriptions") === 3, `saas subscriptions expected 3, got ${subKpi("subscriptions")}`);
 assert(subKpi("plans") === 2, `saas plans expected 2, got ${subKpi("plans")}`);
 assert(suggestIndustry(subProfile.columns) === "saas", "saas data is auto-suggested as saas");
+
+// 9. Reports are pack-driven: a pharmacy report carries pharmacy KPIs + sections,
+// not the retail "Top Products".
+const rxReport = composeReport(pharmacyPack, rxRows, rxMap);
+assert(rxReport.industry === "pharmacy", "report tagged with the pack");
+assert(rxReport.kpis.some((k) => k.key === "prescriptions"), "pharmacy report includes the Prescriptions KPI");
+assert(rxReport.sections.some((s) => s.title === "Top Medicines"), "pharmacy report ranks Top Medicines, not Top Products");
+assert(!rxReport.sections.some((s) => s.title === "Top Products"), "pharmacy report has no retail Top Products section");
+
+// 10. Suggestion tie-break: when a dataset matches retail and pharmacy equally,
+// the specialised pack (higher priority) wins.
+const mixCols = ["prescription_id", "medicine_name", "patient_id", "product_name", "region", "category"];
+const mixRows = [{ prescription_id: "RX-1", medicine_name: "Amoxicillin", patient_id: "P1", product_name: "Widget", region: "West", category: "Antibiotic" }];
+assert(suggestIndustry(profileDataset(mixRows, mixCols).columns) === "pharmacy", "specialised pack wins the tie over retail");
 
 console.log("✓ engine selfcheck passed");

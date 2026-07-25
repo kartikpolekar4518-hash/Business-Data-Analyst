@@ -40,6 +40,8 @@ export interface IndustryPack {
   label: string;
   rules: SemanticRule[]; // extra detection vocabulary, runs before the base retail rules
   signals: Semantic[]; // distinctive semantics used to auto-suggest this industry
+  minSignals: number; // how many signals must be present for auto-suggestion to pick this pack
+  priority: number; // tie-breaker when scores match (higher wins); specialised packs sit above retail
   kpis: KpiDef[];
   trend: { title: string; subtitle: string };
   composition: CompositionDef;
@@ -68,6 +70,8 @@ const RETAIL: IndustryPack = {
   label: "Retail / Sales",
   rules: [],
   signals: ["order_id", "product_name", "region", "category"],
+  minSignals: 3, // retail signals are common, so require more of them before auto-picking
+  priority: 0,
   kpis: [
     { key: "revenue", label: "Revenue", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Sum of revenue (or quantity × unit price) across all rows." },
     { key: "profit", label: "Profit", icon: "profit", format: "money", value: sumProfit, tooltip: "Revenue minus cost." },
@@ -88,9 +92,14 @@ const PHARMACY: IndustryPack = {
     { semantic: "prescription_id", patterns: [/prescription/, /rx[_ ]?(no|id)/, /^rx$/] },
     { semantic: "medicine_name", patterns: [/medicine/, /drug/, /^med(icine)?[_ ]?name$/, /^med$/] },
     { semantic: "patient_id", patterns: [/patient/, /^mrn$/] },
+    // `/amount/` is deliberately broad. Detection is per-column first-match-wins, so
+    // if a file has both an explicit "revenue" column and an "amount" column, the one
+    // that appears first is mapped; name the intended revenue column unambiguously.
     { semantic: "revenue", patterns: [/bill[_ ]?amount/, /total[_ ]?price/, /net[_ ]?amount/, /amount/] },
   ],
   signals: ["prescription_id", "medicine_name", "patient_id"],
+  minSignals: 2,
+  priority: 10, // specialised vocabulary; prefer over retail on a tie
   kpis: [
     { key: "prescriptions", label: "Prescriptions", icon: "prescriptions", format: "number", value: distinctOrCount("prescription_id"), tooltip: "Distinct prescriptions filled (or row count)." },
     { key: "revenue", label: "Revenue", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Total sales value across all rows." },
@@ -115,6 +124,8 @@ const SAAS: IndustryPack = {
     { semantic: "customer_id", patterns: [/account[_ ]?id/, /^user[_ ]?id$/] },
   ],
   signals: ["subscription_id", "plan"],
+  minSignals: 2,
+  priority: 10, // specialised vocabulary; prefer over retail on a tie
   kpis: [
     { key: "revenue", label: "MRR", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Monthly recurring revenue (sum of subscription amounts)." },
     { key: "subscriptions", label: "Subscriptions", icon: "subscriptions", format: "number", value: distinctOrCount("subscription_id"), tooltip: "Distinct subscriptions (or row count)." },
@@ -133,6 +144,8 @@ const GENERIC: IndustryPack = {
   label: "Other / General",
   rules: [],
   signals: [],
+  minSignals: Number.POSITIVE_INFINITY, // never auto-suggested; it is the fallback
+  priority: -1,
   kpis: [
     { key: "records", label: "Records", icon: "records", format: "number", value: (rows) => rows.length, tooltip: "Total rows in your dataset." },
     { key: "revenue", label: "Revenue", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Total revenue detected (0 if none)." },
@@ -152,17 +165,19 @@ export function getPack(key?: string | null): IndustryPack {
 }
 
 // Suggest an industry from a dataset's columns, independent of what pack detected
-// it: each pack's own rules are run and scored by how many of its signature
-// semantics appear. Specialised packs win with 2 distinctive signals; retail is
-// the fallback for generic sales data; otherwise stay generic.
+// it. Every pack (except the signal-less generic fallback) is scored by how many
+// of its signature semantics its own rules find; the best score that clears the
+// pack's `minSignals` wins, breaking ties by `priority` then specificity (fewer
+// total signals = more specific). Adding a pack needs no change here.
 export function suggestIndustry(columns: ColumnProfile[]): string {
-  const score = (p: IndustryPack) => {
-    const { map } = detectSchema(columns, p.rules);
-    return p.signals.filter((s) => map[s]).length;
-  };
-  for (const key of ["pharmacy", "saas"] as const) {
-    if (score(PACKS[key]) >= 2) return key;
-  }
-  if (score(RETAIL) >= 3) return "retail";
-  return "generic";
+  const ranked = Object.values(PACKS)
+    .filter((p) => p.signals.length > 0)
+    .map((p) => ({ pack: p, score: p.signals.filter((s) => detectSchema(columns, p.rules).map[s]).length }))
+    .filter((c) => c.score >= c.pack.minSignals)
+    .sort((a, b) =>
+      b.score - a.score ||
+      b.pack.priority - a.pack.priority ||
+      a.pack.signals.length - b.pack.signals.length,
+    );
+  return ranked[0]?.pack.key ?? "generic";
 }

@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BrainCircuit } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
-import { INDUSTRIES } from "../lib/industries";
+import { useIndustries } from "../lib/industries";
 import { Button, Input, Label, Select, ErrorState } from "../components/ui";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
@@ -77,6 +77,7 @@ export function Login() {
 export function Signup() {
   const { signup } = useAuth();
   const nav = useNavigate();
+  const industries = useIndustries();
   const [form, setForm] = useState({ name: "", email: "", password: "", organizationName: "", industry: "retail" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -99,7 +100,7 @@ export function Signup() {
         <div>
           <Label>Business type</Label>
           <Select value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })}>
-            {INDUSTRIES.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+            {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
           </Select>
           <p className="mt-1 text-xs text-slate-400">Your dashboard adapts to this. You can change it later in Settings.</p>
         </div>

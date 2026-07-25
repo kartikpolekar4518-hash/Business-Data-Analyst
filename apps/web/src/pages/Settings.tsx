@@ -5,7 +5,7 @@ import { Trash2, Plus, KeyRound, ShieldAlert } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
-import { INDUSTRIES } from "../lib/industries";
+import { useIndustries } from "../lib/industries";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
 
 export default function SettingsPage() {
@@ -30,6 +30,7 @@ function OrgTab() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
+  const industries = useIndustries();
   const { data } = useQuery({ queryKey: ["org"], queryFn: () => api.get<{ organization: { name: string; industry: string; memberCount: number } }>("/organizations/current") });
   const [name, setName] = useState("");
   const [industry, setIndustry] = useState<string | null>(null);
@@ -47,7 +48,7 @@ function OrgTab() {
       <div>
         <Label>Business type</Label>
         <Select value={industry ?? data?.organization.industry ?? "generic"} onChange={(e) => setIndustry(e.target.value)} disabled={!can("ADMIN")}>
-          {INDUSTRIES.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+          {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
         </Select>
         <p className="mt-1 text-xs text-slate-400">Your dashboards, KPIs, and labels adapt to this.</p>
       </div>

@@ -1,7 +1,9 @@
 import { prisma } from "../prisma.js";
 import { HttpError } from "../errors.js";
 import type { Row } from "../engine/parse.js";
-import type { SchemaMap } from "../engine/schema.js";
+import { detectSchema, type SchemaMap } from "../engine/schema.js";
+import type { Profile } from "../engine/profile.js";
+import { getPack } from "../engine/industries.js";
 
 // Parsed-row cache. Deserializing the rows JSON is the dominant cost of every
 // analytics request (the dashboard alone fires ~5 in parallel), so rows are
@@ -13,11 +15,10 @@ const ROW_CACHE_MAX = 8;
 
 // Load a dataset scoped to the org (tenant isolation) and return its active rows
 // (cleaned if cleaning was applied, else original) plus the detected schema map.
+// The schema map is kept pack-correct at write time (upload + industry change),
+// so every reader here can trust it without re-detecting.
 export async function loadDataset(organizationId: string, datasetId?: string) {
-  // `profile` is included so callers (e.g. the overview) can re-run pack-aware
-  // schema detection on the fly — this lets switching a company's industry
-  // re-tailor its dashboard without re-uploading.
-  const meta = { select: { id: true, name: true, rowCount: true, updatedAt: true, schemaMap: true, profile: true } };
+  const meta = { select: { id: true, name: true, rowCount: true, updatedAt: true, schemaMap: true } };
   const dataset = datasetId
     ? await prisma.dataset.findFirst({ where: { id: datasetId, organizationId }, ...meta })
     : await prisma.dataset.findFirst({ where: { organizationId }, orderBy: { createdAt: "desc" }, ...meta });
@@ -38,4 +39,20 @@ export async function loadDataset(organizationId: string, datasetId?: string) {
 export function stripRows<T extends { rows?: unknown; cleanedRows?: unknown }>(d: T) {
   const { rows, cleanedRows, ...rest } = d;
   return rest;
+}
+
+// Re-detect and persist every dataset's schema under a new industry pack. Called
+// when an org changes its business type so ALL readers (dashboard, reports, AI
+// chat, forecasts, alerts) see the same pack-aware columns — not just the
+// dashboard. Re-detection is cheap (regex over column names); the write bumps
+// updatedAt, which naturally invalidates the row cache.
+export async function reapplyIndustrySchema(organizationId: string, industryKey: string) {
+  const pack = getPack(industryKey);
+  const datasets = await prisma.dataset.findMany({ where: { organizationId }, select: { id: true, profile: true } });
+  for (const d of datasets) {
+    const cols = (d.profile as Profile | null)?.columns;
+    if (!cols?.length) continue;
+    const { map, columns } = detectSchema(cols, pack.rules);
+    await prisma.dataset.update({ where: { id: d.id }, data: { schemaMap: map as object, columns: columns as object } });
+  }
 }

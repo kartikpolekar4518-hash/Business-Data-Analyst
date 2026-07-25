@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Database,
@@ -30,6 +30,9 @@ const impactBadge = {
 } as const;
 
 const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
+// Static classes so Tailwind keeps them; the grid tightens to the KPI count (a
+// 3-KPI generic pack shouldn't leave two empty columns).
+const KPI_COLS: Record<number, string> = { 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-5" };
 
 type InsightIconKey = "growth" | "risk" | "opportunity" | "target" | "default";
 const insightIconMap: Record<InsightIconKey, typeof Zap> = {
@@ -83,6 +86,17 @@ export default function Dashboard() {
     }
   };
 
+  // Remember a dismissed suggestion per dataset+suggestion so it doesn't nag on
+  // every navigation back to the dashboard.
+  const suggestionKey = ov.data ? `dismiss-industry:${ov.data.datasetId}:${ov.data.suggestedIndustry}` : "";
+  useEffect(() => {
+    if (suggestionKey) setDismissedSuggestion(localStorage.getItem(suggestionKey) === "1");
+  }, [suggestionKey]);
+  const dismissSuggestion = () => {
+    if (suggestionKey) localStorage.setItem(suggestionKey, "1");
+    setDismissedSuggestion(true);
+  };
+
   if (ov.isError) {
     return (
       <div className="mx-auto max-w-md pt-16">
@@ -118,7 +132,7 @@ export default function Dashboard() {
 
       {/* ─── Industry suggestion banner ─── */}
       {showSuggestion && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
+        <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
             <Sparkles className="h-[18px] w-[18px]" />
           </div>
@@ -130,7 +144,7 @@ export default function Dashboard() {
             <Button loading={switching} onClick={() => switchIndustry(data!.suggestedIndustry)}>
               Switch to {industryLabel(data!.suggestedIndustry)}
             </Button>
-            <Button variant="ghost" onClick={() => setDismissedSuggestion(true)}>Dismiss</Button>
+            <Button variant="ghost" onClick={dismissSuggestion}>Dismiss</Button>
           </div>
         </div>
       )}
@@ -159,7 +173,7 @@ export default function Dashboard() {
       )}
 
       {/* ─── KPI Cards (driven by the industry pack) ─── */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+      <div className={cn("grid grid-cols-2 gap-4 md:grid-cols-3", data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5")}>
         {!data
           ? Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="rounded-xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/70">
