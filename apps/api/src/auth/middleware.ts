@@ -11,6 +11,12 @@ export interface AuthContext {
   role: Role;
 }
 
+// Signed into the JWT (superset of AuthContext) — tokenVersion lets a password
+// reset invalidate every token issued before it.
+interface TokenPayload extends AuthContext {
+  tokenVersion: number;
+}
+
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
@@ -18,21 +24,24 @@ declare global {
   }
 }
 
-export function signToken(payload: AuthContext): string {
+export function signToken(payload: AuthContext & { tokenVersion: number }): string {
   return jwt.sign(payload, env.jwtSecret, { expiresIn: env.jwtExpiresIn } as jwt.SignOptions);
 }
 
-// Verifies the JWT and confirms the membership still exists (org isolation source of truth).
+// Verifies the JWT, confirms the membership still exists (org isolation source
+// of truth), and rejects tokens minted before the user's last password reset.
 export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const auth = req.headers.authorization;
     const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
     if (!token) throw new HttpError(401, "Not authenticated");
-    const decoded = jwt.verify(token, env.jwtSecret) as AuthContext;
+    const decoded = jwt.verify(token, env.jwtSecret) as TokenPayload;
     const member = await prisma.organizationMember.findFirst({
       where: { userId: decoded.userId, organizationId: decoded.organizationId },
+      include: { user: { select: { tokenVersion: true } } },
     });
     if (!member) throw new HttpError(401, "Membership not found");
+    if ((decoded.tokenVersion ?? 0) !== member.user.tokenVersion) throw new HttpError(401, "Session expired — please sign in again");
     req.auth = { userId: member.userId, organizationId: member.organizationId, role: member.role };
     next();
   } catch (e) {

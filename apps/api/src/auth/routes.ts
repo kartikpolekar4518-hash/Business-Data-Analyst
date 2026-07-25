@@ -36,7 +36,7 @@ authRouter.post("/signup", wrap(async (req, res) => {
     return { user, org };
   });
 
-  const token = signToken({ userId: result.user.id, organizationId: result.org.id, role: "ADMIN" });
+  const token = signToken({ userId: result.user.id, organizationId: result.org.id, role: "ADMIN", tokenVersion: result.user.tokenVersion });
   res.status(201).json({ token, user: publicUser(result.user), organization: result.org, role: "ADMIN" });
 }));
 
@@ -53,7 +53,7 @@ authRouter.post("/login", wrap(async (req, res) => {
   }
   const membership = user.memberships[0];
   if (!membership) throw new HttpError(403, "No organization membership");
-  const token = signToken({ userId: user.id, organizationId: membership.organizationId, role: membership.role });
+  const token = signToken({ userId: user.id, organizationId: membership.organizationId, role: membership.role, tokenVersion: user.tokenVersion });
   res.json({ token, user: publicUser(user), organization: membership.organization, role: membership.role });
 }));
 
@@ -92,7 +92,8 @@ authRouter.post("/reset-password", wrap(async (req, res) => {
   }
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.$transaction([
-    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+    // Bump tokenVersion so any JWT issued before this reset stops validating.
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
     prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
   res.json({ ok: true });

@@ -43,7 +43,7 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
   const { originalname, size, buffer } = req.file;
 
   let parsed;
-  try { parsed = parseFile({ buffer, fileName: originalname }); }
+  try { parsed = await parseFile({ buffer, fileName: originalname }); }
   catch (e) { throw new HttpError(400, e instanceof Error ? e.message : "Could not parse file"); }
   if (!parsed.rows.length) throw new HttpError(400, "The file has no data rows");
 
@@ -71,10 +71,10 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
       rowCount: profile.rowCount,
       columnCount: profile.columnCount,
       qualityScore: profile.qualityScore,
-      columns: columns as Record<string, unknown>,
-      schemaMap: map as Record<string, unknown>,
-      profile: profile as Record<string, unknown>,
-      rows: parsed.rows as Record<string, unknown>[],
+      columns: columns as object,
+      schemaMap: map as object,
+      profile: profile as object,
+      rows: parsed.rows as object[],
       issues: { create: profile.issues.map((i) => ({ ...i })) },
     },
     include: { issues: true },

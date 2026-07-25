@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export type Row = Record<string, unknown>;
 
@@ -9,7 +9,8 @@ export interface ParsedFile {
 }
 
 // Parse an uploaded CSV/XLSX/XLS buffer into rows of plain objects.
-export function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): ParsedFile {
+// Async because the spreadsheet path (exceljs) streams the workbook.
+export async function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): Promise<ParsedFile> {
   const MAX_BUFFER = 50 * 1024 * 1024; // 50MB hard limit
   if (buffer.length > MAX_BUFFER) {
     throw new Error(`File exceeds maximum size of 50MB (got ${(buffer.length / 1024 / 1024).toFixed(1)}MB)`);
@@ -40,16 +41,54 @@ function parseCsv(buffer: Buffer): ParsedFile {
   }
 }
 
-function parseXlsx(buffer: Buffer): ParsedFile {
+// Extract a plain scalar from an exceljs cell value (which may be a formula
+// result, hyperlink, rich-text run, or error object). Mirrors the old
+// sheet_to_json output: dates stay Date, blanks/errors become "".
+function cellValue(v: unknown): unknown {
+  if (v === null || v === undefined) return "";
+  if (v instanceof Date) return v;
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if (o.text !== undefined) return o.text;                    // hyperlink cell
+    if (o.result !== undefined) return o.result;                // formula cell
+    if (Array.isArray(o.richText)) return o.richText.map((t) => (t as { text?: string }).text ?? "").join("");
+    if (o.error !== undefined) return "";                       // error cell
+    return String(v);
+  }
+  return v;
+}
+
+async function parseXlsx(buffer: Buffer): Promise<ParsedFile> {
   try {
-    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Row>(sheet, { defval: "", raw: false });
-    // Normalize null values to empty string to match CSV behavior
-    const normalized = rows.map(r => Object.fromEntries(
-      Object.entries(r).map(([k, v]) => [k, v === null ? "" : v])
-    ));
-    return { rows: normalized, columns: inferColumns(normalized) };
+    const wb = new ExcelJS.Workbook();
+    // @types/node 22 types Buffer as Buffer<ArrayBufferLike>; exceljs's load()
+    // signature predates that generic, so the widened type needs a cast.
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    const sheet = wb.worksheets[0];
+    if (!sheet) return { rows: [], columns: [] };
+
+    // Header row (row 1). exceljs cells are 1-indexed; index 0 is unused.
+    const headers: string[] = [];
+    sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, col) => {
+      headers[col - 1] = String(cellValue(cell.value)).trim();
+    });
+
+    const rows: Row[] = [];
+    sheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
+      if (rowNumber === 1) return;
+      const obj: Row = {};
+      let hasValue = false;
+      for (let c = 0; c < headers.length; c++) {
+        const key = headers[c];
+        if (!key) continue;
+        const val = cellValue(row.getCell(c + 1).value);
+        obj[key] = val;
+        if (val !== "" && val !== null && val !== undefined) hasValue = true;
+      }
+      if (hasValue) rows.push(obj);
+    });
+
+    return { rows, columns: inferColumns(rows) };
   } catch (e) {
     throw new Error(`Failed to parse Excel file: ${e instanceof Error ? e.message : String(e)}`);
   }

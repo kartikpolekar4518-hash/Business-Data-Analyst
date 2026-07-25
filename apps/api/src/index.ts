@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -20,6 +21,21 @@ import { settingsRouter } from "./modules/settings.js";
 
 const app = express();
 app.disable("x-powered-by");
+// Security headers. CSP allows self + the Google Fonts origins the UI uses;
+// 'unsafe-inline' style is required by Recharts' inline SVG styling.
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+    },
+  },
+}));
 app.use(cors({ origin: env.appUrl.split(",") }));
 app.use(express.json({ limit: "2mb" }));
 
