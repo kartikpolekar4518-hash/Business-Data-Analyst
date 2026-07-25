@@ -10,7 +10,7 @@ export interface OverviewResponse {
   datasetId: string; datasetName: string;
   schema: Record<string, string>;
   overview: Overview;
-  revenueTrend: Point[]; profitTrend: Point[];
+  revenueTrend: Point[]; profitTrend: Point[]; ordersTrend?: Point[];
   topProducts: Rank[]; topCustomers: Rank[]; regions: Rank[]; categories: Rank[];
   filterOptions: Record<string, string[]>;
 }

@@ -10,7 +10,7 @@ type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/10 active:bg-brand-800",
+    "bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/10 active:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400 dark:shadow-glow",
   secondary:
     "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
   outline:
@@ -71,8 +71,8 @@ export const Card = ({
   <div
     className={cn(
       "rounded-xl border border-border bg-white shadow-card transition-all duration-200",
-      "dark:border-slate-800 dark:bg-slate-900",
-      hoverable && "cursor-pointer hover:shadow-card-hover",
+      "dark:border-white/[0.06] dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm",
+      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-brand-500/25",
       className,
     )}
   >
@@ -89,7 +89,7 @@ export const CardHeader = ({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 dark:border-slate-800">
+  <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 dark:border-white/[0.06]">
     <div className="min-w-0">
       <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
         {title}
@@ -140,7 +140,7 @@ export const Input = forwardRef<
       "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
       "placeholder:text-slate-400",
       "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500",
+      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
       className,
     )}
     {...props}
@@ -156,7 +156,7 @@ export const Select = forwardRef<
     className={cn(
       "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
       "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100",
+      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100",
       className,
     )}
     {...props}
@@ -170,13 +170,15 @@ export const Select = forwardRef<
 // ─────────────────────────────────────────────
 const badgeStyles = {
   slate:
-    "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    "bg-slate-100 text-slate-700 dark:bg-white/5 dark:text-slate-300",
   green:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400",
+    "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
   amber:
-    "bg-amber-100 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400",
-  red: "bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400",
-  blue: "bg-brand-100 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300",
+    "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
+  red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
+  blue: "bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300",
+  violet: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+  teal: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
 };
 
 export const Badge = ({
@@ -185,7 +187,7 @@ export const Badge = ({
   dot,
 }: {
   children: ReactNode;
-  tone?: "slate" | "green" | "amber" | "red" | "blue";
+  tone?: "slate" | "green" | "amber" | "red" | "blue" | "violet" | "teal";
   dot?: boolean;
 }) => (
   <span
@@ -202,6 +204,8 @@ export const Badge = ({
           tone === "amber" && "bg-amber-500",
           tone === "red" && "bg-red-500",
           tone === "blue" && "bg-brand-500",
+          tone === "violet" && "bg-violet-500",
+          tone === "teal" && "bg-cyan-500",
           tone === "slate" && "bg-slate-400 dark:bg-slate-500",
         )}
       />

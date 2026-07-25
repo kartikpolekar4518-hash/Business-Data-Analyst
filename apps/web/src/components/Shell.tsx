@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Keyboard,
   ChevronDown,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -144,15 +145,15 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-[240px] shrink-0 flex-col",
-          "bg-slate-900 text-slate-100",
+          "border-r border-white/[0.06] bg-[#0a0f1a]/95 text-slate-100 backdrop-blur-xl",
           "transition-all duration-300 ease-out",
           open ? "translate-x-0" : "-translate-x-full",
           "lg:static lg:translate-x-0 lg:z-auto",
         )}
       >
         {/* Brand */}
-        <div className="flex h-14 items-center gap-3 border-b border-white/5 px-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 shadow-lg shadow-brand-500/20">
+        <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40">
             <BrainCircuit className="h-[18px] w-[18px] text-white" />
           </div>
           <span className="text-[16px] font-bold tracking-tight text-white">
@@ -179,7 +180,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
                         cn(
                           "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
                           isActive
-                            ? "bg-white/10 text-white"
+                            ? "bg-brand-500/[0.12] text-white"
                             : "text-slate-400 hover:bg-white/5 hover:text-slate-200",
                         )
                       }
@@ -187,7 +188,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
                       {({ isActive }) => (
                         <>
                           {isActive && (
-                            <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-brand-400" />
+                            <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-400 shadow-[0_0_10px_1px] shadow-brand-400/70" />
                           )}
                           <n.icon className="h-[18px] w-[18px] shrink-0" />
                           <span className="truncate">{n.label}</span>
@@ -204,7 +205,7 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
         {/* Bottom — user summary */}
         <div className="border-t border-white/5 px-3 py-3">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-500 text-xs font-semibold text-white shadow-sm">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
               {user?.name?.[0] ?? "U"}
             </div>
             <div className="min-w-0 flex-1">
@@ -268,7 +269,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
       {/* Mobile hamburger */}
       <button
         className="lg:hidden"
@@ -296,12 +297,19 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
       <div className="flex-1" />
 
       {/* Global search */}
-      <button className="group hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-slate-400 transition-all hover:border-slate-300 hover:text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-slate-600 sm:flex">
+      <button className="group hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm text-slate-400 transition-all hover:border-slate-300 hover:text-slate-500 dark:border-white/10 dark:bg-white/5 dark:hover:border-white/20 sm:flex">
         <Search className="h-4 w-4" />
         <span className="text-slate-400">Search</span>
-        <kbd className="ml-6 rounded border border-border bg-white px-1.5 py-[1px] text-[11px] font-medium text-slate-400 dark:border-slate-700 dark:bg-slate-800">
+        <kbd className="ml-6 rounded border border-border bg-white px-1.5 py-[1px] text-[11px] font-medium text-slate-400 dark:border-white/10 dark:bg-white/5">
           ⌘K
         </kbd>
+      </button>
+
+      {/* Date range chip */}
+      <button className="hidden items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-1.5 text-sm font-medium text-slate-600 transition-all hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:border-white/20 md:flex">
+        <Calendar className="h-4 w-4 text-slate-400" />
+        Last 30 days
+        <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
       </button>
 
       {/* Theme toggle */}
@@ -345,7 +353,7 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
           aria-haspopup="true"
           className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-500 text-xs font-semibold text-white shadow-sm">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
             {user?.name?.[0] ?? "U"}
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
@@ -427,7 +435,7 @@ export function Shell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-full bg-surface-tertiary dark:bg-slate-950">
+    <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">

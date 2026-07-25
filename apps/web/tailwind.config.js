@@ -58,6 +58,11 @@ export default {
         "modal": "0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)",
         "panel": "0 20px 60px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.08)",
         "focus": "0 0 0 3px rgba(51,102,245,0.25)",
+        // Neon glows for the dark theme
+        "glow": "0 8px 30px -10px rgba(51,102,245,0.45)",
+        "glow-sm": "0 0 18px -6px rgba(89,140,255,0.5)",
+        "glow-violet": "0 8px 30px -10px rgba(139,92,246,0.45)",
+        "card-glow": "0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.8)",
       },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",
