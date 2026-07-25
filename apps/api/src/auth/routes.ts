@@ -7,6 +7,7 @@ import { prisma } from "../prisma.js";
 import { env } from "../env.js";
 import { wrap, HttpError } from "../errors.js";
 import { signToken, requireAuth } from "./middleware.js";
+import { PACKS } from "../engine/industries.js";
 
 export const authRouter = Router();
 
@@ -20,17 +21,18 @@ const signupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   organizationName: z.string().min(1),
+  industry: z.enum(Object.keys(PACKS) as [string, ...string[]]).optional(),
 });
 
 authRouter.post("/signup", wrap(async (req, res) => {
-  const { name, email, password, organizationName } = signupSchema.parse(req.body);
+  const { name, email, password, organizationName, industry } = signupSchema.parse(req.body);
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) throw new HttpError(409, "An account with this email already exists");
 
   const passwordHash = await bcrypt.hash(password, 10);
   const result = await prisma.$transaction(async (tx) => {
     const user = await tx.user.create({ data: { name, email: email.toLowerCase(), passwordHash } });
-    const org = await tx.organization.create({ data: { name: organizationName } });
+    const org = await tx.organization.create({ data: { name: organizationName, ...(industry ? { industry } : {}) } });
     await tx.organizationMember.create({ data: { userId: user.id, organizationId: org.id, role: "ADMIN" } });
     await tx.activityLog.create({ data: { organizationId: org.id, action: "org.created", detail: organizationName, actorId: user.id } });
     return { user, org };

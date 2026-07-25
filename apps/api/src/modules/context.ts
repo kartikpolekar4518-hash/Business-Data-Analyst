@@ -14,7 +14,10 @@ const ROW_CACHE_MAX = 8;
 // Load a dataset scoped to the org (tenant isolation) and return its active rows
 // (cleaned if cleaning was applied, else original) plus the detected schema map.
 export async function loadDataset(organizationId: string, datasetId?: string) {
-  const meta = { select: { id: true, name: true, rowCount: true, updatedAt: true, schemaMap: true } };
+  // `profile` is included so callers (e.g. the overview) can re-run pack-aware
+  // schema detection on the fly — this lets switching a company's industry
+  // re-tailor its dashboard without re-uploading.
+  const meta = { select: { id: true, name: true, rowCount: true, updatedAt: true, schemaMap: true, profile: true } };
   const dataset = datasetId
     ? await prisma.dataset.findFirst({ where: { id: datasetId, organizationId }, ...meta })
     : await prisma.dataset.findFirst({ where: { organizationId }, orderBy: { createdAt: "desc" }, ...meta });

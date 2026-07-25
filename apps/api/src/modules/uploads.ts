@@ -8,6 +8,7 @@ import { env } from "../env.js";
 import { parseFile } from "../engine/parse.js";
 import { profileDataset } from "../engine/profile.js";
 import { detectSchema } from "../engine/schema.js";
+import { getPack, suggestIndustry } from "../engine/industries.js";
 import { refreshAlerts } from "./alerts.js";
 import { stripRows } from "./context.js";
 
@@ -48,8 +49,11 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
   if (!parsed.rows.length) throw new HttpError(400, "The file has no data rows");
 
   const profile = profileDataset(parsed.rows, parsed.columns);
-  const { map, columns } = detectSchema(profile.columns);
-  
+  // Detect columns using the org's industry vocabulary (e.g. recognise "medicine").
+  const org = await prisma.organization.findUnique({ where: { id: auth.organizationId }, select: { industry: true } });
+  const { map, columns } = detectSchema(profile.columns, getPack(org?.industry).rules);
+  const suggestedIndustry = suggestIndustry(profile.columns);
+
   // Extract and validate file extension
   let fileExt = "csv";
   if (originalname.includes(".")) {
@@ -82,7 +86,7 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
 
   await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.uploaded", detail: originalname, actorId: auth.userId } });
   await refreshAlerts(auth.organizationId); // alerts derive on data change, not on read
-  res.status(201).json({ dataset: stripRows(dataset) });
+  res.status(201).json({ dataset: stripRows(dataset), suggestedIndustry });
 }));
 
 uploadsRouter.get("/", wrap(async (req, res) => {

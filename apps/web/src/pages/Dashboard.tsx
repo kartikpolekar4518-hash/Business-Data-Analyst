@@ -1,12 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  DollarSign,
-  TrendingUp,
-  ShoppingCart,
-  Users,
-  Percent,
   Database,
   FileText,
   Bell,
@@ -16,14 +11,17 @@ import {
   AlertTriangle,
   Target,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { money, num, timeAgo } from "../lib/utils";
+import { industryLabel } from "../lib/industries";
+import { kpiIcon, fmtKpi } from "../lib/kpi";
 import { Card, CardHeader, CardBody, Skeleton, EmptyState, Button, Badge } from "../components/ui";
 import { KpiCard } from "../components/Kpi";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
-import type { OverviewResponse, Recommendation, DatasetSummary, Alert, Point } from "../lib/types";
+import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
 
 const impactBadge = {
   HIGH: { tone: "red" as const, label: "High impact" },
@@ -31,33 +29,26 @@ const impactBadge = {
   LOW: { tone: "slate" as const, label: "Low impact" },
 } as const;
 
+const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
+
 type InsightIconKey = "growth" | "risk" | "opportunity" | "target" | "default";
-
 const insightIconMap: Record<InsightIconKey, typeof Zap> = {
-  growth: Zap,
-  risk: AlertTriangle,
-  opportunity: Lightbulb,
-  target: Target,
-  default: BrainCircuit,
+  growth: Zap, risk: AlertTriangle, opportunity: Lightbulb, target: Target, default: BrainCircuit,
 };
-
-function InsightIcon({ label }: { label: string }) {
-  const key = useMemo<InsightIconKey>(() => {
-    const lower = label.toLowerCase();
-    if (lower.includes("growth") || lower.includes("revenue") || lower.includes("profit")) return "growth";
-    if (lower.includes("risk") || lower.includes("alert") || lower.includes("decline")) return "risk";
-    if (lower.includes("opportunity") || lower.includes("recommend")) return "opportunity";
-    if (lower.includes("target") || lower.includes("goal")) return "target";
-    return "default";
-  }, [label]);
-
-  const Icon = insightIconMap[key];
-  return <Icon className="h-4 w-4" />;
+function insightKey(label: string): InsightIconKey {
+  const lower = label.toLowerCase();
+  if (lower.includes("growth") || lower.includes("revenue") || lower.includes("profit")) return "growth";
+  if (lower.includes("risk") || lower.includes("alert") || lower.includes("decline")) return "risk";
+  if (lower.includes("opportunity") || lower.includes("recommend")) return "opportunity";
+  if (lower.includes("target") || lower.includes("goal")) return "target";
+  return "default";
 }
 
-const spark = (t?: Point[]) => (t && t.length > 1 ? t.map((p) => p.value) : undefined);
-
 export default function Dashboard() {
+  const qc = useQueryClient();
+  const [dismissedSuggestion, setDismissedSuggestion] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
   const ov = useQuery({
     queryKey: ["overview"],
     queryFn: () => api.get<OverviewResponse>("/analytics/overview"),
@@ -65,8 +56,7 @@ export default function Dashboard() {
   });
   const insights = useQuery({
     queryKey: ["insights"],
-    queryFn: () =>
-      api.get<{ headline: string; recommendations: Recommendation[] }>("/ai/insights"),
+    queryFn: () => api.get<{ headline: string; recommendations: Recommendation[] }>("/ai/insights"),
     retry: false,
   });
   const datasets = useQuery({
@@ -82,15 +72,16 @@ export default function Dashboard() {
     queryFn: () => api.get<{ alerts: Alert[] }>("/alerts"),
   });
 
-  // Monthly margin sparkline, computed from the revenue & profit trends we already have.
-  const marginSpark = useMemo(() => {
-    if (!ov.data) return undefined;
-    const rev = new Map(ov.data.revenueTrend.map((p) => [p.period ?? p.label, p.value]));
-    const series = ov.data.profitTrend
-      .map((p) => { const r = rev.get(p.period ?? p.label); return r ? (p.value / r) * 100 : null; })
-      .filter((v): v is number => v != null);
-    return series.length > 1 ? series : undefined;
-  }, [ov.data]);
+  const switchIndustry = async (industry: string) => {
+    setSwitching(true);
+    try {
+      await api.patch("/organizations/current", { industry });
+      await qc.invalidateQueries({ queryKey: ["overview"] });
+      await qc.invalidateQueries({ queryKey: ["org"] });
+    } finally {
+      setSwitching(false);
+    }
+  };
 
   if (ov.isError) {
     return (
@@ -109,8 +100,9 @@ export default function Dashboard() {
     );
   }
 
-  const overview = ov.data?.overview;
-  const composition = ov.data?.categories?.length ? ov.data.categories : ov.data?.regions ?? [];
+  const data = ov.data;
+  const showSuggestion =
+    !dismissedSuggestion && data && data.suggestedIndustry && data.suggestedIndustry !== data.industry;
 
   return (
     <div className="space-y-6">
@@ -118,11 +110,30 @@ export default function Dashboard() {
       <div>
         <h1 className="page-title">Dashboard</h1>
         <p className="page-subtitle">
-          {ov.data
-            ? `Live analytics for ${ov.data.datasetName}`
+          {data
+            ? `Live ${industryLabel(data.industry)} analytics for ${data.datasetName}`
             : "Loading your workspace..."}
         </p>
       </div>
+
+      {/* ─── Industry suggestion banner ─── */}
+      {showSuggestion && (
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+            <Sparkles className="h-[18px] w-[18px]" />
+          </div>
+          <p className="min-w-0 flex-1 text-sm text-slate-700 dark:text-slate-200">
+            This looks like <strong>{industryLabel(data!.suggestedIndustry)}</strong> data. Switch your
+            dashboard to match?
+          </p>
+          <div className="flex gap-2">
+            <Button loading={switching} onClick={() => switchIndustry(data!.suggestedIndustry)}>
+              Switch to {industryLabel(data!.suggestedIndustry)}
+            </Button>
+            <Button variant="ghost" onClick={() => setDismissedSuggestion(true)}>Dismiss</Button>
+          </div>
+        </div>
+      )}
 
       {/* ─── AI Insight banner ─── */}
       {insights.data && (
@@ -147,9 +158,9 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ─── KPI Cards ─── */}
+      {/* ─── KPI Cards (driven by the industry pack) ─── */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-        {!overview
+        {!data
           ? Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="rounded-xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/70">
                 <Skeleton className="mb-3 h-4 w-20" />
@@ -157,73 +168,38 @@ export default function Dashboard() {
                 <Skeleton className="mt-2 h-4 w-24" />
               </div>
             ))
-          : (
-            <>
+          : data.kpis.map((k, i) => (
               <KpiCard
-                label="Revenue"
-                value={money(overview.revenue.value)}
-                changePct={overview.revenue.changePct}
-                icon={DollarSign}
-                accent
-                accentColor={CHART.blue}
-                spark={spark(ov.data?.revenueTrend)}
-                tooltip="Sum of revenue (or quantity × unit price) across all rows. Comparison splits the data at its median date."
+                key={k.key}
+                label={k.label}
+                value={fmtKpi(k)}
+                changePct={k.changePct}
+                icon={kpiIcon(k.icon)}
+                accent={i === 0}
+                accentColor={ACCENTS[i % ACCENTS.length]}
+                spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
+                tooltip={k.tooltip}
               />
-              <KpiCard
-                label="Profit"
-                value={money(overview.profit.value)}
-                changePct={overview.profit.changePct}
-                icon={TrendingUp}
-                accentColor={CHART.emerald}
-                spark={spark(ov.data?.profitTrend)}
-                tooltip="Revenue minus cost. Margin shown separately."
-              />
-              <KpiCard
-                label="Orders"
-                value={num(overview.orders.value)}
-                changePct={overview.orders.changePct}
-                icon={ShoppingCart}
-                accentColor={CHART.teal}
-                spark={spark(ov.data?.ordersTrend)}
-                tooltip="Distinct order IDs (or row count if no order ID column)."
-              />
-              <KpiCard
-                label="Customers"
-                value={num(overview.customers.value)}
-                changePct={overview.customers.changePct}
-                icon={Users}
-                accentColor={CHART.violet}
-                tooltip="Distinct customers detected in the dataset."
-              />
-              <KpiCard
-                label="Margin"
-                value={`${overview.profitMargin}%`}
-                icon={Percent}
-                accentColor={CHART.amber}
-                spark={marginSpark}
-                tooltip="Profit as a share of revenue."
-              />
-            </>
-          )}
+            ))}
       </div>
 
       {/* ─── Hero: performance overview + composition donut ─── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
-          <CardHeader title="Performance Overview" subtitle="Revenue & profit over time" />
+          <CardHeader title={data?.trend.title ?? "Performance Overview"} subtitle={data?.trend.subtitle ?? "Over time"} />
           <CardBody>
-            {ov.data ? (
-              <MultiTrendChart revenue={ov.data.revenueTrend} profit={ov.data.profitTrend} />
+            {data ? (
+              <MultiTrendChart revenue={data.trend.revenue} profit={data.trend.profit} />
             ) : (
               <Skeleton className="h-72 w-full" />
             )}
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="Revenue Composition" subtitle="Share by category" />
+          <CardHeader title={data?.composition.title ?? "Composition"} subtitle={data?.composition.subtitle} />
           <CardBody>
-            {composition.length ? (
-              <DonutChart data={composition} centerLabel="Revenue" />
+            {data?.composition.data.length ? (
+              <DonutChart data={data.composition.data} centerLabel={data.composition.centerLabel} />
             ) : (
               <p className="py-8 text-center text-sm text-slate-400">No category data</p>
             )}
@@ -231,15 +207,17 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* ─── Top products (styled list) + region bars ─── */}
+      {/* ─── Primary ranking list + secondary bars ─── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
-          <CardHeader title="Top Products" subtitle="Ranked by revenue" />
+          <CardHeader title={data?.ranking.title ?? "Top"} subtitle={data?.ranking.subtitle} />
           <CardBody className="space-y-1">
-            {ov.data?.topProducts.length ? (
+            {data?.ranking.data.length ? (
               (() => {
-                const max = Math.max(...ov.data!.topProducts.map((p) => p.value)) || 1;
-                return ov.data!.topProducts.slice(0, 6).map((p, i) => (
+                const rows = data.ranking.data;
+                const fmt = data.ranking.format === "money" ? money : num;
+                const max = Math.max(...rows.map((p) => p.value)) || 1;
+                return rows.slice(0, 6).map((p, i) => (
                   <div key={p.label} className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">
                       {i + 1}
@@ -247,7 +225,7 @@ export default function Dashboard() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{p.label}</span>
-                        <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">{money(p.value)}</span>
+                        <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">{fmt(p.value)}</span>
                       </div>
                       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
                         <div className="h-full rounded-full" style={{ width: `${(p.value / max) * 100}%`, background: `linear-gradient(90deg, ${CHART.blue}88, ${CHART.blue})` }} />
@@ -257,17 +235,17 @@ export default function Dashboard() {
                 ));
               })()
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">No product column detected</p>
+              <p className="py-8 text-center text-sm text-slate-400">{data?.ranking.emptyText ?? "No data"}</p>
             )}
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="Region Performance" subtitle="By revenue" />
+          <CardHeader title={data?.secondary.title ?? "Breakdown"} subtitle={data?.secondary.subtitle} />
           <CardBody>
-            {ov.data?.regions.length ? (
-              <BarRankChart data={ov.data.regions} />
+            {data?.secondary.data.length ? (
+              <BarRankChart data={data.secondary.data} />
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">No region column detected</p>
+              <p className="py-8 text-center text-sm text-slate-400">{data?.secondary.emptyText ?? "No data"}</p>
             )}
           </CardBody>
         </Card>
@@ -288,50 +266,44 @@ export default function Dashboard() {
           <CardBody>
             {insights.data?.recommendations.length ? (
               <div className="divide-y divide-border dark:divide-white/[0.06]">
-                {insights.data.recommendations.map((r) => (
-                  <div
-                    key={r.title}
-                    className="flex items-start gap-4 py-4 first:pt-0 last:pb-0"
-                  >
-                    <div
-                      className={cn(
-                        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                        r.impact === "HIGH"
-                          ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
-                          : r.impact === "MEDIUM"
-                          ? "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400"
-                          : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400",
-                      )}
-                    >
-                      <InsightIcon label={r.title} />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <h4 className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                          {r.title}
-                        </h4>
-                        <Badge tone={impactBadge[r.impact].tone} dot>
-                          {impactBadge[r.impact].label}
-                        </Badge>
+                {insights.data.recommendations.map((r) => {
+                  const Icon = insightIconMap[insightKey(r.title)];
+                  return (
+                    <div key={r.title} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
+                      <div
+                        className={cn(
+                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
+                          r.impact === "HIGH"
+                            ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
+                            : r.impact === "MEDIUM"
+                            ? "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400"
+                            : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400",
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
                       </div>
-
-                      <div className="mt-2 space-y-1 text-[13px]">
-                        <p className="text-slate-600 dark:text-slate-400">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">Observed:</span>{" "}
-                          {r.observation}
-                        </p>
-                        <p className="text-slate-600 dark:text-slate-400">
-                          <span className="font-medium text-slate-700 dark:text-slate-300">Cause:</span>{" "}
-                          {r.explanation}
-                        </p>
-                        <p className="font-medium text-brand-600 dark:text-brand-400">
-                          <span>Recommended:</span> {r.action}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="truncate text-sm font-semibold text-slate-900 dark:text-white">{r.title}</h4>
+                          <Badge tone={impactBadge[r.impact].tone} dot>{impactBadge[r.impact].label}</Badge>
+                        </div>
+                        <div className="mt-2 space-y-1 text-[13px]">
+                          <p className="text-slate-600 dark:text-slate-400">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">Observed:</span>{" "}
+                            {r.observation}
+                          </p>
+                          <p className="text-slate-600 dark:text-slate-400">
+                            <span className="font-medium text-slate-700 dark:text-slate-300">Cause:</span>{" "}
+                            {r.explanation}
+                          </p>
+                          <p className="font-medium text-brand-600 dark:text-brand-400">
+                            <span>Recommended:</span> {r.action}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">

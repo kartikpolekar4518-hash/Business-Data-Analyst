@@ -3,7 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { BrainCircuit } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
-import { Button, Input, Label, ErrorState } from "../components/ui";
+import { INDUSTRIES } from "../lib/industries";
+import { Button, Input, Label, Select, ErrorState } from "../components/ui";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -76,7 +77,7 @@ export function Login() {
 export function Signup() {
   const { signup } = useAuth();
   const nav = useNavigate();
-  const [form, setForm] = useState({ name: "", email: "", password: "", organizationName: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", organizationName: "", industry: "retail" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value });
@@ -95,6 +96,13 @@ export function Signup() {
         <div><Label>Your name</Label><Input value={form.name} onChange={set("name")} required /></div>
         <div><Label>Work email</Label><Input type="email" value={form.email} onChange={set("email")} required /></div>
         <div><Label>Organization name</Label><Input value={form.organizationName} onChange={set("organizationName")} required /></div>
+        <div>
+          <Label>Business type</Label>
+          <Select value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })}>
+            {INDUSTRIES.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
+          </Select>
+          <p className="mt-1 text-xs text-slate-400">Your dashboard adapts to this. You can change it later in Settings.</p>
+        </div>
         <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-slate-400">At least 8 characters.</p></div>
         <Button type="submit" className="w-full" loading={loading}>Create account</Button>
         <p className="text-center text-sm text-slate-500">Have an account? <Link to="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></p>

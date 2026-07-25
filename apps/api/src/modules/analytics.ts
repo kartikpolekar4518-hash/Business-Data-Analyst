@@ -1,9 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import { wrap } from "../errors.js";
+import { prisma } from "../prisma.js";
 import { requireAuth } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
+import { detectSchema, type SchemaMap } from "../engine/schema.js";
+import type { ColumnProfile } from "../engine/profile.js";
+import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industries.js";
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
@@ -46,20 +50,49 @@ const groupByDimension = (key: "product_name" | "customer_name" | "region", limi
   });
 
 analyticsRouter.get("/overview", wrap(async (req, res) => {
-  const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const orgId = req.auth!.organizationId;
+  const { dataset, rows } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
+  const pack = getPack(org?.industry);
   const f = filtersFrom(req.query);
+
+  // Re-detect the schema with the org's industry vocabulary so a company that
+  // switches its business type gets a re-tailored dashboard without re-uploading.
+  const cols = ((dataset.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
+  const schema: SchemaMap = cols.length ? detectSchema(cols, pack.rules).map : (dataset.schemaMap as SchemaMap);
+
+  const revenueTrend = A.timeSeries(rows, schema, "revenue", f);
+  const profitTrend = A.timeSeries(rows, schema, "profit", f);
+  const sparkOf = (t: { value: number }[]) => (t.length > 1 ? t.map((p) => p.value) : undefined);
+  const marginSpark = revenueTrend.length > 1
+    ? profitTrend.map((p, i) => { const r = revenueTrend[i]?.value; return r ? (p.value / r) * 100 : 0; })
+    : undefined;
+
+  const kpis = A.computeKpis(rows, schema, pack, f).map((k) => ({
+    ...k,
+    spark: k.key === "revenue" ? sparkOf(revenueTrend) : k.key === "profit" ? sparkOf(profitTrend) : k.key === "margin" ? marginSpark : undefined,
+  }));
+
+  const section = (def: RankSectionDef) => ({
+    title: def.title, subtitle: def.subtitle, emptyText: def.emptyText, format: def.format,
+    data: A.groupBy(rows, schema, def.dimension, def.metric, f, def.limit),
+  });
+  const compDim = schema[pack.composition.dimension] ? pack.composition.dimension : pack.composition.fallback;
+
   res.json({
     datasetId: dataset.id,
     datasetName: dataset.name,
+    industry: pack.key,
+    suggestedIndustry: cols.length ? suggestIndustry(cols) : pack.key,
     schema,
-    overview: A.overview(rows, schema, f),
-    revenueTrend: A.timeSeries(rows, schema, "revenue", f),
-    profitTrend: A.timeSeries(rows, schema, "profit", f),
-    ordersTrend: A.timeSeries(rows, schema, "orders", f),
-    topProducts: A.groupBy(rows, schema, "product_name", "revenue", f, 8),
-    topCustomers: A.groupBy(rows, schema, "customer_name", "revenue", f, 8),
-    regions: A.groupBy(rows, schema, "region", "revenue", f, 10),
-    categories: A.groupBy(rows, schema, "category", "revenue", f, 10),
+    kpis,
+    trend: { title: pack.trend.title, subtitle: pack.trend.subtitle, revenue: revenueTrend, profit: profitTrend },
+    composition: {
+      title: pack.composition.title, subtitle: pack.composition.subtitle, centerLabel: pack.composition.centerLabel,
+      data: compDim ? A.groupBy(rows, schema, compDim, "revenue", f, 8) : [],
+    },
+    ranking: section(pack.ranking),
+    secondary: section(pack.secondary),
     filterOptions: {
       region: A.distinctValues(rows, schema, "region"),
       state: A.distinctValues(rows, schema, "state"),

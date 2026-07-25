@@ -45,6 +45,7 @@ model User {
 model Organization {
   id          String               @id @default(uuid())
   name        String
+  industry    String               @default("generic") // industry pack key: retail | pharmacy | saas | generic
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
   members     OrganizationMember[]

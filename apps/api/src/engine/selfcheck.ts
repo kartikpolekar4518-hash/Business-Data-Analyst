@@ -7,6 +7,7 @@ import * as A from "./analytics.js";
 import { answer } from "./intent.js";
 import { forecast } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
+import { getPack, suggestIndustry } from "./industries.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
 const rows = [
@@ -81,5 +82,52 @@ assert(fc.points.every((p) => p.lower <= p.value && p.value <= p.upper), "value 
 // 7. Insights separate observation from recommendation.
 const { recommendations, alerts } = deriveInsights(rows, map);
 assert(Array.isArray(recommendations) && Array.isArray(alerts), "insights return arrays");
+
+// 8. Industry packs adapt vocabulary + KPIs per business type.
+// Retail regression: the pack reproduces the classic 5 KPIs and the same revenue.
+const retailKpis = A.computeKpis(rows, map, getPack("retail"));
+assert(retailKpis.map((k) => k.key).join(",") === "revenue,profit,orders,customers,margin", "retail pack yields the 5 baseline KPIs");
+assert(retailKpis[0].value === 600, `retail revenue KPI expected 600, got ${retailKpis[0].value}`);
+
+// Pharmacy: a prescription dataset detects pharmacy vocabulary and its KPIs.
+const rxCols = ["prescription_id", "date", "patient_id", "medicine_name", "category", "quantity", "amount", "cost"];
+const rxRows = [
+  { prescription_id: "RX-1", date: "2024-01-05", patient_id: "P1", medicine_name: "Amoxicillin", category: "Antibiotic", quantity: "2", amount: "24", cost: "12" },
+  { prescription_id: "RX-2", date: "2024-02-05", patient_id: "P2", medicine_name: "Paracetamol", category: "Analgesic", quantity: "1", amount: "6", cost: "3" },
+  { prescription_id: "RX-3", date: "2024-03-05", patient_id: "P1", medicine_name: "Amoxicillin", category: "Antibiotic", quantity: "3", amount: "36", cost: "18" },
+];
+const rxProfile = profileDataset(rxRows, rxCols);
+const pharmacyPack = getPack("pharmacy");
+const rxMap = detectSchema(rxProfile.columns, pharmacyPack.rules).map;
+assert(rxMap.prescription_id === "prescription_id", "pharmacy detects prescription_id");
+assert(rxMap.medicine_name === "medicine_name", "pharmacy detects medicine_name");
+assert(rxMap.patient_id === "patient_id", "pharmacy detects patient_id");
+assert(rxMap.revenue === "amount", "pharmacy maps amount -> revenue");
+const rxKpis = A.computeKpis(rxRows, rxMap, pharmacyPack);
+const rxKpi = (k: string) => rxKpis.find((x) => x.key === k)!.value;
+assert(rxKpi("prescriptions") === 3, `pharmacy prescriptions expected 3, got ${rxKpi("prescriptions")}`);
+assert(rxKpi("patients") === 2, `pharmacy patients expected 2, got ${rxKpi("patients")}`);
+assert(rxKpi("revenue") === 66, `pharmacy revenue expected 66, got ${rxKpi("revenue")}`);
+assert(suggestIndustry(rxProfile.columns) === "pharmacy", "pharmacy data is auto-suggested as pharmacy");
+
+// SaaS: a subscription dataset detects SaaS vocabulary and its KPIs.
+const subCols = ["subscription_id", "date", "account_id", "account_name", "plan", "mrr", "cost"];
+const subRows = [
+  { subscription_id: "S-1", date: "2024-01-05", account_id: "A1", account_name: "Labs Inc", plan: "Pro", mrr: "99", cost: "30" },
+  { subscription_id: "S-2", date: "2024-02-05", account_id: "A2", account_name: "Group Co", plan: "Starter", mrr: "29", cost: "10" },
+  { subscription_id: "S-3", date: "2024-03-05", account_id: "A1", account_name: "Labs Inc", plan: "Pro", mrr: "99", cost: "30" },
+];
+const subProfile = profileDataset(subRows, subCols);
+const saasPack = getPack("saas");
+const subMap = detectSchema(subProfile.columns, saasPack.rules).map;
+assert(subMap.subscription_id === "subscription_id", "saas detects subscription_id");
+assert(subMap.plan === "plan", "saas detects plan");
+assert(subMap.revenue === "mrr", "saas maps mrr -> revenue");
+const subKpis = A.computeKpis(subRows, subMap, saasPack);
+const subKpi = (k: string) => subKpis.find((x) => x.key === k)!.value;
+assert(subKpi("revenue") === 227, `saas MRR expected 227, got ${subKpi("revenue")}`);
+assert(subKpi("subscriptions") === 3, `saas subscriptions expected 3, got ${subKpi("subscriptions")}`);
+assert(subKpi("plans") === 2, `saas plans expected 2, got ${subKpi("plans")}`);
+assert(suggestIndustry(subProfile.columns) === "saas", "saas data is auto-suggested as saas");
 
 console.log("✓ engine selfcheck passed");
