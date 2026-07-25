@@ -160,25 +160,53 @@ function UsersTab() {
 function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "VIEWER" });
+  const [form, setForm] = useState({ name: "", email: "", role: "VIEWER" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [invited, setInvited] = useState<{ email: string; tempPassword?: string } | null>(null);
+
+  const reset = () => { setForm({ name: "", email: "", role: "VIEWER" }); setError(""); setInvited(null); };
+  const close = () => { reset(); onClose(); };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError(""); setLoading(true);
-    try { await api.post("/users/invite", form); toast("Member added", "success"); qc.invalidateQueries({ queryKey: ["users"] }); onClose(); setForm({ name: "", email: "", password: "", role: "VIEWER" }); }
-    catch (err) { setError(err instanceof ApiError ? err.message : "Failed"); }
+    try {
+      const r = await api.post<{ tempPassword?: string }>("/users/invite", form);
+      qc.invalidateQueries({ queryKey: ["users"] });
+      toast("Member added", "success");
+      setInvited({ email: form.email, tempPassword: r.tempPassword });
+    } catch (err) { setError(err instanceof ApiError ? err.message : "Failed"); }
     finally { setLoading(false); }
   };
+
   return (
-    <Modal open={open} onClose={onClose} title="Invite team member">
-      <form onSubmit={submit} className="space-y-3">
-        {error && <ErrorState message={error} />}
-        <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-        <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-        <div><Label>Temporary password</Label><Input type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={8} /></div>
-        <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
-        <Button type="submit" className="w-full" loading={loading}>Add member</Button>
-      </form>
+    <Modal open={open} onClose={close} title="Invite team member">
+      {invited ? (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
+            <strong>{invited.email}</strong> can now sign in.
+          </div>
+          {invited.tempPassword && (
+            <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
+              <div className="text-xs text-slate-500">Share this one-time password securely — it won't be shown again:</div>
+              <code className="mt-1 block select-all break-all font-mono text-slate-900 dark:text-slate-100">{invited.tempPassword}</code>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={reset}>Invite another</Button>
+            <Button className="flex-1" onClick={close}>Done</Button>
+          </div>
+        </div>
+      ) : (
+        <form onSubmit={submit} className="space-y-3">
+          {error && <ErrorState message={error} />}
+          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+          <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+          <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
+          <p className="text-xs text-slate-400">We'll generate a one-time password you can share with them.</p>
+          <Button type="submit" className="w-full" loading={loading}>Create account</Button>
+        </form>
+      )}
     </Modal>
   );
 }

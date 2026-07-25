@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
@@ -21,24 +22,33 @@ usersRouter.get("/", wrap(async (req, res) => {
 const inviteSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
-  password: z.string().min(8),
+  // Optional: when omitted we generate a strong temporary password and return
+  // it once so the admin can share it (no email provider in this build).
+  password: z.string().min(8).optional(),
   role: z.enum(["ADMIN", "MANAGER", "VIEWER"]).default("VIEWER"),
 });
 
-// Invite = create a brand-new user in this org. No email provider in the MVP,
-// so an initial password is set directly by the admin. We deliberately do NOT
-// attach a pre-existing account: without a consent/accept-invite flow, silently
-// pulling someone's account into another org would breach tenant isolation.
+// A readable-but-strong temporary password (URL-safe, ~16 chars).
+const tempPassword = () => randomBytes(12).toString("base64url");
+
+// Invite = create a brand-new user in this org. We deliberately do NOT attach a
+// pre-existing account: without a consent/accept-invite flow, silently pulling
+// someone's account into another org would breach tenant isolation.
 usersRouter.post("/invite", requireRole("ADMIN"), wrap(async (req, res) => {
   const auth = req.auth!;
   await assertWithinLimit(auth.organizationId, "seats");
   const { name, email, password, role } = inviteSchema.parse(req.body);
   const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   if (existing) throw new HttpError(409, "A user with this email already exists");
-  const user = await prisma.user.create({ data: { name, email: email.toLowerCase(), passwordHash: await bcrypt.hash(password, 10) } });
+  const generated = password ?? tempPassword();
+  const user = await prisma.user.create({ data: { name, email: email.toLowerCase(), passwordHash: await bcrypt.hash(generated, 10) } });
   const member = await prisma.organizationMember.create({ data: { userId: user.id, organizationId: auth.organizationId, role } });
   await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "user.invited", detail: email, actorId: auth.userId } });
-  res.status(201).json({ user: { membershipId: member.id, role: member.role, id: user.id, name: user.name, email: user.email } });
+  res.status(201).json({
+    user: { membershipId: member.id, role: member.role, id: user.id, name: user.name, email: user.email },
+    // Only returned when we generated it, so the admin can pass it along once.
+    tempPassword: password ? undefined : generated,
+  });
 }));
 
 const roleSchema = z.object({ role: z.enum(["ADMIN", "MANAGER", "VIEWER"]) });
