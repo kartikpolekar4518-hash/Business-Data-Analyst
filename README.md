@@ -176,7 +176,7 @@ All analytics logic lives in `apps/api/src/engine/`. Each file is a pure TypeScr
 | `profile.ts` | Missing values, outliers, duplicates, type mismatches |
 | `schema.ts` | Column → business-semantic mapping (revenue, date, region, …) |
 | `analytics.ts` | KPI computation, time series, group-by aggregations |
-| `statistics.ts` | Numerical primitives (mean, variance, quantiles, distributions, gamma/beta) |
+| `statistics.ts` | Percentile / quartile primitives used by profiling (IQR outliers) |
 | `intent.ts` | Natural-language query → structured intent → answer |
 | `forecast.ts` | Linear trend + residual-based 95% confidence interval |
 | `insights.ts` | Recommendations and alert generation |

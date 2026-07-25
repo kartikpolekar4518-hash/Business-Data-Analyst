@@ -47,6 +47,16 @@ assert(inRange.length === 5, `dateTo must include its own day, expected 5 rows g
 assert(ov.customers.previous === 2, `customers 'previous' should be prior-period distinct count (2), got ${ov.customers.previous}`);
 assert(ov.orders.changePct === 0, `orders change should be distinct-order based (0), got ${ov.orders.changePct}`);
 
+// 3c. Group-by "orders" counts DISTINCT order ids per group, not line items
+// (Ada has order ids 1 and 3 — the 3 appears twice — so 2 distinct orders).
+const ordersByCustomer = A.groupBy(rows, map, "customer_name", "orders", {}, 5);
+assert(ordersByCustomer.find((x) => x.label === "Ada")?.value === 2, `Ada should have 2 distinct orders, got ${ordersByCustomer.find((x) => x.label === "Ada")?.value}`);
+
+// 3d. Month bucketing is timezone-independent (UTC): "2024-01-05" -> "2024-01"
+// regardless of the server's local timezone (regression: local getters shifted months).
+const ts = A.timeSeries(rows, map, "revenue");
+assert(ts[0].period === "2024-01" && ts[ts.length - 1].period === "2024-04", `timeSeries months should be 2024-01..2024-04, got ${ts.map((p) => p.period).join(",")}`);
+
 // 4. Cleaning removes the duplicate and trims/normalizes — original untouched.
 const numericCols = new Set(profile.columns.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
 const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues, numericCols);

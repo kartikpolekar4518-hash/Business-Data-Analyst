@@ -28,6 +28,12 @@ export function deriveInsights(rows: Row[], s: SchemaMap) {
   const recs: Recommendation[] = [];
   const alerts: AlertSeed[] = [];
 
+  // Computed once and reused for both decline and growth (previously each path
+  // recomputed the same half-split + group-by).
+  const changes = changeByGroup(rows, s);
+  const decliners = changes.filter((x) => x.changePct <= -10).sort((a, b) => a.changePct - b.changePct);
+  const risers = changes.filter((x) => x.changePct >= 10).sort((a, b) => b.changePct - a.changePct);
+
   // Revenue trend alert
   if (ov.growth !== null) {
     if (ov.growth <= -5) {
@@ -57,7 +63,6 @@ export function deriveInsights(rows: Row[], s: SchemaMap) {
   }
 
   // Declining products (compare first vs second half by product)
-  const decliners = decliningGroups(rows, s);
   if (decliners.length) {
     recs.push({
       title: "Products in decline",
@@ -94,7 +99,6 @@ export function deriveInsights(rows: Row[], s: SchemaMap) {
   }
 
   // Growth opportunity: fastest growing region
-  const risers = growingGroups(rows, s);
   if (risers.length) {
     recs.push({
       title: "Growth opportunity",
@@ -108,26 +112,12 @@ export function deriveInsights(rows: Row[], s: SchemaMap) {
   return { recommendations: recs, alerts };
 }
 
-function halfSplit(rows: Row[], s: SchemaMap): { first: Row[]; second: Row[] } {
-  if (!s.date) return { first: [], second: [] };
-  const dated = rows.map((r) => ({ r, d: A.parseDate(r[s.date!]) })).filter((x) => x.d) as { r: Row; d: Date }[];
-  dated.sort((a, b) => a.d.getTime() - b.d.getTime());
-  // Find the midpoint date (median date) and split on that boundary
-  const midDate = dated[Math.floor(dated.length / 2)].d;
-  const first: Row[] = [], second: Row[] = [];
-  for (const item of dated) {
-    if (item.d < midDate) first.push(item.r);
-    else second.push(item.r);
-  }
-  return { first, second };
-}
-
 // Exported so the chat intent parser can answer "which X are declining/growing" for a
 // caller-specified dimension, instead of only the fixed product->category->region priority below.
 export function changeByGroup(rows: Row[], s: SchemaMap, dimOverride?: Semantic): { label: string; changePct: number }[] {
   const dim = dimOverride ?? (s.product_name ? "product_name" : s.category ? "category" : s.region ? "region" : null);
   if (!dim) return [];
-  const { first, second } = halfSplit(rows, s);
+  const { first, second } = A.splitByMedianDate(rows, s);
   if (!first.length || !second.length) return [];
   const a = new Map(A.groupBy(first, s, dim, "revenue", {}, 100).map((x) => [x.label, x.value]));
   const b = new Map(A.groupBy(second, s, dim, "revenue", {}, 100).map((x) => [x.label, x.value]));
@@ -138,13 +128,6 @@ export function changeByGroup(rows: Row[], s: SchemaMap, dimOverride?: Semantic)
     out.push({ label, changePct: Math.round(((bv - av) / av) * 1000) / 10 });
   }
   return out;
-}
-
-function decliningGroups(rows: Row[], s: SchemaMap) {
-  return changeByGroup(rows, s).filter((x) => x.changePct <= -10).sort((a, b) => a.changePct - b.changePct);
-}
-function growingGroups(rows: Row[], s: SchemaMap) {
-  return changeByGroup(rows, s).filter((x) => x.changePct >= 10).sort((a, b) => b.changePct - a.changePct);
 }
 
 function lowInventory(rows: Row[], s: SchemaMap): { label: string; value: number }[] {

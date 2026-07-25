@@ -8,10 +8,13 @@ import * as A from "../engine/analytics.js";
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
 
-// Validate filter parameters
+// Validate filter parameters. Date inputs are `YYYY-MM-DD` (from <input type="date">),
+// NOT full ISO datetimes — using z.string().datetime() here silently rejected every
+// date the UI sends. Unknown query keys (datasetId, page, limit) are stripped, not rejected.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const filterSchema = z.object({
-  dateFrom: z.string().datetime().optional(),
-  dateTo: z.string().datetime().optional(),
+  dateFrom: z.string().regex(DATE_RE, "expected YYYY-MM-DD").optional(),
+  dateTo: z.string().regex(DATE_RE, "expected YYYY-MM-DD").optional(),
   region: z.string().optional(),
   state: z.string().optional(),
   category: z.string().optional(),
@@ -20,17 +23,13 @@ const filterSchema = z.object({
   customer: z.string().optional(),
 });
 
-function filtersFrom(query: any): A.Filters {
-  try {
-    const validated = filterSchema.parse(query);
-    return Object.fromEntries(
-      Object.entries(validated).filter(([, v]) => v !== undefined)
-    ) as A.Filters;
-  } catch (e) {
-    // Return empty filters if validation fails — don't break the query
-    console.warn("[analytics] Filter validation failed", e);
-    return {};
-  }
+function filtersFrom(query: unknown): A.Filters {
+  // A genuinely malformed filter now surfaces as a 400 (via the Zod error handler)
+  // instead of being silently swallowed into "no filters".
+  const validated = filterSchema.parse(query);
+  return Object.fromEntries(
+    Object.entries(validated).filter(([, v]) => v !== undefined)
+  ) as A.Filters;
 }
 
 const timeSeries = (metric: "revenue" | "profit") =>
@@ -47,27 +46,9 @@ const groupByDimension = (key: "product_name" | "customer_name" | "region", limi
 
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  const f = filtersFrom(req.query);
-  res.json({
-    datasetId: dataset.id,
-    datasetName: dataset.name,
-    schema,
-    overview: A.overview(rows, schema, f),
-    revenueTrend: A.timeSeries(rows, schema, "revenue", f),
-    profitTrend: A.timeSeries(rows, schema, "profit", f),
-    topProducts: A.groupBy(rows, schema, "product_name", "revenue", f, 8),
-    topCustomers: A.groupBy(rows, schema, "customer_name", "revenue", f, 8),
-    regions: A.groupBy(rows, schema, "region", "revenue", f, 10),
-    categories: A.groupBy(rows, schema, "category", "revenue", f, 10),
-    filterOptions: {
-      region: A.distinctValues(rows, schema, "region"),
-      state: A.distinctValues(rows, schema, "state"),
-      category: A.distinctValues(rows, schema, "category"),
-      department: A.distinctValues(rows, schema, "department"),
-      product: A.distinctValues(rows, schema, "product_name"),
-      customer: A.distinctValues(rows, schema, "customer_name"),
-    },
-  });
+  // dashboardBundle applies filters once instead of re-scanning per metric.
+  const bundle = A.dashboardBundle(rows, schema, filtersFrom(req.query));
+  res.json({ datasetId: dataset.id, datasetName: dataset.name, schema, ...bundle });
 }));
 
 analyticsRouter.get("/revenue", timeSeries("revenue"));
@@ -80,7 +61,25 @@ analyticsRouter.get("/customers", groupByDimension("customer_name", 20));
 
 analyticsRouter.get("/regions", groupByDimension("region", 20));
 
-// Flat rows for the analytics data table + CSV export on the client (with pagination).
+// Full filtered result set as CSV, server-side. Capped so a huge dataset can't
+// exhaust memory. Replaces the old client export that only dumped the current page.
+const EXPORT_CAP = 50_000;
+const csvEscape = (v: unknown) => {
+  const s = v == null ? "" : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+analyticsRouter.get("/export", wrap(async (req, res) => {
+  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const filtered = A.applyFilters(rows, schema, filtersFrom(req.query));
+  const columns = Object.keys(filtered[0] ?? rows[0] ?? {});
+  const capped = filtered.slice(0, EXPORT_CAP);
+  const csv = [columns.join(","), ...capped.map((r) => columns.map((c) => csvEscape(r[c])).join(","))].join("\n");
+  res.setHeader("Content-Type", "text/csv");
+  res.setHeader("Content-Disposition", `attachment; filename="analytics-export.csv"`);
+  res.send(csv);
+}));
+
+// Flat rows for the analytics data table (paginated).
 analyticsRouter.get("/table", wrap(async (req, res) => {
   const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const filtered = A.applyFilters(rows, schema, filtersFrom(req.query));

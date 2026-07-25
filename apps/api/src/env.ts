@@ -12,6 +12,9 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   appUrl: process.env.APP_URL ?? "http://localhost:5173",
   maxFileSize: Number(process.env.MAX_FILE_SIZE ?? 15 * 1024 * 1024),
+  // Number of proxy hops to trust for client IP (rate limiting). Default 1 (one
+  // reverse proxy). Set TRUST_PROXY=0 when the API is exposed directly.
+  trustProxy: Number(process.env.TRUST_PROXY ?? 1),
 };
 
 // Fail fast: never sign tokens with a secret that is published in this repo.

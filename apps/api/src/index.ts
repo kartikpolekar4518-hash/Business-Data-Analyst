@@ -21,6 +21,9 @@ import { settingsRouter } from "./modules/settings.js";
 
 const app = express();
 app.disable("x-powered-by");
+// Trust the configured number of proxy hops so rate limiting keys on the real
+// client IP (not the load balancer's) behind a reverse proxy.
+app.set("trust proxy", env.trustProxy);
 // Security headers. CSP allows self + the Google Fonts origins the UI uses;
 // 'unsafe-inline' style is required by Recharts' inline SVG styling.
 app.use(helmet({
@@ -47,6 +50,14 @@ app.use((req, res, next) => {
 });
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
+
+// Client-side crash reports from the web ErrorBoundary. Unauthenticated (errors
+// can occur pre-login) but rate-limited so it can't be used to flood logs.
+app.post("/api/errors", rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }), (req, res) => {
+  const b = (req.body ?? {}) as { error?: unknown; componentStack?: unknown };
+  console.error("[client-error]", String(b.error ?? "unknown").slice(0, 500), String(b.componentStack ?? "").slice(0, 1000));
+  res.json({ ok: true });
+});
 
 // (Credential endpoints are rate-limited inside authRouter — /auth/me stays unthrottled
 // since every app load calls it and offices share NAT IPs.)

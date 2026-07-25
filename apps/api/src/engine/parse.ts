@@ -8,6 +8,31 @@ export interface ParsedFile {
   columns: string[];
 }
 
+// ── Shared value coercion ─────────────────────────────────────────────
+// Single source of truth for turning raw cell values into numbers/strings,
+// reused by profile.ts, analytics.ts and elsewhere (previously duplicated).
+const CURRENCY_CHARS = /[$€£₹,()]/g;
+
+/** Trimmed string form; null/undefined -> "". */
+export function str(v: unknown): string { return v == null ? "" : String(v).trim(); }
+
+/** Number, defaulting to 0 for blank/non-numeric input (for summation). */
+export function num(v: unknown): number {
+  if (typeof v === "number") return isFinite(v) ? v : 0;
+  if (typeof v === "string") { const n = Number(v.replace(CURRENCY_CHARS, "").trim()); return isFinite(n) ? n : 0; }
+  return 0;
+}
+
+/** Number, or null when the value has no parseable digits (for type detection). */
+export function toNumberOrNull(v: unknown): number | null {
+  if (typeof v === "number") return isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  const cleaned = v.replace(CURRENCY_CHARS, "").trim();
+  if (cleaned === "" || !/\d/.test(cleaned)) return null;
+  const n = Number(cleaned);
+  return isFinite(n) ? n : null;
+}
+
 // Parse an uploaded CSV/XLSX/XLS buffer into rows of plain objects.
 // Async because the spreadsheet path (exceljs) streams the workbook.
 export async function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): Promise<ParsedFile> {

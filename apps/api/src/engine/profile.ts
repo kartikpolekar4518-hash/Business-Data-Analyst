@@ -1,4 +1,4 @@
-import type { Row } from "./parse.js";
+import { type Row, toNumberOrNull } from "./parse.js";
 import { quartiles } from "./statistics.js";
 
 export type ColumnType = "number" | "date" | "currency" | "boolean" | "category" | "text" | "empty";
@@ -44,15 +44,6 @@ function isBlank(v: unknown): boolean {
   return v === null || v === undefined || (typeof v === "string" && v.trim() === "");
 }
 
-function toNumber(v: unknown): number | null {
-  if (typeof v === "number") return isFinite(v) ? v : null;
-  if (typeof v !== "string") return null;
-  const cleaned = v.replace(/[$€£₹,()]/g, "").trim();
-  if (cleaned === "" || !/\d/.test(cleaned)) return null;
-  const n = Number(cleaned);
-  return isFinite(n) ? n : null;
-}
-
 function looksLikeDate(v: unknown): boolean {
   if (v instanceof Date) return true;
   if (typeof v !== "string") return false;
@@ -74,6 +65,9 @@ export function profileDataset(rows: Row[], columns: string[]): Profile {
     const uniqueSet = new Set(nonBlank.map((v) => String(v).trim()));
 
     let numCount = 0, dateCount = 0, currencyCount = 0, boolCount = 0, numericWithText = 0, whitespaceIssues = 0;
+    // Track min/max/sum in-loop rather than Math.min(...numbers) — spreading a
+    // large array as call arguments overflows the stack on big columns.
+    let numMin = Infinity, numMax = -Infinity, numSum = 0;
     const numbers: number[] = [];
     for (const v of nonBlank) {
       const s = String(v);
@@ -81,8 +75,8 @@ export function profileDataset(rows: Row[], columns: string[]): Profile {
       const t = s.trim().toLowerCase();
       if (t === "true" || t === "false" || t === "yes" || t === "no") boolCount++;
       if (CURRENCY_RE.test(s)) currencyCount++;
-      const n = toNumber(v);
-      if (n !== null) { numCount++; numbers.push(n); }
+      const n = toNumberOrNull(v);
+      if (n !== null) { numCount++; numbers.push(n); if (n < numMin) numMin = n; if (n > numMax) numMax = n; numSum += n; }
       else if (NUMERIC_RE.test(s.replace(/[a-z%]/gi, ""))) numericWithText++;
       if (looksLikeDate(v)) dateCount++;
     }
@@ -107,9 +101,9 @@ export function profileDataset(rows: Row[], columns: string[]): Profile {
     };
 
     if ((type === "number" || type === "currency") && numbers.length) {
-      profile.min = Math.min(...numbers);
-      profile.max = Math.max(...numbers);
-      profile.mean = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+      profile.min = numMin;
+      profile.max = numMax;
+      profile.mean = numSum / numbers.length;
       profile.outliers = countOutliers(numbers);
     }
 

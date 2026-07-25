@@ -10,15 +10,26 @@ alertsRouter.use(requireAuth);
 
 // Regenerate alerts from the latest dataset. Called from the write paths
 // (upload, clean) — NOT from GET, which stays a pure read so polling is cheap.
-// De-dupes by (type, metric) so re-running doesn't pile up copies.
+// Reconciles by (type, metric): deletes alerts that no longer fire, refreshes
+// the value/severity/description of ones that still fire (so they never go
+// stale), and creates newly-triggered ones. Read state is preserved.
 export async function refreshAlerts(organizationId: string) {
   try {
     const { rows, schema } = await loadDataset(organizationId);
     const { alerts } = deriveInsights(rows, schema);
     const existing = await prisma.alert.findMany({ where: { organizationId } });
-    const seen = new Set(existing.map((a) => `${a.type}:${a.metric}`));
-    const fresh = alerts.filter((a) => !seen.has(`${a.type}:${a.metric}`));
-    if (fresh.length) await prisma.alert.createMany({ data: fresh.map((a) => ({ ...a, organizationId })) });
+    const desiredKeys = new Set(alerts.map((a) => `${a.type}:${a.metric}`));
+    const existingByKey = new Map(existing.map((a) => [`${a.type}:${a.metric}`, a]));
+    const stale = existing.filter((a) => !desiredKeys.has(`${a.type}:${a.metric}`));
+
+    await prisma.$transaction(async (tx) => {
+      if (stale.length) await tx.alert.deleteMany({ where: { id: { in: stale.map((a) => a.id) } } });
+      for (const a of alerts) {
+        const prev = existingByKey.get(`${a.type}:${a.metric}`);
+        if (!prev) await tx.alert.create({ data: { ...a, organizationId } });
+        else await tx.alert.update({ where: { id: prev.id }, data: { severity: a.severity, currentValue: a.currentValue, threshold: a.threshold, description: a.description } });
+      }
+    });
   } catch { /* no dataset yet — nothing to derive */ }
 }
 
