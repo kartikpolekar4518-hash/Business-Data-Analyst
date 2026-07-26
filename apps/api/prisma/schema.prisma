@@ -31,6 +31,13 @@ enum Severity {
   HIGH
 }
 
+enum ConnectorType {
+  POSTGRES
+  MYSQL
+  SQLSERVER
+  GOOGLE_SHEETS
+}
+
 model User {
   id           String               @id @default(uuid())
   email        String               @unique
@@ -59,6 +66,7 @@ model Organization {
   alerts      Alert[]
   conversations AIConversation[]
   apiKeys     ApiKey[]
+  connections Connection[]
   activity    ActivityLog[]
 }
 
@@ -93,6 +101,7 @@ model Dataset {
   fileName       String
   fileType       String
   fileSize       Int
+  sourceType     String        @default("upload") // "upload" | "sample" | "connector"
   status         DatasetStatus @default(UPLOADED)
   rowCount       Int           @default(0)
   columnCount    Int           @default(0)
@@ -106,12 +115,15 @@ model Dataset {
   updatedAt      DateTime      @updatedAt
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
+  connection     Connection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  connectionId   String?
   issues         DataQualityIssue[]
   reports        Report[]
   forecasts      Forecast[]
   conversations  AIConversation[]
 
   @@index([organizationId])
+  @@index([connectionId])
 }
 
 model DataQualityIssue {
@@ -209,6 +221,27 @@ model ApiKey {
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
+
+  @@index([organizationId])
+}
+
+// A saved data-source connector. Credentials are stored AES-GCM encrypted in
+// `secret` (never returned to clients); `config` holds only non-secret details.
+// Each sync pulls a fresh snapshot into a Dataset via the shared ingest pipeline.
+model Connection {
+  id             String        @id @default(uuid())
+  name           String
+  type           ConnectorType
+  config         Json          // { host, port, database, user, table } or { sheetUrl }
+  secret         String        // encrypted password / token
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?       // "ok" | "error"
+  lastSyncError  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  datasets       Dataset[]
 
   @@index([organizationId])
 }
