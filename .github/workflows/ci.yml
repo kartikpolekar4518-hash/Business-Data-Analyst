@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Fast lane: typecheck + engine selfchecks + unit tests. No database needed.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate --workspace apps/api
+      - name: Typecheck (api build + tests + web)
+        run: |
+          npm run typecheck --workspace apps/api
+          npm run typecheck:test --workspace apps/api
+          npm run typecheck --workspace apps/web
+      - name: Engine selfchecks + unit tests
+        run: npm test
+
+  # Integration lane: auth + tenant-isolation tests against a real Postgres.
+  integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: decisioniq
+          POSTGRES_PASSWORD: decisioniq
+          POSTGRES_DB: decisioniq_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U decisioniq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://decisioniq:decisioniq@localhost:5432/decisioniq_test?schema=public
+      JWT_SECRET: ci-test-secret
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run prisma:generate --workspace apps/api
+      - name: Integration tests
+        run: npm run test:integration --workspace apps/api

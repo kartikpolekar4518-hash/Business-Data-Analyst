@@ -13,7 +13,9 @@ export const authRouter = Router();
 
 // Throttle only the credential surface (brute force, token guessing, reset spam).
 // Deliberately NOT applied to /me, which fires on every page load.
-const credentialLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false });
+// `skip` lifts the throttle only under the test runner, where a single suite
+// legitimately fires many signups/logins from one IP in one window.
+const credentialLimiter = rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false, skip: () => process.env.NODE_ENV === "test" });
 authRouter.use(["/login", "/signup", "/forgot-password", "/reset-password"], credentialLimiter);
 
 const signupSchema = z.object({
