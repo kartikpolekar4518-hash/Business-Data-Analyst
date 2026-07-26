@@ -111,7 +111,7 @@ uploadsRouter.get("/", wrap(async (req, res) => {
   const datasets = await prisma.dataset.findMany({
     where: { organizationId: req.auth!.organizationId },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, fileName: true, fileType: true, fileSize: true, status: true, rowCount: true, columnCount: true, qualityScore: true, createdAt: true },
+    select: { id: true, name: true, fileName: true, fileType: true, fileSize: true, status: true, rowCount: true, columnCount: true, qualityScore: true, createdAt: true, connectionId: true },
   });
   res.json({ datasets });
 }));

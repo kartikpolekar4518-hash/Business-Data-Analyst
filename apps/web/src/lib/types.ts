@@ -34,6 +34,7 @@ export interface Alert {
 export interface DatasetSummary {
   id: string; name: string; fileName?: string; fileType?: string; fileSize?: number;
   status: string; rowCount: number; columnCount: number; qualityScore: number | null; createdAt: string;
+  connectionId?: string | null;
 }
 export type ConnectorType = "POSTGRES" | "MYSQL" | "SQLSERVER" | "GOOGLE_SHEETS";
 export interface Connection {

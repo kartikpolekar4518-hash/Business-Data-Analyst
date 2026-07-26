@@ -73,7 +73,14 @@ connectionsRouter.post("/:id/sync", requireRole("ADMIN", "MANAGER"), syncLimiter
   const auth = req.auth!;
   const conn = await prisma.connection.findFirst({ where: { id: req.params.id, organizationId: auth.organizationId } });
   if (!conn) throw new HttpError(404, "Connection not found");
-  await assertWithinLimit(auth.organizationId, "datasets");
+
+  // A connection owns one current dataset: first sync creates it, later syncs
+  // refresh it in place. Only a create counts against the plan's dataset limit.
+  const existing = await prisma.dataset.findFirst({
+    where: { connectionId: conn.id, organizationId: auth.organizationId },
+    orderBy: { createdAt: "desc" }, select: { id: true },
+  });
+  if (!existing) await assertWithinLimit(auth.organizationId, "datasets");
 
   let parsed;
   try { parsed = await fetchFromConnection(conn.type as ConnectorType, conn.config, decrypt(conn.secret)); }
@@ -91,7 +98,7 @@ connectionsRouter.post("/:id/sync", requireRole("ADMIN", "MANAGER"), syncLimiter
   const result = await ingestRows({
     organizationId: auth.organizationId,
     actorId: auth.userId,
-    name: `${conn.name} (${new Date().toISOString().slice(0, 10)})`,
+    name: conn.name,
     fileName: conn.name,
     fileType,
     fileSize: 0,
@@ -99,6 +106,7 @@ connectionsRouter.post("/:id/sync", requireRole("ADMIN", "MANAGER"), syncLimiter
     columns: parsed.columns,
     sourceType: "connector",
     connectionId: conn.id,
+    existingDatasetId: existing?.id,
     activityAction: "connection.synced",
     activityDetail: conn.name,
   });

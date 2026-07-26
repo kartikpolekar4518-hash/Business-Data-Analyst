@@ -36,8 +36,8 @@ export default function DataList() {
   async function syncConnection(c: Connection) {
     setSyncingId(c.id);
     try {
-      await api.post(`/connections/${c.id}/sync`);
-      toast(`Synced ${c.name} — new dataset added`, "success");
+      const body = await api.post<{ created: boolean }>(`/connections/${c.id}/sync`);
+      toast(body.created ? `Synced ${c.name} — new dataset added` : `Refreshed ${c.name}`, "success");
       qc.invalidateQueries({ queryKey: ["datasets"] });
       qc.invalidateQueries({ queryKey: ["connections"] });
     } catch (e) { toast(e instanceof ApiError ? e.message : "Sync failed", "error"); }
@@ -144,13 +144,16 @@ export default function DataList() {
 
           {connData?.connections.length ? (
             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-              {connData.connections.map((c) => (
+              {connData.connections.map((c) => {
+                const ds = data?.datasets.find((d) => d.connectionId === c.id);
+                return (
                 <div key={c.id} className="flex items-center gap-4 px-4 py-3">
                   <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><Database className="h-4 w-4 text-slate-500" /></div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{c.name}</div>
+                    {ds ? <Link to={`/data/${ds.id}`} className="truncate font-medium hover:text-brand-600">{c.name}</Link> : <div className="truncate font-medium">{c.name}</div>}
                     <div className="text-xs text-slate-500">
                       {CONNECTOR_LABEL[c.type]}
+                      {ds ? ` · ${num(ds.rowCount)} rows` : ""}
                       {c.lastSyncedAt ? ` · synced ${timeAgo(c.lastSyncedAt)}` : " · never synced"}
                       {c.lastSyncStatus === "error" && c.lastSyncError ? ` · ${c.lastSyncError}` : ""}
                     </div>
@@ -167,7 +170,7 @@ export default function DataList() {
                     </>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
           ) : null}
         </CardBody>
