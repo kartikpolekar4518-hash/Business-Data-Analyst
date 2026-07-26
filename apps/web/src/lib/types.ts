@@ -35,6 +35,13 @@ export interface DatasetSummary {
   id: string; name: string; fileName?: string; fileType?: string; fileSize?: number;
   status: string; rowCount: number; columnCount: number; qualityScore: number | null; createdAt: string;
 }
+export type ConnectorType = "POSTGRES" | "MYSQL" | "SQLSERVER" | "GOOGLE_SHEETS";
+export interface Connection {
+  id: string; name: string; type: ConnectorType;
+  config: Record<string, unknown>;
+  lastSyncedAt: string | null; lastSyncStatus: "ok" | "error" | null; lastSyncError: string | null;
+  createdAt: string;
+}
 export interface ChatMessage {
   id?: string; intent: { intent: string; visualization: string };
   explanation: string; confidence: number;

@@ -1,14 +1,20 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, Sparkles } from "lucide-react";
+import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button } from "../components/ui";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, Label } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
-import type { DatasetSummary } from "../lib/types";
+import type { DatasetSummary, Connection, ConnectorType } from "../lib/types";
 
-const CONNECTORS = ["PostgreSQL", "MySQL", "SQL Server", "Google Sheets"];
+const CONNECTORS: { type: ConnectorType; label: string }[] = [
+  { type: "POSTGRES", label: "PostgreSQL" },
+  { type: "MYSQL", label: "MySQL" },
+  { type: "SQLSERVER", label: "SQL Server" },
+  { type: "GOOGLE_SHEETS", label: "Google Sheets" },
+];
+const CONNECTOR_LABEL: Record<ConnectorType, string> = Object.fromEntries(CONNECTORS.map((c) => [c.type, c.label])) as Record<ConnectorType, string>;
 const ALLOWED_EXT = ["csv", "xlsx", "xls"];
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // keep in sync with the API's MAX_FILE_SIZE default
 
@@ -21,7 +27,30 @@ export default function DataList() {
   const [uploading, setUploading] = useState(false);
   const [loadingSample, setLoadingSample] = useState(false);
 
+  const [connectType, setConnectType] = useState<ConnectorType | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+
   const { data, isLoading } = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
+  const { data: connData } = useQuery({ queryKey: ["connections"], queryFn: () => api.get<{ connections: Connection[] }>("/connections") });
+
+  async function syncConnection(c: Connection) {
+    setSyncingId(c.id);
+    try {
+      await api.post(`/connections/${c.id}/sync`);
+      toast(`Synced ${c.name} — new dataset added`, "success");
+      qc.invalidateQueries({ queryKey: ["datasets"] });
+      qc.invalidateQueries({ queryKey: ["connections"] });
+    } catch (e) { toast(e instanceof ApiError ? e.message : "Sync failed", "error"); }
+    finally { setSyncingId(null); }
+  }
+
+  async function deleteConnection(c: Connection) {
+    try {
+      await api.del(`/connections/${c.id}`);
+      toast(`Removed ${c.name}`, "success");
+      qc.invalidateQueries({ queryKey: ["connections"] });
+    } catch (e) { toast(e instanceof ApiError ? e.message : "Couldn't remove connection", "error"); }
+  }
 
   async function upload(file: File) {
     // Validate client-side before the round-trip so mistakes fail instantly.
@@ -97,20 +126,112 @@ export default function DataList() {
         </CardBody>
       </Card>
 
-      {/* Coming-soon connectors */}
+      {/* Data-source connectors */}
       <Card>
-        <CardHeader title="Connect a data source" subtitle="Direct connectors — coming soon" />
-        <CardBody>
+        <CardHeader title="Connect a data source" subtitle="Pull a snapshot from a database or Google Sheet" />
+        <CardBody className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {CONNECTORS.map((c) => (
-              <div key={c} className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-4 text-center opacity-70 dark:border-slate-800">
-                <Plug className="h-5 w-5 text-slate-400" /><span className="text-sm font-medium">{c}</span><Badge>Coming soon</Badge>
-              </div>
+              <button
+                key={c.type}
+                disabled={!canUpload}
+                onClick={() => setConnectType(c.type)}
+                className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-4 text-center transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent dark:border-slate-800 dark:hover:bg-brand-950/40">
+                <Plug className="h-5 w-5 text-slate-400" /><span className="text-sm font-medium">{c.label}</span><Badge tone="blue">Connect</Badge>
+              </button>
             ))}
           </div>
+
+          {connData?.connections.length ? (
+            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+              {connData.connections.map((c) => (
+                <div key={c.id} className="flex items-center gap-4 px-4 py-3">
+                  <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><Database className="h-4 w-4 text-slate-500" /></div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-medium">{c.name}</div>
+                    <div className="text-xs text-slate-500">
+                      {CONNECTOR_LABEL[c.type]}
+                      {c.lastSyncedAt ? ` · synced ${timeAgo(c.lastSyncedAt)}` : " · never synced"}
+                      {c.lastSyncStatus === "error" && c.lastSyncError ? ` · ${c.lastSyncError}` : ""}
+                    </div>
+                  </div>
+                  {c.lastSyncStatus === "error" && <Badge tone="red">Error</Badge>}
+                  {canUpload && (
+                    <>
+                      <Button variant="outline" size="sm" loading={syncingId === c.id} onClick={() => syncConnection(c)}>
+                        <RefreshCw className="h-4 w-4" /> Sync now
+                      </Button>
+                      <button onClick={() => deleteConnection(c)} className="text-slate-400 hover:text-red-500" aria-label={`Remove ${c.name}`}>
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : null}
         </CardBody>
       </Card>
+
+      {connectType && <ConnectModal type={connectType} onClose={() => setConnectType(null)} onSaved={() => { setConnectType(null); qc.invalidateQueries({ queryKey: ["connections"] }); }} />}
     </div>
+  );
+}
+
+function ConnectModal({ type, onClose, onSaved }: { type: ConnectorType; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const isSheet = type === "GOOGLE_SHEETS";
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({ name: "", host: "", port: "", database: "", user: "", password: "", table: "", sheetUrl: "" });
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  async function save() {
+    setSaving(true);
+    try {
+      const payload = isSheet
+        ? { type, name: form.name, sheetUrl: form.sheetUrl }
+        : { type, name: form.name, host: form.host, port: form.port ? Number(form.port) : undefined, database: form.database, user: form.user, password: form.password, table: form.table };
+      await api.post("/connections", payload);
+      toast(`Connected ${form.name}`, "success");
+      onSaved();
+    } catch (e) { toast(e instanceof ApiError ? e.message : "Couldn't connect", "error"); }
+    finally { setSaving(false); }
+  }
+
+  const ready = form.name && (isSheet ? form.sheetUrl : form.host && form.database && form.user && form.password && form.table);
+
+  return (
+    <Modal open onClose={onClose} title={`Connect ${CONNECTOR_LABEL[type]}`}>
+      <div className="space-y-3">
+        <div><Label>Connection name</Label><Input value={form.name} onChange={set("name")} placeholder="e.g. Production orders" /></div>
+        {isSheet ? (
+          <div>
+            <Label>Google Sheet URL</Label>
+            <Input value={form.sheetUrl} onChange={set("sheetUrl")} placeholder="https://docs.google.com/spreadsheets/d/…" />
+            <p className="mt-1 text-xs text-slate-500">Share the sheet as “anyone with the link” so we can read it.</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2"><Label>Host</Label><Input value={form.host} onChange={set("host")} placeholder="db.example.com" /></div>
+              <div><Label>Port</Label><Input value={form.port} onChange={set("port")} inputMode="numeric" placeholder="5432" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Database</Label><Input value={form.database} onChange={set("database")} /></div>
+              <div><Label>Table</Label><Input value={form.table} onChange={set("table")} placeholder="public.orders" /></div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>User</Label><Input value={form.user} onChange={set("user")} /></div>
+              <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} /></div>
+            </div>
+          </>
+        )}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button loading={saving} disabled={!ready} onClick={save}>Test & save</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

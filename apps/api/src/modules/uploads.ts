@@ -6,13 +6,9 @@ import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { env } from "../env.js";
 import { parseFile } from "../engine/parse.js";
-import { profileDataset } from "../engine/profile.js";
-import { detectSchema } from "../engine/schema.js";
-import { getPack, suggestIndustry } from "../engine/industries.js";
+import { ingestRows } from "../engine/ingest.js";
 import { generateRetailData, generatePharmacyData, generateSaasData } from "../sample/generators.js";
 import { assertWithinLimit } from "./billing.js";
-import { refreshAlerts } from "./alerts.js";
-import { stripRows } from "./context.js";
 
 // Industry → (sample rows, human dataset name). Falls back to retail.
 const SAMPLE_SETS: Record<string, { rows: () => Record<string, unknown>[]; name: string; file: string }> = {
@@ -58,12 +54,6 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
   catch (e) { throw new HttpError(400, e instanceof Error ? e.message : "Could not parse file"); }
   if (!parsed.rows.length) throw new HttpError(400, "The file has no data rows");
 
-  const profile = profileDataset(parsed.rows, parsed.columns);
-  // Detect columns using the org's industry vocabulary (e.g. recognise "medicine").
-  const org = await prisma.organization.findUnique({ where: { id: auth.organizationId }, select: { industry: true } });
-  const { map, columns } = detectSchema(profile.columns, getPack(org?.industry).rules);
-  const suggestedIndustry = suggestIndustry(profile.columns);
-
   // Extract and validate file extension
   let fileExt = "csv";
   if (originalname.includes(".")) {
@@ -74,29 +64,20 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
     }
   }
 
-  const dataset = await prisma.dataset.create({
-    data: {
-      organizationId: auth.organizationId,
-      name: originalname.slice(0, originalname.lastIndexOf(".") || originalname.length),
-      fileName: originalname,
-      fileType: fileExt,
-      fileSize: size,
-      status: "PROFILED",
-      rowCount: profile.rowCount,
-      columnCount: profile.columnCount,
-      qualityScore: profile.qualityScore,
-      columns: columns as object,
-      schemaMap: map as object,
-      profile: profile as object,
-      rows: parsed.rows as object,
-      issues: { create: profile.issues.map((i) => ({ ...i })) },
-    },
-    include: { issues: true },
+  const result = await ingestRows({
+    organizationId: auth.organizationId,
+    actorId: auth.userId,
+    name: originalname.slice(0, originalname.lastIndexOf(".") || originalname.length),
+    fileName: originalname,
+    fileType: fileExt,
+    fileSize: size,
+    rows: parsed.rows,
+    columns: parsed.columns,
+    sourceType: "upload",
+    activityAction: "dataset.uploaded",
+    activityDetail: originalname,
   });
-
-  await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.uploaded", detail: originalname, actorId: auth.userId } });
-  await refreshAlerts(auth.organizationId); // alerts derive on data change, not on read
-  res.status(201).json({ dataset: stripRows(dataset), suggestedIndustry });
+  res.status(201).json(result);
 }));
 
 // Load a ready-made sample dataset so a new workspace can see the full product
@@ -110,33 +91,20 @@ uploadsRouter.post("/sample", requireRole("ADMIN", "MANAGER"), wrap(async (req, 
   const rows = set.rows();
   const columns = Object.keys(rows[0]);
 
-  const profile = profileDataset(rows, columns);
-  const { map, columns: annotated } = detectSchema(profile.columns, getPack(org?.industry).rules);
-  const suggestedIndustry = suggestIndustry(profile.columns);
-
-  const dataset = await prisma.dataset.create({
-    data: {
-      organizationId: auth.organizationId,
-      name: set.name,
-      fileName: set.file,
-      fileType: "csv",
-      fileSize: 0,
-      status: "PROFILED",
-      rowCount: profile.rowCount,
-      columnCount: profile.columnCount,
-      qualityScore: profile.qualityScore,
-      columns: annotated as object,
-      schemaMap: map as object,
-      profile: profile as object,
-      rows: rows as object,
-      issues: { create: profile.issues.map((i) => ({ ...i })) },
-    },
-    include: { issues: true },
+  const result = await ingestRows({
+    organizationId: auth.organizationId,
+    actorId: auth.userId,
+    name: set.name,
+    fileName: set.file,
+    fileType: "csv",
+    fileSize: 0,
+    rows,
+    columns,
+    sourceType: "sample",
+    activityAction: "dataset.sampleLoaded",
+    activityDetail: set.name,
   });
-
-  await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.sampleLoaded", detail: set.name, actorId: auth.userId } });
-  await refreshAlerts(auth.organizationId);
-  res.status(201).json({ dataset: stripRows(dataset), suggestedIndustry });
+  res.status(201).json(result);
 }));
 
 uploadsRouter.get("/", wrap(async (req, res) => {

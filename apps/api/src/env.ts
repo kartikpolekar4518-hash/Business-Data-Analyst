@@ -15,6 +15,13 @@ export const env = {
   // Billing: set STRIPE_SECRET_KEY to enable real checkout. When unset, plan
   // changes fall back to a dev-only mock (never allowed in production).
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
+  // Connectors: symmetric key that encrypts saved connection credentials.
+  connectorEncryptionKey: process.env.CONNECTOR_ENCRYPTION_KEY ?? "dev-insecure-connector-key-change-me",
+  // Allow connecting to private/loopback hosts (needed for local/demo DBs). Off
+  // by default so a saved connector can't be pointed at internal infra (SSRF).
+  allowPrivateConnectorHosts: process.env.ALLOW_PRIVATE_CONNECTOR_HOSTS === "true",
+  // Hard cap on rows pulled per connector sync, to bound memory/JSON storage.
+  maxSyncRows: Number(process.env.MAX_SYNC_ROWS ?? 100_000),
 };
 
 // Fail fast: never sign tokens with a secret that is published in this repo.
@@ -24,4 +31,12 @@ if (isProd && KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
 }
 if (KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
   console.warn("[security] JWT_SECRET is the public default — fine for local demos, never for production.");
+}
+
+const WEAK_CONNECTOR_KEY = "dev-insecure-connector-key-change-me";
+if (isProd && env.connectorEncryptionKey === WEAK_CONNECTOR_KEY) {
+  throw new Error("CONNECTOR_ENCRYPTION_KEY must be set to a real secret in production (connector credentials are encrypted with it)");
+}
+if (env.connectorEncryptionKey === WEAK_CONNECTOR_KEY) {
+  console.warn("[security] CONNECTOR_ENCRYPTION_KEY is the public default — fine for local demos, never for production.");
 }
