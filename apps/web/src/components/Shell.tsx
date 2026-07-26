@@ -18,6 +18,8 @@ import {
   User,
   Shield,
   ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -125,7 +127,15 @@ function useFocusTrap(active: boolean, containerRef: React.RefObject<HTMLElement
 /* ─────────────────────────────────────────────
    Sidebar — dark, refined, grouped navigation
    ───────────────────────────────────────────── */
-function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+function Sidebar({
+  open,
+  collapsed,
+  onClose,
+}: {
+  open: boolean;
+  collapsed: boolean;
+  onClose: () => void;
+}) {
   const { user, can } = useAuth();
 
   return (
@@ -144,7 +154,9 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
           "border-r border-white/[0.06] bg-[#0a0f1a]/95 text-slate-100 backdrop-blur-xl",
           "transition-all duration-300 ease-out",
           open ? "translate-x-0" : "-translate-x-full",
-          "lg:static lg:translate-x-0 lg:z-auto",
+          collapsed
+            ? "lg:hidden"
+            : "lg:static lg:translate-x-0 lg:z-auto",
         )}
       >
         {/* Brand */}
@@ -222,7 +234,15 @@ function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
 /* ─────────────────────────────────────────────
    Header — glass-effect bar with breadcrumb, search, actions
    ───────────────────────────────────────────── */
-function Header({ onMenuClick }: { onMenuClick: () => void }) {
+function Header({
+  onMenuClick,
+  collapsed,
+  onToggleCollapse,
+}: {
+  onMenuClick: () => void;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+}) {
   const location = useLocation();
   const { theme, toggle } = useTheme();
   const { user, role, logout } = useAuth();
@@ -273,6 +293,19 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
         aria-label="Open navigation"
       >
         <Menu className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+      </button>
+
+      {/* Desktop sidebar toggle */}
+      <button
+        onClick={onToggleCollapse}
+        className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 lg:flex"
+        aria-label={collapsed ? "Show navigation" : "Hide navigation"}
+      >
+        {collapsed ? (
+          <PanelLeftOpen className="h-[17px] w-[17px]" />
+        ) : (
+          <PanelLeftClose className="h-[17px] w-[17px]" />
+        )}
       </button>
 
       {/* Breadcrumb */}
@@ -408,13 +441,27 @@ function Header({ onMenuClick }: { onMenuClick: () => void }) {
    ───────────────────────────────────────────── */
 export function Shell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(
+    () => localStorage.getItem("diq_sidebar_collapsed") === "1",
+  );
+  useEffect(() => {
+    localStorage.setItem("diq_sidebar_collapsed", collapsed ? "1" : "0");
+  }, [collapsed]);
 
   return (
     <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar
+        open={sidebarOpen}
+        collapsed={collapsed}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header onMenuClick={() => setSidebarOpen(true)} />
+        <Header
+          onMenuClick={() => setSidebarOpen(true)}
+          collapsed={collapsed}
+          onToggleCollapse={() => setCollapsed((c) => !c)}
+        />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {children}
         </main>
