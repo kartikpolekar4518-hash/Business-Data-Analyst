@@ -37,16 +37,15 @@ export function KpiCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border bg-white p-5 transition-colors duration-200",
-        "dark:bg-slate-900/60 dark:hover:border-white/10",
-        accent
-          ? "border-slate-200 dark:border-white/[0.08]"
-          : "border-border dark:border-white/[0.05]",
+        "neu-raised neu-hover group relative flex flex-col overflow-hidden rounded-2xl p-5",
+        // Mobile: cards form a snapping rail; from sm up they fill the grid.
+        "min-w-[68%] snap-start sm:min-w-0",
+        accent && "ring-1 ring-brand-500/25",
       )}
     >
-      {/* Primary metric gets a single hairline accent — a quiet mark of hierarchy. */}
+      {/* Primary metric gets a single accent bar — a quiet mark of hierarchy. */}
       {accent && (
-        <span className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-brand-500/70 via-brand-400/30 to-transparent" aria-hidden="true" />
+        <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-500 to-fuchsia-400" aria-hidden="true" />
       )}
 
       <div className="flex items-center justify-between">

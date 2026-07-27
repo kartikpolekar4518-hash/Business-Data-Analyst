@@ -304,7 +304,13 @@ export default function Dashboard() {
       })()}
 
       {/* ─── KPI Cards (driven by the industry pack) ─── */}
-      <div className={cn("grid grid-cols-2 gap-4 md:grid-cols-3", data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5")}>
+      {/* On phones the KPIs scroll horizontally as a rail — the primary metric
+          stays legible instead of shrinking into a cramped 2-up grid. */}
+      <div className={cn(
+        "-mx-6 flex snap-x snap-mandatory gap-3 overflow-x-auto px-6 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]{display:none}",
+        "sm:mx-0 sm:grid sm:grid-cols-2 sm:gap-4 sm:overflow-visible sm:px-0 md:grid-cols-3",
+        data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5",
+      )}>
         {!data
           ? Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="neu-flat rounded-xl p-5">

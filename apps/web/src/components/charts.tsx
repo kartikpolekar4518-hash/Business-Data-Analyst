@@ -1,16 +1,18 @@
 import { memo, useId, useMemo, useState } from "react";
-import { ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, PieChart, Pie, Cell } from "recharts";
+import { ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, PieChart, Pie, Cell, ReferenceLine } from "recharts";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
 
 // Electric-blue / violet / teal accent system (+ supporting hues for multi-series & donut).
+// Purple-forward palette to match the brand; secondary hues stay distinct
+// enough to remain readable side by side.
 export const CHART = {
-  blue: "#5b8cff",
+  blue: "#7c3aed",
   violet: "#a78bfa",
   teal: "#22d3ee",
-  emerald: "#34d399",
-  amber: "#fbbf24",
-  rose: "#fb7185",
+  emerald: "#10b981",
+  amber: "#f59e0b",
+  rose: "#f43f5e",
 };
 export const SERIES = [CHART.blue, CHART.violet, CHART.teal, CHART.emerald, CHART.amber, CHART.rose];
 const BRAND = CHART.blue;
@@ -20,15 +22,15 @@ function useAxis() {
   const dark = theme === "dark";
   return {
     dark,
-    grid: dark ? "rgba(148,163,184,0.10)" : "#eef2f7",
-    tick: { fill: dark ? "#94a3b8" : "#64748b", fontSize: 11 },
+    grid: dark ? "rgba(167,139,250,0.10)" : "rgba(124,58,237,0.08)",
+    tick: { fill: dark ? "#a5a0b8" : "#6b6786", fontSize: 11 },
     tooltipStyle: {
-      borderRadius: 10, fontSize: 12,
-      border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#e2e8f0"}`,
-      background: dark ? "rgba(15,23,42,0.92)" : "#fff",
-      color: dark ? "#e2e8f0" : "#0f172a",
-      boxShadow: dark ? "0 12px 30px -12px rgba(0,0,0,0.8)" : "0 4px 16px rgba(0,0,0,0.08)",
-      backdropFilter: "blur(6px)",
+      borderRadius: 14, fontSize: 12, border: "none",
+      background: dark ? "#211b30" : "#eceafa",
+      color: dark ? "#e9e6f5" : "#2b2640",
+      boxShadow: dark
+        ? "6px 6px 16px #120e1c, -6px -6px 16px #2c2440"
+        : "6px 6px 14px #c9c6de, -6px -6px 14px #ffffff",
     } as const,
   };
 }
@@ -98,6 +100,12 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
   const showRev = view === "both" || view === "revenue";
   const showProf = view === "both" || view === "profit";
 
+  // Period average — a real benchmark so a point can be read as above/below par.
+  const avgRevenue = useMemo(() => {
+    const vals = merged.map((m) => m.revenue).filter((v): v is number => typeof v === "number");
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  }, [merged]);
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -124,6 +132,15 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
           <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
           <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
           <Tooltip contentStyle={tooltipStyle} />
+          {showRev && avgRevenue != null && (
+            <ReferenceLine
+              y={avgRevenue}
+              stroke={CHART.violet}
+              strokeDasharray="5 5"
+              strokeOpacity={0.8}
+              label={{ value: `Avg ${fmtK(avgRevenue)}`, position: "insideTopRight", fill: CHART.violet, fontSize: 10 }}
+            />
+          )}
           {showRev && <Area type="monotone" dataKey="revenue" stroke={CHART.blue} strokeWidth={2.5} fill={`url(#${rId})`} activeDot={{ r: 4, strokeWidth: 0 }} />}
           {showProf && <Area type="monotone" dataKey="profit" stroke={CHART.emerald} strokeWidth={2.5} fill={`url(#${pId})`} activeDot={{ r: 4, strokeWidth: 0 }} />}
         </AreaChart>
