@@ -73,7 +73,7 @@ function BillingTab() {
               <UsageMeter label="Team members" used={s.usage.seats} limit={s.limits.seats} />
               <UsageMeter label="Reports this month" used={s.usage.reportsPerMonth} limit={s.limits.reportsPerMonth} />
               {!s.billingConfigured && (
-                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+                <p className="neu-inset rounded-xl p-3 text-xs text-slate-500">
                   Payments aren't connected in this environment, so plan changes apply immediately in demo mode. Set <code>STRIPE_SECRET_KEY</code> to enable real checkout.
                 </p>
               )}
@@ -187,7 +187,7 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
             <strong>{invited.email}</strong> can now sign in.
           </div>
           {invited.tempPassword && (
-            <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
+            <div className="neu-inset rounded-xl p-3 text-sm">
               <div className="text-xs text-slate-500">Share this one-time password securely — it won't be shown again:</div>
               <code className="mt-1 block select-all break-all font-mono text-slate-900 dark:text-slate-100">{invited.tempPassword}</code>
             </div>
@@ -225,18 +225,18 @@ function ApiKeysTab() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+      <div className="neu-inset rounded-xl p-4 text-sm">
         DecisionIQ needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong>hashed</strong> and never returned.
       </div>
       <Card><CardHeader title="API keys" /><CardBody className="space-y-3">
         {data?.apiKeys.length ? data.apiKeys.map((k) => (
-          <div key={k.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
+          <div key={k.id} className="neu-inset flex items-center gap-3 rounded-xl px-3 py-2">
             <KeyRound className="h-4 w-4 text-slate-400" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-slate-500">{k.provider} · ••••{k.lastFour}</div></div>
             {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
           </div>
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
         {can("ADMIN") && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <div className="flex flex-wrap items-end gap-2 border-t border-black/[0.06] pt-3 dark:border-white/[0.06]">
             <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
             <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
             <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>

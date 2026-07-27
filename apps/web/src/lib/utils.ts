@@ -1,4 +1,5 @@
 import clsx, { type ClassValue } from "clsx";
+import { useEffect, useState } from "react";
 
 export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 
@@ -33,4 +34,25 @@ export function timeAgo(date: string): string {
   if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
   if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
   return new Date(date).toLocaleDateString();
+}
+
+// Count-up animation for headline metrics. Eases toward the target so numbers
+// land rather than tick; respects the reduced-motion preference.
+export function useCountUp(target: number, durationMs = 900): number {
+  const [value, setValue] = useState(0);
+  useEffect(() => {
+    if (!Number.isFinite(target)) return setValue(target);
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return setValue(target);
+    let frame = 0;
+    const start = performance.now();
+    const tick = (now: number) => {
+      const t = Math.min((now - start) / durationMs, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setValue(target * eased);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [target, durationMs]);
+  return value;
 }

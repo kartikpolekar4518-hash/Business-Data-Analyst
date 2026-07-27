@@ -324,6 +324,8 @@ export default function Dashboard() {
                 accentColor={ACCENTS[i % ACCENTS.length]}
                 spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
                 tooltip={k.tooltip}
+                rawValue={k.value}
+                formatValue={(n) => fmtKpi({ ...k, value: n })}
               />
             ))}
       </div>

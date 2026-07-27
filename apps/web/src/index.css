@@ -173,7 +173,17 @@ body {
   }
 
   .nav-item-inactive {
-    @apply text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60;
+    @apply text-slate-600 hover:bg-brand-500/10 hover:text-brand-700 dark:text-slate-400 dark:hover:bg-white/10;
+  }
+
+  /* Route-level entrance so page changes feel composed, not abrupt. */
+  .page-enter {
+    animation: pageEnter 0.35s cubic-bezier(0.22, 0.68, 0.3, 1) both;
+  }
+
+  @keyframes pageEnter {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 }
 

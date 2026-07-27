@@ -90,7 +90,7 @@ export default function DataList() {
           onDragLeave={() => setDrag(false)}
           onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) upload(f); }}
           onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
+          className={`neu-inset flex cursor-pointer flex-col items-center justify-center rounded-2xl p-10 text-center transition-all duration-300 ${drag ? "scale-[1.01] ring-2 ring-brand-500/60" : "hover:ring-2 hover:ring-brand-400/30"}`}>
           {uploading ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" /> : <UploadCloud className="h-8 w-8 text-slate-400" />}
           <p className="mt-3 font-medium">{uploading ? "Analyzing your data…" : "Drag & drop a file, or click to browse"}</p>
           <p className="mt-1 text-sm text-slate-500">CSV, XLSX or XLS · up to 15 MB</p>
@@ -114,8 +114,8 @@ export default function DataList() {
            !data?.datasets.length ? <div className="p-6"><EmptyState icon={Database} title="No datasets yet" description={canUpload ? "Upload a CSV or Excel file, or load sample data, to get started." : "No data has been added yet. Ask an admin or manager to upload a dataset."} /></div> :
            <div className="divide-y divide-slate-100 dark:divide-slate-800">
              {data.datasets.map((d) => (
-               <Link key={d.id} to={`/data/${d.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                 <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileSpreadsheet className="h-5 w-5 text-slate-500" /></div>
+               <Link key={d.id} to={`/data/${d.id}`} className="flex items-center gap-4 px-5 py-3 transition-colors hover:bg-brand-500/[0.06]">
+                 <div className="neu-inset rounded-xl p-2"><FileSpreadsheet className="h-5 w-5 text-slate-500" /></div>
                  <div className="min-w-0 flex-1"><div className="truncate font-medium">{d.name}</div><div className="text-xs text-slate-500">{d.fileName} · {d.fileSize ? bytes(d.fileSize) : ""} · {timeAgo(d.createdAt)}</div></div>
                  <div className="hidden text-right text-xs text-slate-500 sm:block"><div className="flex items-center gap-1"><Table2 className="h-3 w-3" />{num(d.rowCount)} rows · {d.columnCount} cols</div></div>
                  <QualityBadge score={d.qualityScore} />
@@ -136,17 +136,17 @@ export default function DataList() {
                 key={c.type}
                 disabled={!canUpload}
                 onClick={() => setConnectType(c.type)}
-                className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-4 text-center transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent dark:border-slate-800 dark:hover:bg-brand-950/40">
+                className="neu-flat flex flex-col items-center gap-2 rounded-2xl p-4 text-center transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0">
                 <Plug className="h-5 w-5 text-slate-400" /><span className="text-sm font-medium">{c.label}</span><Badge tone="blue">Connect</Badge>
               </button>
             ))}
           </div>
 
           {connData?.connections.length ? (
-            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+            <div className="neu-inset divide-y divide-black/[0.05] overflow-hidden rounded-2xl dark:divide-white/[0.05]">
               {connData.connections.map((c) => (
                 <div key={c.id} className="flex items-center gap-4 px-4 py-3">
-                  <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><Database className="h-4 w-4 text-slate-500" /></div>
+                  <div className="neu-inset rounded-xl p-2"><Database className="h-4 w-4 text-slate-500" /></div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{c.name}</div>
                     <div className="text-xs text-slate-500">

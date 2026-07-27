@@ -298,7 +298,7 @@ function Header({
       {/* Desktop sidebar toggle */}
       <button
         onClick={onToggleCollapse}
-        className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 lg:flex"
+        className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-brand-500/10 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-white/10 lg:flex"
         aria-label={collapsed ? "Show navigation" : "Hide navigation"}
       >
         {collapsed ? (
@@ -328,7 +328,7 @@ function Header({
       {/* Theme toggle */}
       <button
         onClick={toggle}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-brand-500/10 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-white/10"
         aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
       >
         {theme === "dark" ? (
@@ -341,7 +341,7 @@ function Header({
       {/* Notifications */}
       <NavLink
         to="/alerts"
-        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-brand-500/10 hover:text-brand-600 dark:text-slate-400 dark:hover:bg-white/10"
         aria-label={
           alerts?.unread
             ? `Notifications (${alerts.unread} unread)`
@@ -364,7 +364,7 @@ function Header({
           aria-label="Account menu"
           aria-expanded={menu}
           aria-haspopup="true"
-          className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-brand-500/10 dark:hover:bg-white/10"
         >
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
             {user?.name?.[0] ?? "U"}
@@ -377,7 +377,7 @@ function Header({
             <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden="true" />
             <div
               role="menu"
-              className="absolute right-0 top-full mt-2 w-56 animate-fade-in rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+              className="neu-raised absolute right-0 top-full mt-2 w-56 animate-fade-in rounded-2xl p-1.5"
               onMouseLeave={() => setMenu(false)}
             >
               <div className="px-3 py-2.5">
@@ -401,7 +401,7 @@ function Header({
                 <NavLink
                   to="/profile"
                   role="menuitem"
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-brand-500/10 dark:text-slate-300 dark:hover:bg-white/10"
                   onClick={() => setMenu(false)}
                 >
                   <User className="h-4 w-4 text-slate-400" />
@@ -410,7 +410,7 @@ function Header({
                 <NavLink
                   to="/settings"
                   role="menuitem"
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-brand-500/10 dark:text-slate-300 dark:hover:bg-white/10"
                   onClick={() => setMenu(false)}
                 >
                   <Settings className="h-4 w-4 text-slate-400" />
@@ -440,6 +440,7 @@ function Header({
    Shell — application layout wrapper
    ───────────────────────────────────────────── */
 export function Shell({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem("diq_sidebar_collapsed") === "1",
@@ -449,7 +450,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [collapsed]);
 
   return (
-    <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
+    <div className="flex h-full bg-transparent">
       <Sidebar
         open={sidebarOpen}
         collapsed={collapsed}
@@ -463,7 +464,10 @@ export function Shell({ children }: { children: ReactNode }) {
           onToggleCollapse={() => setCollapsed((c) => !c)}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          {children}
+          {/* Keyed on the route so each page composes itself on entry. */}
+          <div key={pathname} className="page-enter">
+            {children}
+          </div>
         </main>
       </div>
     </div>

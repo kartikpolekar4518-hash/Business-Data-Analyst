@@ -1,5 +1,5 @@
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, useCountUp } from "../lib/utils";
 import { Sparkline, CHART } from "./charts";
 
 // Premium KPI tile. Restraint over decoration: the surface stays neutral and
@@ -12,6 +12,8 @@ export function KpiCard({
   tooltip,
   accent = false,
   spark,
+  rawValue,
+  formatValue,
 }: {
   label: string;
   value: string;
@@ -21,11 +23,16 @@ export function KpiCard({
   accent?: boolean;
   spark?: number[];
   accentColor?: string;
+  rawValue?: number;
+  formatValue?: (n: number) => string;
 }) {
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
   const trendColor = up ? CHART.emerald : down ? CHART.rose : "#94a3b8";
+  // Headline metrics count up on mount; everything else renders as given.
+  const animated = useCountUp(rawValue ?? 0);
+  const shown = rawValue != null && formatValue ? formatValue(animated) : value;
 
   return (
     <div
@@ -50,7 +57,7 @@ export function KpiCard({
       </div>
 
       <div className="mt-4 text-[28px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums dark:text-white">
-        {value}
+        {shown}
       </div>
 
       <div className="mt-auto flex items-end justify-between gap-2 pt-4">

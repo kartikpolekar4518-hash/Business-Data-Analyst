@@ -57,7 +57,7 @@ export default function Forecasts() {
                 <ForecastChart history={f.history} points={f.points} />
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {f.points.map((p) => (
-                    <div key={p.period} className="rounded-lg border border-slate-100 p-2 text-center dark:border-slate-800">
+                    <div key={p.period} className="neu-inset rounded-xl p-2 text-center">
                       <div className="text-xs text-slate-500">{p.period}</div>
                       <div className="font-semibold">{fmt(p.value)}</div>
                       <div className="text-xs text-slate-400">{fmt(p.lower)}–{fmt(p.upper)}</div>

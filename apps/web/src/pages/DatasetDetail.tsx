@@ -60,12 +60,12 @@ export default function DatasetDetail() {
           <CardBody className="overflow-x-auto p-0">
             {preview.isError ? <div className="p-5"><ErrorState message="Couldn't load the data preview." retry={() => preview.refetch()} /></div> : !preview.data ? <Spinner /> : (
               <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
+                <thead className="border-b border-black/[0.06] bg-black/[0.03] text-left dark:border-white/[0.06] dark:bg-white/[0.03]">
                   <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {preview.data.rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <tr key={i} className="transition-colors hover:bg-brand-500/[0.06]">
                       {preview.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5 text-slate-700 dark:text-slate-300">{String(row[c] ?? "—")}</td>)}
                     </tr>
                   ))}
@@ -84,7 +84,7 @@ export default function DatasetDetail() {
             {quality.isError ? <ErrorState message="Couldn't load the quality report." retry={() => quality.refetch()} /> : !quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
               <div className="flex items-center gap-2 py-6 text-sm text-emerald-600"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
             ) : quality.data.issues.map((i) => (
-              <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40">
+              <label key={i.id} className="neu-inset flex cursor-pointer items-start gap-3 rounded-xl p-3 transition-shadow">
                 <input type="checkbox" disabled={!i.autoFixable || !can("ADMIN", "MANAGER")} checked={accepted.has(i.type)} onChange={() => toggle(i.type)} className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -106,7 +106,7 @@ export default function DatasetDetail() {
           <CardBody className="overflow-x-auto p-0">
             {schema.isError ? <div className="p-5"><ErrorState message="Couldn't load the detected schema." retry={() => schema.refetch()} /></div> : !schema.data ? <Spinner /> : (
               <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
+                <thead className="border-b border-black/[0.06] bg-black/[0.03] text-left dark:border-white/[0.06] dark:bg-white/[0.03]"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {schema.data.columns.map((c) => (
                     <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>
