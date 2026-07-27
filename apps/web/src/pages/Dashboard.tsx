@@ -227,10 +227,10 @@ export default function Dashboard() {
       {insights.data && (() => {
         const brief = pickBrief(insights.data.recommendations);
         return (
-          <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-white/[0.06] dark:bg-slate-900/50">
-            <div className="grid gap-px bg-border dark:bg-white/[0.06] lg:grid-cols-[1.6fr_1fr]">
+          <section className="neu-raised overflow-hidden rounded-2xl">
+            <div className="grid lg:grid-cols-[1.6fr_1fr] lg:divide-x lg:divide-black/[0.05] dark:lg:divide-white/[0.05]">
               {/* Narrative */}
-              <div className="bg-white p-6 dark:bg-slate-900/50 sm:p-7">
+              <div className="p-6 sm:p-7">
                 <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">
                   <BrainCircuit className="h-3.5 w-3.5 text-brand-500" />
                   Executive Brief
@@ -255,7 +255,7 @@ export default function Dashboard() {
                 </div>
               </div>
               {/* Opportunity / risk callouts */}
-              <div className="flex flex-col divide-y divide-border bg-white dark:divide-white/[0.06] dark:bg-slate-900/30">
+              <div className="flex flex-col divide-y divide-black/[0.05] dark:divide-white/[0.05]">
                 {brief.opportunity && (
                   <div className="flex-1 p-5">
                     <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-emerald-600 dark:text-emerald-400">
@@ -307,7 +307,7 @@ export default function Dashboard() {
       <div className={cn("grid grid-cols-2 gap-4 md:grid-cols-3", data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5")}>
         {!data
           ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/70">
+              <div key={i} className="neu-flat rounded-xl p-5">
                 <Skeleton className="mb-3 h-4 w-20" />
                 <Skeleton className="h-7 w-28" />
                 <Skeleton className="mt-2 h-4 w-24" />

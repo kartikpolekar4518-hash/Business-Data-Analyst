@@ -151,7 +151,7 @@ function Sidebar({
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-50 flex w-[240px] shrink-0 flex-col",
-          "border-r border-white/[0.06] bg-[#0a0f1a]/95 text-slate-100 backdrop-blur-xl",
+          "border-r border-white/[0.05] bg-gradient-to-b from-[#241a3a] to-[#1a1327] text-slate-100 backdrop-blur-xl",
           "transition-all duration-300 ease-out",
           open ? "translate-x-0" : "-translate-x-full",
           collapsed
@@ -285,7 +285,7 @@ function Header({
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-black/[0.04] bg-[#e6e4f2]/80 px-4 backdrop-blur-xl dark:border-white/[0.05] dark:bg-[#1a1626]/80 lg:px-6">
       {/* Mobile hamburger */}
       <button
         className="lg:hidden"

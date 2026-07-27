@@ -10,19 +10,19 @@ type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/10 active:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400 dark:shadow-glow",
+    "text-white bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-600/30 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-brand-600/40 active:translate-y-0 active:shadow-md",
   secondary:
-    "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
+    "neu-flat text-slate-700 dark:text-slate-200 hover:-translate-y-0.5",
   outline:
-    "border border-border hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300",
-  ghost: "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400",
-  danger: "bg-red-600 text-white hover:bg-red-700 shadow-sm shadow-red-600/10 active:bg-red-800",
+    "neu-flat text-slate-700 dark:text-slate-200 hover:-translate-y-0.5",
+  ghost: "text-slate-600 hover:bg-black/[0.04] dark:text-slate-300 dark:hover:bg-white/[0.05]",
+  danger: "text-white bg-gradient-to-br from-red-500 to-red-600 shadow-lg shadow-red-600/30 hover:-translate-y-0.5 active:translate-y-0",
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "h-8 px-3 text-xs rounded-lg gap-1.5",
-  md: "h-10 px-4 text-sm rounded-lg gap-2",
-  lg: "h-12 px-6 text-base rounded-xl gap-2.5",
+  sm: "h-8 px-3.5 text-xs rounded-lg gap-1.5",
+  md: "h-10 px-5 text-sm rounded-xl gap-2",
+  lg: "h-12 px-6 text-base rounded-2xl gap-2.5",
 };
 
 export const Button = forwardRef<
@@ -70,9 +70,8 @@ export const Card = ({
 }) => (
   <div
     className={cn(
-      "rounded-xl border border-border bg-white shadow-card transition-all duration-200",
-      "dark:border-white/[0.06] dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm",
-      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-brand-500/25",
+      "neu-raised rounded-2xl transition-shadow duration-200",
+      hoverable && "neu-hover cursor-pointer",
       className,
     )}
   >
@@ -89,7 +88,7 @@ export const CardHeader = ({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 dark:border-white/[0.06]">
+  <div className="flex items-start justify-between gap-4 border-b border-black/[0.04] px-5 py-4 dark:border-white/[0.04]">
     <div className="min-w-0">
       <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
         {title}
@@ -137,10 +136,9 @@ export const Input = forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
+      "neu-inset h-10 w-full rounded-xl px-3.5 text-sm text-slate-800 outline-none transition",
       "placeholder:text-slate-400",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
+      "dark:text-slate-100 dark:placeholder:text-slate-500",
       className,
     )}
     {...props}
@@ -154,9 +152,8 @@ export const Select = forwardRef<
   <select
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100",
+      "neu-inset h-10 w-full rounded-xl px-3.5 text-sm text-slate-800 outline-none transition",
+      "dark:text-slate-100",
       className,
     )}
     {...props}

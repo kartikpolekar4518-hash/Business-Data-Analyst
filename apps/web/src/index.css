@@ -11,7 +11,8 @@
 html, body, #root { height: 100%; }
 
 body {
-  @apply bg-surface-tertiary text-slate-900 antialiased;
+  @apply text-slate-800 antialiased;
+  background-color: #e6e4f2;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -19,12 +20,47 @@ body {
 
 .dark body {
   @apply text-slate-100;
-  background-color: #0a0d14;
-  /* Restrained ambient light — a single cool wash, not a gradient light show. */
-  background-image:
-    radial-gradient(60rem 60rem at 100% -20%, rgba(89, 140, 255, 0.05), transparent 62%),
-    radial-gradient(46rem 46rem at -12% 4%, rgba(139, 92, 246, 0.035), transparent 60%);
-  background-attachment: fixed;
+  /* Purple-tinted dark for a soft, extruded neumorphic surface. */
+  background-color: #1a1626;
+}
+
+/* ── Neumorphic soft-UI primitives (used across the app) ── */
+@layer components {
+  .neu-raised {
+    background: #e6e4f2;
+    box-shadow: 7px 7px 16px #c9c6de, -7px -7px 16px #ffffff;
+  }
+  .neu-flat {
+    background: #e6e4f2;
+    box-shadow: 5px 5px 12px #cdcae0, -5px -5px 12px #ffffff;
+  }
+  .neu-inset {
+    background: #e6e4f2;
+    box-shadow: inset 3px 3px 7px #c9c6de, inset -3px -3px 7px #ffffff;
+  }
+  .neu-hover {
+    transition: box-shadow 0.25s ease, transform 0.25s ease;
+  }
+  .neu-hover:hover {
+    box-shadow: 10px 10px 22px #c5c2da, -10px -10px 22px #ffffff;
+    transform: translateY(-2px);
+  }
+
+  .dark .neu-raised {
+    background: #211b30;
+    box-shadow: 7px 7px 16px #120e1c, -7px -7px 16px #2c2440;
+  }
+  .dark .neu-flat {
+    background: #211b30;
+    box-shadow: 5px 5px 12px #140f20, -5px -5px 12px #2a223c;
+  }
+  .dark .neu-inset {
+    background: #1c1728;
+    box-shadow: inset 3px 3px 7px #120e1c, inset -3px -3px 7px #2c2440;
+  }
+  .dark .neu-hover:hover {
+    box-shadow: 10px 10px 22px #100c1a, -10px -10px 22px #2e2644;
+  }
 }
 
 /* ✅ Thin scrollbars — modern & unobtrusive */
@@ -46,8 +82,8 @@ body {
 /* ✅ Focus ring system */
 *:focus-visible {
   @apply outline-none;
-  box-shadow: 0 0 0 3px rgba(51,102,245,0.25);
-  border-radius: 4px;
+  box-shadow: 0 0 0 3px rgba(124,58,237,0.30);
+  border-radius: 8px;
 }
 
 /* ✅ Skeleton shimmer base */
@@ -74,23 +110,24 @@ body {
     background-size: 200% 100%;
   }
 
-  /* ✅ Card base component */
+  /* ✅ Card base component (neumorphic) */
   .card {
-    @apply rounded-xl border border-border bg-white shadow-card transition-shadow duration-200;
+    @apply rounded-2xl transition-shadow duration-200;
+    background: #e6e4f2;
+    box-shadow: 7px 7px 16px #c9c6de, -7px -7px 16px #ffffff;
   }
 
   .dark .card {
-    @apply border-white/[0.06] bg-slate-900/70 backdrop-blur-sm;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 40px -20px rgba(0, 0, 0, 0.8);
+    background: #211b30;
+    box-shadow: 7px 7px 16px #120e1c, -7px -7px 16px #2c2440;
   }
 
   .card:hover {
-    @apply shadow-card-hover;
+    box-shadow: 10px 10px 22px #c5c2da, -10px -10px 22px #ffffff;
   }
 
   .dark .card:hover {
-    @apply border-brand-500/25;
-    box-shadow: 0 0 0 1px rgba(89, 140, 255, 0.12), 0 22px 45px -22px rgba(0, 0, 0, 0.9);
+    box-shadow: 10px 10px 22px #100c1a, -10px -10px 22px #2e2644;
   }
 
   /* ✅ Page header */

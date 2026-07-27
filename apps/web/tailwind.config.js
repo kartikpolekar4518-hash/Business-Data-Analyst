@@ -5,21 +5,24 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Purple brand (violet scale)
         brand: {
-          50: "#eef4ff", 100: "#d9e6ff", 200: "#bcd3ff", 300: "#8eb4ff",
-          400: "#598cff", 500: "#3366f5", 600: "#1f47e0", 700: "#1a38c0",
-          800: "#1b319b", 900: "#1c2e7a", 950: "#111a45",
+          50: "#f5f3ff", 100: "#ede9fe", 200: "#ddd6fe", 300: "#c4b5fd",
+          400: "#a78bfa", 500: "#8b5cf6", 600: "#7c3aed", 700: "#6d28d9",
+          800: "#5b21b6", 900: "#4c1d95", 950: "#2e1065",
         },
+        // Neumorphic lavender surfaces — cards sit on the same family and are
+        // distinguished by soft shadow, not hard borders.
         surface: {
-          DEFAULT: "#ffffff",
-          secondary: "#f8f9fc",
-          tertiary: "#f1f3f8",
-          elevated: "#ffffff",
+          DEFAULT: "#eceafa",
+          secondary: "#e8e6f4",
+          tertiary: "#e3e1ef",
+          elevated: "#f1effb",
         },
         border: {
-          DEFAULT: "#e2e6ef",
-          secondary: "#eef1f7",
-          strong: "#cdd3e0",
+          DEFAULT: "#dcd9ee",
+          secondary: "#e6e3f2",
+          strong: "#cbc7e2",
         },
       },
       fontFamily: {
@@ -52,17 +55,22 @@ export default {
         "2xl": "16px",
       },
       boxShadow: {
-        "card": "0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02)",
-        "card-hover": "0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.03)",
-        "dropdown": "0 4px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04)",
-        "modal": "0 12px 40px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06)",
-        "panel": "0 20px 60px rgba(0,0,0,0.15), 0 8px 20px rgba(0,0,0,0.08)",
-        "focus": "0 0 0 3px rgba(51,102,245,0.25)",
-        // Neon glows for the dark theme
-        "glow": "0 8px 30px -10px rgba(51,102,245,0.45)",
-        "glow-sm": "0 0 18px -6px rgba(89,140,255,0.5)",
-        "glow-violet": "0 8px 30px -10px rgba(139,92,246,0.45)",
-        "card-glow": "0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.8)",
+        // Neumorphic soft-UI shadows (light theme). Dark overrides live in index.css.
+        "neu": "7px 7px 16px #c9c6de, -7px -7px 16px #ffffff",
+        "neu-sm": "4px 4px 10px #cdcae0, -4px -4px 10px #ffffff",
+        "neu-lg": "12px 12px 28px #c5c2da, -12px -12px 28px #ffffff",
+        "neu-inset": "inset 3px 3px 7px #c9c6de, inset -3px -3px 7px #ffffff",
+        "neu-pressed": "inset 4px 4px 9px #c5c2da, inset -4px -4px 9px #ffffff",
+        "card": "7px 7px 16px #c9c6de, -7px -7px 16px #ffffff",
+        "card-hover": "10px 10px 22px #c5c2da, -10px -10px 22px #ffffff",
+        "dropdown": "8px 8px 20px #c5c2da, -6px -6px 16px #ffffff",
+        "modal": "16px 16px 40px #bfbcd6, -12px -12px 32px #ffffff",
+        "panel": "18px 18px 44px #bcb9d4, -14px -14px 36px #ffffff",
+        "focus": "0 0 0 3px rgba(124,58,237,0.28)",
+        "glow": "0 10px 30px -10px rgba(124,58,237,0.45)",
+        "glow-sm": "0 0 18px -6px rgba(139,92,246,0.5)",
+        "glow-violet": "0 10px 30px -10px rgba(139,92,246,0.5)",
+        "card-glow": "6px 6px 16px rgba(0,0,0,0.45), -6px -6px 16px rgba(255,255,255,0.03)",
       },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",
