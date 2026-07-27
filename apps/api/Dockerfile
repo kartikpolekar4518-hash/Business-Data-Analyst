@@ -1,5 +1,7 @@
 # DecisionIQ all-in-one image: API + built web UI served on one port.
 FROM node:22-alpine
+# Prisma's engines need OpenSSL/libc at runtime on Alpine (musl).
+RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
 
 # Install deps (cached layers)
