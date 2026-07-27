@@ -17,8 +17,9 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
-    # Runs DB migrations + seeds the demo data, then starts the server.
-    dockerCommand: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js"
+    # Run DB migrations (required), seed demo data (best-effort — never blocks
+    # startup), then start the server.
+    dockerCommand: sh -c "npx prisma migrate deploy && { npx tsx prisma/seed.ts || echo 'seed skipped'; } && node dist/index.js"
     envVars:
       - key: NODE_ENV
         value: production
