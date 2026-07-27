@@ -17,4 +17,5 @@ RUN cd web && npm run build
 WORKDIR /app/api
 ENV WEB_DIST=/app/web/dist
 EXPOSE 4000
-CMD ["node", "dist/index.js"]
+# start.sh: migrate + seed (best-effort) + serve. Exec form avoids shell quirks.
+CMD ["sh", "start.sh"]
