@@ -20,12 +20,14 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { CommandPalette } from "./CommandPalette";
 
 /* ─────────────────────────────────────────────
    Navigation configuration — grouped sections
@@ -325,6 +327,17 @@ function Header({
 
       <div className="flex-1" />
 
+      {/* Command palette trigger — discoverability for ⌘K */}
+      <button
+        onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))}
+        className="neu-inset hidden items-center gap-2 rounded-lg px-3 py-1.5 text-xs text-slate-500 transition-colors hover:text-brand-600 sm:flex"
+        aria-label="Open command palette"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span>Search…</span>
+        <kbd className="ml-2 font-sans text-[10px] font-semibold opacity-70">⌘K</kbd>
+      </button>
+
       {/* Theme toggle */}
       <button
         onClick={toggle}
@@ -451,6 +464,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full bg-transparent">
+      <CommandPalette />
       <Sidebar
         open={sidebarOpen}
         collapsed={collapsed}
