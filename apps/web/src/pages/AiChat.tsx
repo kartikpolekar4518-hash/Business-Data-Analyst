@@ -76,7 +76,7 @@ export default function AiChat() {
                 <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} aria-hidden="true" />
                 <div className="neu-raised absolute right-0 top-full z-50 mt-2 max-h-80 w-72 overflow-y-auto rounded-2xl p-1.5">
                   {conversations.data?.conversations.length ? conversations.data.conversations.map((c) => (
-                    <button key={c.id} onClick={() => openConversation(c.id)} className={cn("flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700", c.id === conversationId && "bg-slate-100 dark:bg-slate-700")}>
+                    <button key={c.id} onClick={() => openConversation(c.id)} className={cn("flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-brand-500/[0.08]", c.id === conversationId && "bg-brand-500/[0.12]")}>
                       <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                       <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-700 dark:text-slate-200">{c.title}</span><span className="text-xs text-slate-400">{timeAgo(c.createdAt)} · {c._count.messages} messages</span></span>
                     </button>
@@ -91,15 +91,15 @@ export default function AiChat() {
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 p-6 dark:border-slate-700">
+          <div className="neu-inset rounded-2xl p-6">
             <div className="mb-3 flex items-center gap-2 text-slate-500"><Sparkles className="h-4 w-4" />Try asking:</div>
-            <div className="flex flex-wrap gap-2">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm hover:border-brand-400 hover:text-brand-600 dark:border-slate-700">{s}</button>)}</div>
+            <div className="flex flex-wrap gap-2">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="neu-flat rounded-full px-3 py-1.5 text-sm transition-transform hover:-translate-y-0.5 hover:text-brand-600">{s}</button>)}</div>
           </div>
         )}
         {turns.map((t, i) => t.role === "user" ? (
           <div key={i} className="flex justify-end gap-2">
             <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-brand-600 px-4 py-2 text-sm text-white">{t.text}</div>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700"><User className="h-4 w-4" /></div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full neu-inset"><User className="h-4 w-4" /></div>
           </div>
         ) : (
           <div key={i} className="flex gap-2">
@@ -118,8 +118,8 @@ export default function AiChat() {
               {t.result?.table && (
                 <Card><CardBody className="overflow-x-auto p-0">
                   <table className="w-full text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>
+                    <thead className="border-b border-black/[0.06] bg-black/[0.03] text-left dark:border-white/[0.06] dark:bg-white/[0.03]"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>
                   </table>
                 </CardBody></Card>
               )}

@@ -79,7 +79,7 @@ export function EmptyWorkspace({
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
           <div key={s.title} className="text-center">
-            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-xl neu-inset text-brand-500">
               <s.icon className="h-[18px] w-[18px]" />
             </div>
             <h4 className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200">{s.title}</h4>
@@ -124,13 +124,13 @@ export function GettingStartedChecklist({
           <button
             onClick={onDismiss}
             aria-label="Dismiss getting started"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-brand-500/10"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full neu-inset">
           <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }} />
         </div>
 
@@ -143,7 +143,7 @@ export function GettingStartedChecklist({
                 "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                 s.done
                   ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                  : "border-border hover:bg-slate-50 dark:border-white/[0.06] dark:hover:bg-white/[0.03]",
+                  : "border-border hover:bg-brand-500/[0.06] dark:border-white/[0.06]",
               )}
             >
               <span

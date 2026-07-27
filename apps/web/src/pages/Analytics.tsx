@@ -80,7 +80,7 @@ export default function Analytics() {
 
       {/* KPIs (driven by the industry pack) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />)
+        {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="neu-inset h-28 animate-pulse rounded-2xl" />)
           : ov.data.kpis.slice(0, 4).map((k) => (
               <KpiCard key={k.key} label={k.label} value={fmtKpi(k)} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} />
             ))}
@@ -100,9 +100,9 @@ export default function Analytics() {
         <CardBody className="overflow-x-auto p-0">
           {table.isError ? <div className="p-5"><ErrorState message="Couldn't load the filtered rows." retry={() => table.refetch()} /></div> : !table.data ? <Spinner /> : (
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {table.data.rows.slice(0, 100).map((r, i) => <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">{table.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5">{String(r[c] ?? "—")}</td>)}</tr>)}
+              <thead className="border-b border-black/[0.06] bg-black/[0.03] text-left dark:border-white/[0.06] dark:bg-white/[0.03]"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
+              <tbody className="divide-y divide-black/[0.05] dark:divide-white/[0.05]">
+                {table.data.rows.slice(0, 100).map((r, i) => <tr key={i} className="transition-colors hover:bg-brand-500/[0.06]">{table.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5">{String(r[c] ?? "—")}</td>)}</tr>)}
               </tbody>
             </table>
           )}

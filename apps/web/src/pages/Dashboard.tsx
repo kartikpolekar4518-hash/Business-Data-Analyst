@@ -235,7 +235,7 @@ export default function Dashboard() {
                   <BrainCircuit className="h-3.5 w-3.5 text-brand-500" />
                   Executive Brief
                   {brief.confidence != null && (
-                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-slate-500 dark:bg-white/5 dark:text-slate-400">
+                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-full neu-inset px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-slate-500 dark:bg-white/5 dark:text-slate-400">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                       {brief.confidence}% confidence
                     </span>
@@ -373,8 +373,8 @@ export default function Dashboard() {
                 const fmt = data.ranking.format === "money" ? money : num;
                 const max = Math.max(...rows.map((p) => p.value)) || 1;
                 return rows.slice(0, 6).map((p, i) => (
-                  <div key={p.label} className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">
+                  <div key={p.label} className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-brand-500/[0.06]">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg neu-inset text-xs font-semibold text-slate-500">
                       {i + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -382,7 +382,7 @@ export default function Dashboard() {
                         <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{p.label}</span>
                         <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">{fmt(p.value)}</span>
                       </div>
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full neu-inset">
                         <div className="h-full rounded-full" style={{ width: `${(p.value / max) * 100}%`, background: `linear-gradient(90deg, ${CHART.blue}88, ${CHART.blue})` }} />
                       </div>
                     </div>
@@ -464,7 +464,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl neu-inset">
                   <BrainCircuit className="h-5 w-5 text-slate-400" />
                 </div>
                 <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -492,7 +492,7 @@ export default function Dashboard() {
                   <Link
                     key={d.id}
                     to={`/data/${d.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-brand-500/[0.06]"
                   >
                     <span className="flex items-center gap-2.5 font-medium text-slate-700 dark:text-slate-300">
                       <Database className="h-4 w-4 text-slate-400" />
@@ -522,7 +522,7 @@ export default function Dashboard() {
                   <Link
                     key={r.id}
                     to="/reports"
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-brand-500/[0.06]"
                   >
                     <span className="flex items-center gap-2.5 truncate font-medium text-slate-700 dark:text-slate-300">
                       <FileText className="h-4 w-4 shrink-0 text-slate-400" />

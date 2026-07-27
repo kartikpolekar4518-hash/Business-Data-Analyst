@@ -67,7 +67,7 @@ export function Login() {
         <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
         <p className="text-center text-sm text-slate-500">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
         {import.meta.env.DEV && (
-          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+          <div className="neu-inset rounded-xl p-3 text-xs text-slate-500">
             <strong>Demo:</strong> admin@decisioniq.dev · manager@decisioniq.dev · viewer@decisioniq.dev — password <code>password123</code>
           </div>
         )}
@@ -128,7 +128,7 @@ export function ForgotPassword() {
       {sent ? (
         <div className="space-y-4">
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">If that email exists, a reset link was created.</div>
-          {sent.devToken && <div className="rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50"><strong>Dev mode:</strong> no email service configured. <Link className="text-brand-600 underline" to={`/reset-password?token=${sent.devToken}`}>Use this reset link</Link>.</div>}
+          {sent.devToken && <div className="neu-inset rounded-xl p-3 text-xs"><strong>Dev mode:</strong> no email service configured. <Link className="text-brand-600 underline" to={`/reset-password?token=${sent.devToken}`}>Use this reset link</Link>.</div>}
           <Link to="/login" className="block text-center text-sm text-brand-600 hover:underline">Back to sign in</Link>
         </div>
       ) : (

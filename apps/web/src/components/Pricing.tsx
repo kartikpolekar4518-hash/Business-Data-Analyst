@@ -89,7 +89,7 @@ export function UsageMeter({ label, used, limit }: { label: string; used: number
         </span>
       </div>
       {!unlimited && (
-        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full neu-inset">
           <div className={cn("h-full rounded-full transition-all", near ? "bg-amber-500" : "bg-brand-500")} style={{ width: `${pct}%` }} />
         </div>
       )}
