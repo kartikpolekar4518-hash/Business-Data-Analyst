@@ -33,6 +33,21 @@ const impactBadge = {
   LOW: { tone: "slate" as const, label: "Low impact" },
 } as const;
 
+// Pull a headline opportunity and risk out of the recommendation set so the
+// executive brief can lead with a point of view instead of a wall of cards.
+function pickBrief(recs: Recommendation[]) {
+  const risk = recs.find((r) => r.impact === "HIGH" && insightKey(r.title) === "risk")
+    ?? recs.find((r) => insightKey(r.title) === "risk")
+    ?? recs.find((r) => r.impact === "HIGH");
+  const opportunity = recs.find((r) => insightKey(r.title) === "opportunity" && r !== risk)
+    ?? recs.find((r) => r !== risk);
+  const confidences = recs.map((r) => r.confidence).filter((c) => typeof c === "number");
+  const confidence = confidences.length
+    ? Math.round((confidences.reduce((a, b) => a + b, 0) / confidences.length) * 100)
+    : null;
+  return { risk, opportunity, confidence };
+}
+
 const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
 // Static classes so Tailwind keeps them; the grid tightens to the KPI count (a
 // 3-KPI generic pack shouldn't leave two empty columns).
@@ -208,28 +223,85 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ─── AI Insight banner ─── */}
-      {insights.data && (
-        <div className="relative overflow-hidden rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-500/10 via-violet-500/[0.06] to-transparent p-4 dark:border-brand-500/20">
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-brand-500/20 blur-3xl" />
-          <div className="relative flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
-              <BrainCircuit className="h-[18px] w-[18px] text-white" />
-            </div>
-            <div className="min-w-0 flex-1 pt-0.5">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                  AI Executive Insight
-                </span>
-                <Badge tone="blue" dot>Live</Badge>
+      {/* ─── Executive Brief ─── */}
+      {insights.data && (() => {
+        const brief = pickBrief(insights.data.recommendations);
+        return (
+          <section className="overflow-hidden rounded-2xl border border-border bg-white dark:border-white/[0.06] dark:bg-slate-900/50">
+            <div className="grid gap-px bg-border dark:bg-white/[0.06] lg:grid-cols-[1.6fr_1fr]">
+              {/* Narrative */}
+              <div className="bg-white p-6 dark:bg-slate-900/50 sm:p-7">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">
+                  <BrainCircuit className="h-3.5 w-3.5 text-brand-500" />
+                  Executive Brief
+                  {brief.confidence != null && (
+                    <span className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-slate-500 dark:bg-white/5 dark:text-slate-400">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      {brief.confidence}% confidence
+                    </span>
+                  )}
+                </div>
+                <p className="mt-4 text-lg font-medium leading-snug tracking-tight text-slate-900 dark:text-white sm:text-xl">
+                  {insights.data.headline}
+                </p>
+                <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-slate-500 dark:text-slate-400">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand-500" />
+                    {industryLabel(data?.industry ?? "")} · {data?.datasetName}
+                  </span>
+                  <Link to="/ai-chat" className="inline-flex items-center gap-1 font-medium text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                    Ask a follow-up <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
-              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                {insights.data.headline}
-              </p>
+              {/* Opportunity / risk callouts */}
+              <div className="flex flex-col divide-y divide-border bg-white dark:divide-white/[0.06] dark:bg-slate-900/30">
+                {brief.opportunity && (
+                  <div className="flex-1 p-5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-emerald-600 dark:text-emerald-400">
+                      <Lightbulb className="h-3.5 w-3.5" /> Top opportunity
+                    </div>
+                    <p className="mt-1.5 text-sm font-semibold text-slate-900 dark:text-white">{brief.opportunity.title}</p>
+                    <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{brief.opportunity.action}</p>
+                  </div>
+                )}
+                {brief.risk && (
+                  <div className="flex-1 p-5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-red-600 dark:text-red-400">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Top risk
+                    </div>
+                    <p className="mt-1.5 text-sm font-semibold text-slate-900 dark:text-white">{brief.risk.title}</p>
+                    <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-slate-500 dark:text-slate-400">{brief.risk.observation}</p>
+                  </div>
+                )}
+                {!brief.opportunity && !brief.risk && (
+                  <div className="flex flex-1 items-center gap-2 p-5 text-[13px] text-slate-500 dark:text-slate-400">
+                    <Sparkles className="h-4 w-4 text-emerald-500" /> No material risks detected — performance looks healthy.
+                  </div>
+                )}
+              </div>
             </div>
+          </section>
+        );
+      })()}
+
+      {/* ─── Critical alerts strip ─── */}
+      {(() => {
+        const critical = alerts.data?.alerts.filter((a) => a.severity === "HIGH") ?? [];
+        if (!critical.length) return null;
+        return (
+          <div className="flex items-start gap-3 rounded-xl border-l-2 border-red-500 bg-red-50/60 px-4 py-3 dark:bg-red-500/[0.07]">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+            <div className="min-w-0 flex-1 text-[13px] text-slate-700 dark:text-slate-200">
+              <span className="font-semibold text-red-700 dark:text-red-300">
+                {critical.length} critical alert{critical.length > 1 ? "s" : ""}
+              </span>{" "}
+              · {critical[0].description}
+            </div>
+            <Link to="/alerts" className="shrink-0 text-[13px] font-medium text-red-700 hover:underline dark:text-red-300">Review</Link>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ─── KPI Cards (driven by the industry pack) ─── */}
       <div className={cn("grid grid-cols-2 gap-4 md:grid-cols-3", data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5")}>
@@ -256,7 +328,8 @@ export default function Dashboard() {
             ))}
       </div>
 
-      {/* ─── Hero: performance overview + composition donut ─── */}
+      {/* ─── Revenue story ─── */}
+      <h2 className="pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">Revenue story</h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader title={data?.trend.title ?? "Performance Overview"} subtitle={data?.trend.subtitle ?? "Over time"} />
@@ -280,7 +353,8 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* ─── Primary ranking list + secondary bars ─── */}
+      {/* ─── Performance breakdown ─── */}
+      <h2 className="pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 dark:text-slate-500">Performance breakdown</h2>
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader title={data?.ranking.title ?? "Top"} subtitle={data?.ranking.subtitle} />
@@ -331,10 +405,10 @@ export default function Dashboard() {
             title={
               <div className="flex items-center gap-2">
                 <BrainCircuit className="h-4 w-4 text-brand-500" />
-                <span>AI Recommendations</span>
+                <span>Recommended actions</span>
               </div>
             }
-            subtitle="Generated from your data"
+            subtitle="Ranked by impact, generated from your data"
           />
           <CardBody>
             {insights.isError ? (

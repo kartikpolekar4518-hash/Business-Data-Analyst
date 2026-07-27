@@ -19,11 +19,11 @@ body {
 
 .dark body {
   @apply text-slate-100;
-  background-color: #060a13;
+  background-color: #0a0d14;
+  /* Restrained ambient light — a single cool wash, not a gradient light show. */
   background-image:
-    radial-gradient(55rem 55rem at 100% -12%, rgba(89, 140, 255, 0.12), transparent 60%),
-    radial-gradient(48rem 48rem at -12% 8%, rgba(139, 92, 246, 0.10), transparent 58%),
-    radial-gradient(40rem 40rem at 60% 120%, rgba(34, 211, 238, 0.06), transparent 60%);
+    radial-gradient(60rem 60rem at 100% -20%, rgba(89, 140, 255, 0.05), transparent 62%),
+    radial-gradient(46rem 46rem at -12% 4%, rgba(139, 92, 246, 0.035), transparent 60%);
   background-attachment: fixed;
 }
 
