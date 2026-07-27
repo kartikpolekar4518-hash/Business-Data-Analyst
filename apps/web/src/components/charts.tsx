@@ -105,11 +105,11 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
           <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />Revenue</span>
           <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />Profit</span>
         </div>
-        <div className="flex rounded-lg border border-border bg-surface-secondary p-0.5 dark:border-white/10 dark:bg-white/5">
+        <div className="neu-inset flex rounded-lg p-0.5">
           {(["both", "revenue", "profit"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} className={cn(
               "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
-              view === v ? "bg-white text-brand-600 shadow-sm dark:bg-brand-500 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+              view === v ? "neu-flat text-brand-600 dark:text-brand-300" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
             )}>{v}</button>
           ))}
         </div>

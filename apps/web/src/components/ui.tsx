@@ -241,9 +241,9 @@ export const EmptyState = ({
   description?: string;
   action?: ReactNode;
 }) => (
-  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-14 text-center dark:border-slate-700">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-      <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+  <div className="neu-inset flex flex-col items-center justify-center rounded-2xl py-14 text-center">
+    <div className="neu-raised flex h-12 w-12 items-center justify-center rounded-2xl">
+      <Icon className="h-6 w-6 text-brand-500" />
     </div>
     <h3 className="mt-4 text-[15px] font-semibold text-slate-900 dark:text-white">
       {title}
@@ -346,7 +346,7 @@ export const Modal = ({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="w-full max-w-md scale-in rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
+        className="neu-raised w-full max-w-md scale-in rounded-2xl p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
@@ -437,7 +437,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           return (
             <div
               key={t.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown animate-in dark:border-slate-700 dark:bg-slate-800"
+              className="neu-raised flex items-center gap-3 rounded-2xl px-4 py-3 text-sm animate-in"
             >
               <Icon
                 className={cn(

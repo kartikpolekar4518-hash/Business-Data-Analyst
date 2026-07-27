@@ -35,8 +35,8 @@ export function PlanCards({
           <div
             key={p.key}
             className={cn(
-              "flex flex-col rounded-2xl border bg-white p-6 dark:bg-slate-900/70",
-              featured ? "border-brand-500/60 shadow-card-hover dark:border-brand-500/50" : "border-border dark:border-white/[0.06]",
+              "flex flex-col rounded-2xl p-6",
+              featured ? "neu-raised ring-2 ring-brand-500/50" : "neu-flat",
             )}
           >
             <div className="flex items-center justify-between">

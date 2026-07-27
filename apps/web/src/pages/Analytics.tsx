@@ -58,12 +58,12 @@ export default function Analytics() {
           <div>
             <Label htmlFor="f-from">From</Label>
             <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setFilter("dateFrom", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              className="neu-inset w-full rounded-lg px-3 py-1.5 text-sm outline-none dark:text-slate-100" />
           </div>
           <div>
             <Label htmlFor="f-to">To</Label>
             <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setFilter("dateTo", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              className="neu-inset w-full rounded-lg px-3 py-1.5 text-sm outline-none dark:text-slate-100" />
           </div>
           {FILTERS.map((f) => (
             <div key={f.key}>

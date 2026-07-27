@@ -29,7 +29,7 @@ export function EmptyWorkspace({
   return (
     <div className="mx-auto max-w-3xl py-8">
       <div className="text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg shadow-brand-600/30">
           <BrainCircuit className="h-6 w-6 text-white" />
         </div>
         <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white">Welcome to DecisionIQ</h1>
@@ -183,7 +183,7 @@ export function WelcomeTour({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <Modal open={open} onClose={onClose} title="Welcome to DecisionIQ">
       <div className="text-center">
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow-sm">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-lg shadow-brand-600/30">
           <s.icon className="h-5 w-5" />
         </div>
         <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">{s.title}</h3>
