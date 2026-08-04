@@ -5,4 +5,6 @@ dist/
 *.log
 uploads/
 apps/api/src/sample/retail_sales.csv
+apps/api/src/sample/pharmacy_sales.csv
+apps/api/src/sample/saas_subscriptions.csv
 .DS_Store
