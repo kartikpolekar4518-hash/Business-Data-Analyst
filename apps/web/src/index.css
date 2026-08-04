@@ -140,18 +140,48 @@ body {
   }
 }
 
+/* ✅ Ambient motion — these loop forever, so they stay on the GPU as CSS
+   rather than running through framer's animation frame loop. */
+@keyframes aurora {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  33%      { transform: translate3d(6%, -4%, 0) scale(1.12); }
+  66%      { transform: translate3d(-5%, 5%, 0) scale(0.94); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+@keyframes sheen {
+  0%       { transform: translateX(-120%) skewX(-18deg); }
+  60%, 100% { transform: translateX(240%) skewX(-18deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 /* ✅ Transition utilities */
 @layer utilities {
-  .animate-in {
-    animation: fadeIn 0.2s ease-out;
+  .animate-aurora {
+    animation: aurora 18s ease-in-out infinite;
+    will-change: transform;
   }
 
-  .slide-in {
-    animation: slideIn 0.2s ease-out;
+  .animate-aurora-slow {
+    animation: aurora 26s ease-in-out infinite reverse;
+    will-change: transform;
   }
 
-  .scale-in {
-    animation: scaleIn 0.15s ease-out;
+  .animate-float {
+    animation: float 5s ease-in-out infinite;
+  }
+
+  .animate-sheen {
+    animation: sheen 6s ease-in-out infinite;
+    will-change: transform;
   }
 
   /* ✅ Glass effect */

@@ -1,5 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { DUR, EASE } from "./lib/motion";
 import { useAuth } from "./lib/auth";
 import { Shell } from "./components/Shell";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -45,29 +47,46 @@ function LandingRoute() {
 }
 
 export default function App() {
+  const location = useLocation();
+  // Transition per top-level section, not per pathname: /settings/:tab and
+  // /data/:datasetId are the same page reparameterised, and remounting them
+  // would fade the page on every tab click and kill the Tabs layoutId glide.
+  const sectionKey = location.pathname.split("/")[1] || "root";
   return (
     <ErrorBoundary>
-      <Routes>
-        <Route path="/" element={<LandingRoute />} />
-        <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
-        <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
-        <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
-        <Route path="/reset-password" element={<PublicOnly><ResetPassword /></PublicOnly>} />
+      {/* No `initial={false}` here — on AnimatePresence it propagates down and
+          suppresses the mount animation of every descendant motion component. */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={sectionKey}
+          className="h-full"
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0, transition: { duration: DUR.base, ease: EASE } }}
+          exit={{ opacity: 0, y: -6, transition: { duration: DUR.fast, ease: EASE } }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<LandingRoute />} />
+            <Route path="/login" element={<PublicOnly><Login /></PublicOnly>} />
+            <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
+            <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
+            <Route path="/reset-password" element={<PublicOnly><ResetPassword /></PublicOnly>} />
 
-        <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
-        <Route path="/data" element={<Protected><DataList /></Protected>} />
-        <Route path="/data/:datasetId" element={<Protected><DatasetDetail /></Protected>} />
-        <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
-        <Route path="/ai-chat" element={<Protected><AiChat /></Protected>} />
-        <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
-        <Route path="/reports" element={<Protected><Reports /></Protected>} />
-        <Route path="/alerts" element={<Protected><Alerts /></Protected>} />
-        <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
-        <Route path="/settings/:tab" element={<Protected><SettingsPage /></Protected>} />
-        <Route path="/profile" element={<Protected><Profile /></Protected>} />
+            <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+            <Route path="/data" element={<Protected><DataList /></Protected>} />
+            <Route path="/data/:datasetId" element={<Protected><DatasetDetail /></Protected>} />
+            <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
+            <Route path="/ai-chat" element={<Protected><AiChat /></Protected>} />
+            <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
+            <Route path="/reports" element={<Protected><Reports /></Protected>} />
+            <Route path="/alerts" element={<Protected><Alerts /></Protected>} />
+            <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
+            <Route path="/settings/:tab" element={<Protected><SettingsPage /></Protected>} />
+            <Route path="/profile" element={<Protected><Profile /></Protected>} />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
     </ErrorBoundary>
   );
 }

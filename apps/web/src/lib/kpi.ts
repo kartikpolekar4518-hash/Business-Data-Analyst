@@ -14,5 +14,7 @@ export const KPI_ICONS: Record<string, LucideIcon> = {
 };
 export const kpiIcon = (k: string): LucideIcon => KPI_ICONS[k] ?? BarChart3;
 
-export const fmtKpi = (k: KpiResult) =>
-  k.format === "money" ? money(k.value) : k.format === "percent" ? `${Math.round(k.value * 10) / 10}%` : num(k.value);
+export type KpiFormat = KpiResult["format"];
+
+export const formatKpiValue = (value: number, format: KpiFormat): string =>
+  format === "money" ? money(value) : format === "percent" ? `${Math.round(value * 10) / 10}%` : num(value);

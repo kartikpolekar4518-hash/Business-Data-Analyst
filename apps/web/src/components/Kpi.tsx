@@ -1,10 +1,14 @@
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
+import { AnimatedNumber, SPRING } from "../lib/motion";
+import type { KpiFormat } from "../lib/kpi";
 import { Sparkline, CHART } from "./charts";
 
 export function KpiCard({
   label,
   value,
+  format,
   changePct,
   icon: Icon,
   tooltip,
@@ -13,7 +17,8 @@ export function KpiCard({
   accentColor = CHART.blue,
 }: {
   label: string;
-  value: string;
+  value: number;
+  format: KpiFormat;
   changePct?: number | null;
   icon: LucideIcon;
   tooltip?: string;
@@ -26,9 +31,11 @@ export function KpiCard({
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
 
   return (
-    <div
+    <motion.div
+      whileHover={{ y: -2 }}
+      transition={SPRING}
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-all duration-200",
+        "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-colors duration-200",
         "dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm dark:hover:border-brand-500/30",
         accent
           ? "border-brand-200 dark:border-brand-500/25"
@@ -61,8 +68,8 @@ export function KpiCard({
       </div>
 
       {/* Value */}
-      <div className="relative mt-3 text-[27px] font-bold leading-none tracking-tight text-slate-900 dark:text-white">
-        {value}
+      <div className="relative mt-3 text-[27px] font-bold leading-none tracking-tight tabular-nums text-slate-900 dark:text-white">
+        <AnimatedNumber value={value} format={format} />
       </div>
 
       {/* Bottom row: trend pill + sparkline */}
@@ -96,6 +103,6 @@ export function KpiCard({
           {tooltip}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
