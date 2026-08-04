@@ -35,11 +35,9 @@ export function KpiCard({
       whileHover={{ y: -2 }}
       transition={SPRING}
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-colors duration-200",
-        "dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm dark:hover:border-brand-500/30",
-        accent
-          ? "border-brand-200 dark:border-brand-500/25"
-          : "border-border dark:border-white/[0.06]",
+        // Glass level 1 + hover edge lighting; the framer lift handles the motion.
+        "glass glass-e1 glass-noise glass-hover group relative overflow-hidden rounded-xl p-5",
+        accent && "border-brand-200 dark:border-brand-500/25",
       )}
     >
       {/* Accent glow wash on hover (dark) */}

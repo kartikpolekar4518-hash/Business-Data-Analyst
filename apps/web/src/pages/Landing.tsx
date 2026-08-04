@@ -50,7 +50,7 @@ function HoverCard({ className, children }: { className?: string; children: Reac
 
 function Nav() {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#080c15]/80 backdrop-blur-xl">
+    <header className="glass-strong glass-e2 glass-on-dark sticky top-0 z-30 border-x-0 border-t-0 border-b">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
         <div className="flex items-center gap-2 text-white">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40"><BrainCircuit className="h-[18px] w-[18px]" /></div>
@@ -77,7 +77,7 @@ function PreviewMock() {
   ];
   return (
     <motion.div
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120] p-4 shadow-2xl shadow-black/50"
+      className="glass-strong glass-e3 glass-noise glass-on-dark relative overflow-hidden rounded-2xl p-4"
       initial={{ opacity: 0, y: 24, rotateX: 6 }}
       animate={{ opacity: 1, y: 0, rotateX: 0 }}
       transition={{ duration: DUR.slow, ease: EASE, delay: 0.15 }}
@@ -158,8 +158,10 @@ export default function Landing() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const gridY = useTransform(scrollYProgress, [0, 1], [0, 110]);
 
+  // No opaque background on the root — the body aurora has to reach the glass
+  // surfaces below the hero for them to have anything to refract.
   return (
-    <div className="min-h-full bg-white text-slate-900 dark:bg-[#060a13] dark:text-slate-100">
+    <div className="min-h-full text-slate-900 dark:text-slate-100">
       {/* Hero (always dark) */}
       <div ref={heroRef} className="relative overflow-hidden bg-[#060a13] text-white">
         <div className="pointer-events-none absolute -left-24 top-0 h-96 w-96 animate-aurora rounded-full bg-brand-500/20 blur-[120px]" />
@@ -215,7 +217,7 @@ export default function Landing() {
         </Reveal>
         <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TRUST.map((t) => (
-            <HoverCard key={t.title} className="rounded-2xl border border-border p-5 dark:border-white/[0.06]">
+            <HoverCard key={t.title} className="glass glass-e2 glass-noise glass-hover rounded-2xl p-5">
               <motion.div variants={iconMotion} className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400"><t.icon className="h-5 w-5" /></motion.div>
               <h3 className="mt-3 font-semibold">{t.title}</h3>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t.body}</p>
@@ -225,14 +227,14 @@ export default function Landing() {
       </section>
 
       {/* Features */}
-      <section className="border-y border-border bg-surface-tertiary py-16 dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <section className="border-y border-border bg-white/40 py-16 dark:border-white/[0.06] dark:bg-white/[0.02]">
         <div className="mx-auto max-w-6xl px-5">
           <Reveal>
             <h2 className="text-center text-2xl font-bold">Everything to run on your numbers</h2>
           </Reveal>
           <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
-              <HoverCard key={f.title} className="rounded-2xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/60">
+              <HoverCard key={f.title} className="glass glass-e2 glass-noise glass-hover rounded-2xl p-5">
                 <motion.div variants={iconMotion} className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow-sm"><f.icon className="h-5 w-5" /></motion.div>
                 <h3 className="mt-3 font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{f.body}</p>
@@ -262,7 +264,7 @@ export default function Landing() {
       </section>
 
       {/* Pricing */}
-      <section className="border-t border-border bg-surface-tertiary py-16 dark:border-white/[0.06] dark:bg-white/[0.02]">
+      <section className="border-t border-border bg-white/40 py-16 dark:border-white/[0.06] dark:bg-white/[0.02]">
         <div className="mx-auto max-w-6xl px-5">
           <Reveal>
             <h2 className="text-center text-2xl font-bold">Simple, transparent pricing</h2>

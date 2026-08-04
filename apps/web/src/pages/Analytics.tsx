@@ -95,7 +95,8 @@ export default function Analytics() {
       </div>
 
       {/* Data table */}
-      <Card>
+      {/* Opaque: dense numeric rows must not have page content bleeding through. */}
+      <Card className="glass-solid">
         <CardHeader title="Filtered rows" subtitle={table.data ? `Showing first ${Math.min(100, table.data.rows.length)} of ${num(table.data.total)} rows — CSV export includes up to 500` : undefined} />
         <CardBody className="overflow-x-auto p-0">
           {table.isError ? <div className="p-5"><ErrorState message="Couldn't load the filtered rows." retry={() => table.refetch()} /></div> : !table.data ? <Spinner /> : (

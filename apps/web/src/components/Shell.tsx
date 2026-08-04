@@ -21,6 +21,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -189,7 +190,9 @@ function Sidebar({
         className="fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col overflow-hidden text-slate-100 lg:static lg:z-auto"
       >
         {/* Inner track holds its full width so a collapse slides rather than reflows */}
-        <div className="flex h-full w-[240px] flex-col border-r border-white/[0.06] bg-[#0a0f1a]/95 backdrop-blur-xl">
+        {/* Glass level 2 (nav chrome). The sidebar is dark in both themes, so it
+            opts into the dark palette. Only the right edge is wanted. */}
+        <div className="glass-strong glass-e2 glass-on-dark flex h-full w-[240px] flex-col border-y-0 border-l-0 border-r">
         {/* Brand */}
         <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40">
@@ -331,7 +334,7 @@ function Header({
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
+    <header className="glass-strong glass-e2 sticky top-0 z-30 flex h-14 items-center gap-4 border-x-0 border-t-0 border-b px-4 lg:px-6">
       {/* Mobile hamburger */}
       <button
         className="lg:hidden"
@@ -421,10 +424,16 @@ function Header({
         <AnimatePresence>
         {menu && (
           <>
-            <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden="true" />
+            {/* Portalled: the header is a backdrop-filter surface, which would
+                otherwise become this fixed scrim's containing block and shrink
+                the click-outside target to the header strip. */}
+            {createPortal(
+              <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden="true" />,
+              document.body,
+            )}
             <motion.div
               role="menu"
-              className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+              className="glass-strong glass-e3 glass-noise absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl p-1.5"
               onMouseLeave={() => setMenu(false)}
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -500,8 +509,9 @@ export function Shell({ children }: { children: ReactNode }) {
     localStorage.setItem("diq_sidebar_collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
 
+  // Transparent in both themes so the body aurora reaches the glass surfaces.
   return (
-    <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
+    <div className="flex h-full bg-transparent">
       <Sidebar
         open={sidebarOpen}
         collapsed={collapsed}

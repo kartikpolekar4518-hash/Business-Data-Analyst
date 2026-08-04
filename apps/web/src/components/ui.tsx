@@ -1,4 +1,5 @@
 import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef, useState, useEffect, createContext, useContext, useCallback, useRef, type ComponentType } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
@@ -83,9 +84,10 @@ export const Card = ({
 }) => (
   <div
     className={cn(
-      "rounded-xl border border-border bg-white shadow-card transition-all duration-200",
-      "dark:border-white/[0.06] dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm",
-      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-brand-500/25",
+      // Glass level 1. CardHeader/CardBody stay transparent — nesting a second
+      // blur inside reads muddy and doubles the compositing cost.
+      "glass glass-e1 glass-noise rounded-xl",
+      hoverable && "glass-hover cursor-pointer",
       className,
     )}
   >
@@ -150,10 +152,10 @@ export const Input = forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
+      "glass-inset h-10 w-full rounded-lg px-3 text-sm text-slate-900 outline-none transition",
       "placeholder:text-slate-400",
       "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
+      "dark:text-slate-100 dark:placeholder:text-slate-500",
       className,
     )}
     {...props}
@@ -167,9 +169,9 @@ export const Select = forwardRef<
   <select
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
+      "glass-inset h-10 w-full rounded-lg px-3 text-sm text-slate-900 outline-none transition",
       "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100",
+      "dark:text-slate-100",
       className,
     )}
     {...props}
@@ -351,9 +353,12 @@ export const Modal = ({
     return () => container.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
+  // Portalled to <body>: a `backdrop-filter` ancestor becomes the containing
+  // block for fixed positioning, so a Modal rendered inside a glass Card would
+  // otherwise size its scrim to that card instead of the viewport.
   // Rendered through AnimatePresence rather than an early return, so the panel
   // gets to animate out on close.
-  return (
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -369,7 +374,7 @@ export const Modal = ({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="w-full max-w-md rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
+            className="glass-strong glass-e3 glass-noise w-full max-w-md rounded-xl p-5"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.96, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -392,7 +397,8 @@ export const Modal = ({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };
 
@@ -476,7 +482,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 24, scale: 0.96 }}
                 transition={SPRING}
-                className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+                className="glass-strong glass-e3 flex items-center gap-3 rounded-xl px-4 py-3 text-sm"
               >
                 <Icon
                   className={cn(

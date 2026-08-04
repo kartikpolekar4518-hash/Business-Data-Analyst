@@ -116,7 +116,7 @@ export default function AiChat() {
                 <Card><CardBody>{t.result.chart.type === "bar" ? <BarRankChart data={t.result.chart.data} /> : <TrendChart data={t.result.chart.data} />}</CardBody></Card>
               )}
               {t.result?.table && (
-                <Card><CardBody className="overflow-x-auto p-0">
+                <Card className="glass-solid"><CardBody className="overflow-x-auto p-0">
                   <table className="w-full text-sm">
                     <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>

@@ -56,7 +56,7 @@ export default function DatasetDetail() {
       <Tabs tabs={[{ id: "preview", label: "Preview" }, { id: "quality", label: `Quality Report${quality.data ? ` (${quality.data.issues.length})` : ""}` }, { id: "schema", label: "Detected Schema" }]} active={tab} onChange={setTab} />
 
       {tab === "preview" && (
-        <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
+        <Card className="glass-solid"><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
           <CardBody className="overflow-x-auto p-0">
             {preview.isError ? <div className="p-5"><ErrorState message="Couldn't load the data preview." retry={() => preview.refetch()} /></div> : !preview.data ? <Spinner /> : (
               <table className="w-full text-sm">
@@ -102,7 +102,7 @@ export default function DatasetDetail() {
       )}
 
       {tab === "schema" && (
-        <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
+        <Card className="glass-solid"><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
           <CardBody className="overflow-x-auto p-0">
             {schema.isError ? <div className="p-5"><ErrorState message="Couldn't load the detected schema." retry={() => schema.refetch()} /></div> : !schema.data ? <Spinner /> : (
               <table className="w-full text-sm">
