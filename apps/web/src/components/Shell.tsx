@@ -21,9 +21,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
+import { DUR, EASE, SPRING } from "../lib/motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
 
@@ -81,7 +83,7 @@ function AlertBadge() {
   if (!alerts?.unread) return null;
 
   return (
-    <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white backdrop-blur-sm">
+    <span className="relative ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white backdrop-blur-sm">
       {alerts.unread > 99 ? "99+" : alerts.unread}
     </span>
   );
@@ -125,6 +127,27 @@ function useFocusTrap(active: boolean, containerRef: React.RefObject<HTMLElement
 }
 
 /* ─────────────────────────────────────────────
+   Viewport hook — the sidebar animates width on desktop but slides on mobile,
+   so the breakpoint has to be readable from JS, not just from `lg:` classes.
+   ───────────────────────────────────────────── */
+const DESKTOP_QUERY = "(min-width: 1024px)";
+const SIDEBAR_WIDTH = 240;
+
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(
+    () => window.matchMedia(DESKTOP_QUERY).matches,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(DESKTOP_QUERY);
+    const onChange = () => setIsDesktop(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return isDesktop;
+}
+
+/* ─────────────────────────────────────────────
    Sidebar — dark, refined, grouped navigation
    ───────────────────────────────────────────── */
 function Sidebar({
@@ -137,28 +160,36 @@ function Sidebar({
   onClose: () => void;
 }) {
   const { user, can } = useAuth();
+  const isDesktop = useIsDesktop();
 
   return (
     <>
       {/* Mobile overlay */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
-          onClick={onClose}
-        />
-      )}
-
-      <aside
-        className={cn(
-          "fixed inset-y-0 left-0 z-50 flex w-[240px] shrink-0 flex-col",
-          "border-r border-white/[0.06] bg-[#0a0f1a]/95 text-slate-100 backdrop-blur-xl",
-          "transition-all duration-300 ease-out",
-          open ? "translate-x-0" : "-translate-x-full",
-          collapsed
-            ? "lg:hidden"
-            : "lg:static lg:translate-x-0 lg:z-auto",
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: DUR.fast, ease: EASE }}
+          />
         )}
+      </AnimatePresence>
+
+      <motion.aside
+        initial={false}
+        animate={
+          isDesktop
+            ? { x: 0, width: collapsed ? 0 : SIDEBAR_WIDTH }
+            : { x: open ? 0 : -SIDEBAR_WIDTH, width: SIDEBAR_WIDTH }
+        }
+        transition={{ duration: DUR.base, ease: EASE }}
+        className="fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col overflow-hidden text-slate-100 lg:static lg:z-auto"
       >
+        {/* Inner track holds its full width so a collapse slides rather than reflows */}
+        <div className="flex h-full w-[240px] flex-col border-r border-white/[0.06] bg-[#0a0f1a]/95 backdrop-blur-xl">
         {/* Brand */}
         <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40">
@@ -186,20 +217,34 @@ function Sidebar({
                       onClick={onClose}
                       className={({ isActive }) =>
                         cn(
-                          "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-all duration-150",
+                          "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors duration-150",
                           isActive
-                            ? "bg-brand-500/[0.12] text-white"
+                            ? "text-white"
                             : "text-slate-400 hover:bg-white/5 hover:text-slate-200",
                         )
                       }
                     >
                       {({ isActive }) => (
                         <>
+                          {/* Shared layoutId — the pill and glow bar travel
+                              between routes instead of popping. */}
                           {isActive && (
-                            <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-400 shadow-[0_0_10px_1px] shadow-brand-400/70" />
+                            <>
+                              <motion.span
+                                layoutId="nav-active-pill"
+                                className="absolute inset-0 rounded-lg bg-brand-500/[0.12]"
+                                transition={SPRING}
+                              />
+                              <motion.span
+                                layoutId="nav-active"
+                                // margin, not -translate-y-1/2: framer owns transform here
+                                className="absolute left-0 top-1/2 -mt-2.5 h-5 w-[3px] rounded-r-full bg-brand-400 shadow-[0_0_10px_1px] shadow-brand-400/70"
+                                transition={SPRING}
+                              />
+                            </>
                           )}
-                          <n.icon className="h-[18px] w-[18px] shrink-0" />
-                          <span className="truncate">{n.label}</span>
+                          <n.icon className="relative h-[18px] w-[18px] shrink-0" />
+                          <span className="relative truncate">{n.label}</span>
                           {n.to === "/alerts" && <AlertBadge />}
                         </>
                       )}
@@ -226,7 +271,8 @@ function Sidebar({
             </div>
           </div>
         </div>
-      </aside>
+        </div>
+      </motion.aside>
     </>
   );
 }
@@ -372,13 +418,18 @@ function Header({
           <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
         </button>
 
+        <AnimatePresence>
         {menu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden="true" />
-            <div
+            <motion.div
               role="menu"
-              className="absolute right-0 top-full mt-2 w-56 animate-fade-in rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+              className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
               onMouseLeave={() => setMenu(false)}
+              initial={{ opacity: 0, scale: 0.95, y: -4 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -4 }}
+              transition={{ duration: DUR.fast, ease: EASE }}
             >
               <div className="px-3 py-2.5">
                 <div className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -428,9 +479,10 @@ function Header({
                 <LogOut className="h-4 w-4" />
                 Log out
               </button>
-            </div>
+            </motion.div>
           </>
         )}
+        </AnimatePresence>
       </div>
     </header>
   );

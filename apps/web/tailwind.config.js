@@ -64,30 +64,12 @@ export default {
         "glow-violet": "0 8px 30px -10px rgba(139,92,246,0.45)",
         "card-glow": "0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.8)",
       },
+      // Entrance/exit motion is framer's job now. What remains here is the
+      // looping ambient set, whose @keyframes live in index.css — Tailwind only
+      // emits keyframes for animate-* utilities that are actually referenced in
+      // markup, which silently killed the JS-defined ones.
       animation: {
-        "fade-in": "fadeIn 0.2s ease-out",
-        "slide-in": "slideIn 0.2s ease-out",
-        "scale-in": "scaleIn 0.15s ease-out",
-        "shimmer": "shimmer 2s infinite linear",
         "spin-slow": "spin 2s linear infinite",
-      },
-      keyframes: {
-        fadeIn: {
-          "0%": { opacity: "0", transform: "translateY(4px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        slideIn: {
-          "0%": { opacity: "0", transform: "translateX(-8px)" },
-          "100%": { opacity: "1", transform: "translateX(0)" },
-        },
-        scaleIn: {
-          "0%": { opacity: "0", transform: "scale(0.95)" },
-          "100%": { opacity: "1", transform: "scale(1)" },
-        },
-        shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
-        },
       },
     },
   },

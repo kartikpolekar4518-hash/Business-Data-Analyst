@@ -15,12 +15,14 @@ import {
   MessagesSquare,
   TrendingUp,
 } from "lucide-react";
+import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
+import { DUR, EASE } from "../lib/motion";
 import { api, ApiError } from "../lib/api";
 import { money, num, timeAgo } from "../lib/utils";
 import { useAuth } from "../lib/auth";
 import { industryLabel } from "../lib/industries";
-import { kpiIcon, fmtKpi } from "../lib/kpi";
+import { kpiIcon } from "../lib/kpi";
 import { Card, CardHeader, CardBody, Skeleton, ErrorState, Button, Badge, useToast } from "../components/ui";
 import { KpiCard } from "../components/Kpi";
 import { EmptyWorkspace, GettingStartedChecklist, WelcomeTour, type ChecklistStep } from "../components/Onboarding";
@@ -245,7 +247,8 @@ export default function Dashboard() {
               <KpiCard
                 key={k.key}
                 label={k.label}
-                value={fmtKpi(k)}
+                value={k.value}
+                format={k.format}
                 changePct={k.changePct}
                 icon={kpiIcon(k.icon)}
                 accent={i === 0}
@@ -301,7 +304,13 @@ export default function Dashboard() {
                         <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">{fmt(p.value)}</span>
                       </div>
                       <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-                        <div className="h-full rounded-full" style={{ width: `${(p.value / max) * 100}%`, background: `linear-gradient(90deg, ${CHART.blue}88, ${CHART.blue})` }} />
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: `linear-gradient(90deg, ${CHART.blue}88, ${CHART.blue})` }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(p.value / max) * 100}%` }}
+                          transition={{ duration: DUR.slow, ease: EASE, delay: i * 0.06 }}
+                        />
                       </div>
                     </div>
                   </div>

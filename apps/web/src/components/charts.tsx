@@ -1,7 +1,20 @@
 import { memo, useId, useMemo, useState } from "react";
 import { ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, PieChart, Pie, Cell } from "recharts";
+import { motion, useReducedMotion } from "framer-motion";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
+import { DUR, EASE } from "../lib/motion";
+
+// Recharts draws its own series; one shared read keeps every chart in step.
+const DRAW_MS = 700;
+function useSeriesAnimation() {
+  const reduced = useReducedMotion();
+  return {
+    isAnimationActive: !reduced,
+    animationDuration: DRAW_MS,
+    animationEasing: "ease-out" as const,
+  };
+}
 
 // Electric-blue / violet / teal accent system (+ supporting hues for multi-series & donut).
 export const CHART = {
@@ -38,6 +51,7 @@ const fmtK = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`);
 /* ───────── Sparkline — dependency-free inline SVG (for KPI tiles) ───────── */
 export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { data: number[]; color?: string; width?: number; height?: number }) {
   const id = useId();
+  const reduced = useReducedMotion();
   if (!data || data.length < 2) return null;
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -55,9 +69,34 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
           <stop offset="100%" stopColor={color} stopOpacity={0} />
         </linearGradient>
       </defs>
-      <path d={area} fill={`url(#s-${id})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={(data.length - 1) * stepX} cy={y(data[data.length - 1])} r={2.5} fill={color} />
+      {/* The line draws itself, the fill follows it in. */}
+      <motion.path
+        d={area}
+        fill={`url(#s-${id})`}
+        initial={reduced ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: DUR.slow, ease: EASE, delay: 0.15 }}
+      />
+      <motion.path
+        d={line}
+        fill="none"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        initial={reduced ? false : { pathLength: 0 }}
+        animate={{ pathLength: 1 }}
+        transition={{ duration: DUR.slow, ease: EASE }}
+      />
+      <motion.circle
+        cx={(data.length - 1) * stepX}
+        cy={y(data[data.length - 1])}
+        r={2.5}
+        fill={color}
+        initial={reduced ? false : { scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: DUR.fast, ease: EASE, delay: DUR.slow }}
+      />
     </svg>
   );
 }
@@ -65,6 +104,7 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
 /* ───────── Single-series area trend ───────── */
 export const TrendChart = memo(function TrendChart({ data, color = BRAND, height = 260 }: { data: { label?: string; period?: string; value: number }[]; color?: string; height?: number }) {
   const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
   const gradientId = useId();
   const norm = data.map((d) => ({ label: d.label ?? d.period, value: d.value }));
   return (
@@ -75,7 +115,7 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND, height
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
         <Tooltip contentStyle={tooltipStyle} />
-        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`} activeDot={{ r: 4, strokeWidth: 0 }} />
+        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -84,6 +124,7 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND, height
 /* ───────── Multi-series hero chart with a Revenue/Profit/Both toggle ───────── */
 export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, height = 300 }: { revenue: { label?: string; period?: string; value: number }[]; profit: { label?: string; period?: string; value: number }[]; height?: number }) {
   const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
   const rId = useId();
   const pId = useId();
   const [view, setView] = useState<"both" | "revenue" | "profit">("both");
@@ -124,8 +165,8 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
           <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
           <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
           <Tooltip contentStyle={tooltipStyle} />
-          {showRev && <Area type="monotone" dataKey="revenue" stroke={CHART.blue} strokeWidth={2.5} fill={`url(#${rId})`} activeDot={{ r: 4, strokeWidth: 0 }} />}
-          {showProf && <Area type="monotone" dataKey="profit" stroke={CHART.emerald} strokeWidth={2.5} fill={`url(#${pId})`} activeDot={{ r: 4, strokeWidth: 0 }} />}
+          {showRev && <Area type="monotone" dataKey="revenue" stroke={CHART.blue} strokeWidth={2.5} fill={`url(#${rId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />}
+          {showProf && <Area type="monotone" dataKey="profit" stroke={CHART.emerald} strokeWidth={2.5} fill={`url(#${pId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />}
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -135,6 +176,7 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
 /* ───────── Donut composition chart ───────── */
 export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190 }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number }) {
   const { tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
   const top = data.slice(0, 6);
   const total = top.reduce((s, d) => s + d.value, 0);
   return (
@@ -142,7 +184,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
       <div className="relative shrink-0" style={{ width: height, height }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={top} dataKey="value" nameKey="label" innerRadius="62%" outerRadius="92%" paddingAngle={2} stroke="none" cornerRadius={4}>
+            <Pie data={top} dataKey="value" nameKey="label" innerRadius="62%" outerRadius="92%" paddingAngle={2} stroke="none" cornerRadius={4} {...anim}>
               {top.map((_, i) => <Cell key={i} fill={SERIES[i % SERIES.length]} />)}
             </Pie>
             <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtK(v)} />
@@ -168,6 +210,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
 
 export const BarRankChart = memo(function BarRankChart({ data, horizontal = true }: { data: { label: string; value: number }[]; horizontal?: boolean }) {
   const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
   const gradId = useId();
   return (
     <ResponsiveContainer width="100%" height={Math.max(220, data.length * 34)}>
@@ -183,7 +226,7 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
         </>}
         <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(91,140,255,0.08)" }} />
         {/* Ranked bars of one metric share one hue — varied color would encode nothing but rank. */}
-        <Bar dataKey="value" fill={`url(#${gradId})`} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} />
+        <Bar dataKey="value" fill={`url(#${gradId})`} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -191,6 +234,7 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
 
 export const ForecastChart = memo(function ForecastChart({ history, points }: { history: { period: string; value: number }[]; points: { period: string; value: number; lower: number; upper: number }[] }) {
   const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
   const data = [
     ...history.map((h) => ({ label: h.period, actual: h.value })),
     ...points.map((p) => ({ label: p.period, forecast: p.value, lower: p.lower, upper: p.upper })),
@@ -203,10 +247,10 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
         <Tooltip contentStyle={tooltipStyle} />
         {/* Confidence band: render two overlapping areas to create a band effect */}
-        <Area dataKey="upper" stroke="none" fill={CHART.violet} fillOpacity={0.14} />
-        <Area dataKey="lower" stroke="none" fill={CHART.violet} fillOpacity={0.14} />
-        <Line dataKey="actual" stroke={CHART.blue} strokeWidth={2.5} dot={false} type="monotone" />
-        <Line dataKey="forecast" stroke={CHART.violet} strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 3 }} type="monotone" />
+        <Area dataKey="upper" stroke="none" fill={CHART.violet} fillOpacity={0.14} {...anim} />
+        <Area dataKey="lower" stroke="none" fill={CHART.violet} fillOpacity={0.14} {...anim} />
+        <Line dataKey="actual" stroke={CHART.blue} strokeWidth={2.5} dot={false} type="monotone" {...anim} />
+        <Line dataKey="forecast" stroke={CHART.violet} strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 3 }} type="monotone" {...anim} />
       </ComposedChart>
     </ResponsiveContainer>
   );

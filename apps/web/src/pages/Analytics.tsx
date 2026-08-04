@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { api } from "../lib/api";
 import { num } from "../lib/utils";
-import { kpiIcon, fmtKpi } from "../lib/kpi";
+import { kpiIcon } from "../lib/kpi";
 import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, ErrorState, Label } from "../components/ui";
 import { TrendChart, BarRankChart } from "../components/charts";
 import { KpiCard } from "../components/Kpi";
@@ -82,7 +82,7 @@ export default function Analytics() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />)
           : ov.data.kpis.slice(0, 4).map((k) => (
-              <KpiCard key={k.key} label={k.label} value={fmtKpi(k)} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} />
+              <KpiCard key={k.key} label={k.label} value={k.value} format={k.format} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} />
             ))}
       </div>
 

@@ -1,5 +1,7 @@
 import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef, useState, useEffect, createContext, useContext, useCallback, useRef, type ComponentType } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
+import { DUR, EASE, SPRING } from "../lib/motion";
 import { Loader2, X, CheckCircle2, AlertCircle, Info } from "lucide-react";
 
 // ─────────────────────────────────────────────
@@ -25,35 +27,46 @@ const sizeStyles: Record<Size, string> = {
   lg: "h-12 px-6 text-base rounded-xl gap-2.5",
 };
 
-export const Button = forwardRef<
-  HTMLButtonElement,
-  ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: Variant;
-    size?: Size;
-    loading?: boolean;
-  }
->(
+// framer's own drag/animation handlers collide with the DOM ones, so they're
+// omitted from the inherited button props.
+type ButtonProps = Omit<
+  ButtonHTMLAttributes<HTMLButtonElement>,
+  "onDrag" | "onDragStart" | "onDragEnd" | "onAnimationStart" | "onAnimationEnd"
+> & {
+  variant?: Variant;
+  size?: Size;
+  loading?: boolean;
+};
+
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (
     { variant = "primary", size = "md", loading, className, children, disabled, ...props },
     ref,
-  ) => (
-    <button
-      ref={ref}
-      disabled={disabled || loading}
-      className={cn(
-        "inline-flex items-center justify-center font-medium transition-all duration-150",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
-        "disabled:opacity-50 disabled:pointer-events-none",
-        variantStyles[variant],
-        sizeStyles[size],
-        className,
-      )}
-      {...props}
-    >
-      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-      {children}
-    </button>
-  ),
+  ) => {
+    const inert = disabled || loading;
+    return (
+      <motion.button
+        ref={ref}
+        disabled={inert}
+        whileHover={inert ? undefined : { y: -1 }}
+        whileTap={inert ? undefined : { scale: 0.97 }}
+        transition={SPRING}
+        className={cn(
+          // transform is framer's to drive — CSS only transitions paint properties
+          "inline-flex items-center justify-center font-medium transition-colors duration-150",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
+          "disabled:opacity-50 disabled:pointer-events-none",
+          variantStyles[variant],
+          sizeStyles[size],
+          className,
+        )}
+        {...props}
+      >
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {children}
+      </motion.button>
+    );
+  },
 );
 
 // ─────────────────────────────────────────────
@@ -338,35 +351,48 @@ export const Modal = ({
     return () => container.removeEventListener("keydown", onKeyDown);
   }, [open, onClose]);
 
-  if (!open) return null;
+  // Rendered through AnimatePresence rather than an early return, so the panel
+  // gets to animate out on close.
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        ref={modalRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full max-w-md scale-in rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-            {title}
-          </h3>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: DUR.fast, ease: EASE }}
+        >
+          <motion.div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            className="w-full max-w-md rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
+            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            initial={{ opacity: 0, scale: 0.96, y: 4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.96, y: 4 }}
+            transition={{ duration: DUR.base, ease: EASE }}
           >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+                {title}
+              </h3>
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
 
@@ -401,7 +427,11 @@ export const Tabs = ({
       >
         {t.label}
         {active === t.id && (
-          <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-brand-600" />
+          <motion.span
+            layoutId="tab-underline"
+            className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-brand-600"
+            transition={SPRING}
+          />
         )}
       </button>
     ))}
@@ -435,25 +465,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         aria-live="polite"
         className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2"
       >
-        {toasts.map((t) => {
-          const Icon = icons[t.tone];
-          return (
-            <div
-              key={t.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown animate-in dark:border-slate-700 dark:bg-slate-800"
-            >
-              <Icon
-                className={cn(
-                  "h-4 w-4 shrink-0",
-                  t.tone === "success" && "text-emerald-500",
-                  t.tone === "error" && "text-red-500",
-                  t.tone === "info" && "text-brand-500",
-                )}
-              />
-              {t.message}
-            </div>
-          );
-        })}
+        <AnimatePresence initial={false}>
+          {toasts.map((t) => {
+            const Icon = icons[t.tone];
+            return (
+              <motion.div
+                key={t.id}
+                layout
+                initial={{ opacity: 0, x: 24, scale: 0.96 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 24, scale: 0.96 }}
+                transition={SPRING}
+                className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+              >
+                <Icon
+                  className={cn(
+                    "h-4 w-4 shrink-0",
+                    t.tone === "success" && "text-emerald-500",
+                    t.tone === "error" && "text-red-500",
+                    t.tone === "info" && "text-brand-500",
+                  )}
+                />
+                {t.message}
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
       </div>
     </ToastCtx.Provider>
   );
