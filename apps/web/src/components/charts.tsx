@@ -36,12 +36,14 @@ function useAxis() {
     grid: dark ? "rgba(148,163,184,0.10)" : "#eef2f7",
     tick: { fill: dark ? "#94a3b8" : "#64748b", fontSize: 11 },
     tooltipStyle: {
-      borderRadius: 10, fontSize: 12,
-      border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#e2e8f0"}`,
-      background: dark ? "rgba(15,23,42,0.92)" : "#fff",
+      borderRadius: 12, fontSize: 12,
+      border: `1px solid ${dark ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.7)"}`,
+      background: dark ? "rgba(12,18,33,0.72)" : "rgba(255,255,255,0.72)",
       color: dark ? "#e2e8f0" : "#0f172a",
-      boxShadow: dark ? "0 12px 30px -12px rgba(0,0,0,0.8)" : "0 4px 16px rgba(0,0,0,0.08)",
-      backdropFilter: "blur(6px)",
+      boxShadow: dark
+        ? "inset 0 1px 0 0 rgba(255,255,255,0.12), 0 16px 40px -16px rgba(0,0,0,0.8)"
+        : "inset 0 1px 0 0 rgba(255,255,255,0.9), 0 12px 34px -14px rgba(30,41,90,0.2)",
+      backdropFilter: "blur(16px) saturate(180%)",
     } as const,
   };
 }

@@ -58,12 +58,12 @@ export default function Analytics() {
           <div>
             <Label htmlFor="f-from">From</Label>
             <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setFilter("dateFrom", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              className="glass-field w-full rounded-lg px-3 py-1.5 text-sm text-slate-900 outline-none dark:text-slate-100" />
           </div>
           <div>
             <Label htmlFor="f-to">To</Label>
             <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setFilter("dateTo", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+              className="glass-field w-full rounded-lg px-3 py-1.5 text-sm text-slate-900 outline-none dark:text-slate-100" />
           </div>
           {FILTERS.map((f) => (
             <div key={f.key}>
@@ -100,7 +100,7 @@ export default function Analytics() {
         <CardBody className="overflow-x-auto p-0">
           {table.isError ? <div className="p-5"><ErrorState message="Couldn't load the filtered rows." retry={() => table.refetch()} /></div> : !table.data ? <Spinner /> : (
             <table className="w-full text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
+              <thead className="glass-table-head text-left"><tr>{table.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr></thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {table.data.rows.slice(0, 100).map((r, i) => <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">{table.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5">{String(r[c] ?? "—")}</td>)}</tr>)}
               </tbody>

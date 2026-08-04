@@ -29,7 +29,7 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle: st
       </div>
       {/* Form panel */}
       <div className="flex items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-2xl border border-border bg-white/70 p-7 shadow-card backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/60 dark:shadow-card-glow">
+        <div className="glass-strong glass-iridescent w-full max-w-sm rounded-2xl p-7">
           <div className="mb-6 flex items-center gap-2 lg:hidden"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-white"><BrainCircuit className="h-5 w-5" /></div><span className="text-lg font-bold">DecisionIQ</span></div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>

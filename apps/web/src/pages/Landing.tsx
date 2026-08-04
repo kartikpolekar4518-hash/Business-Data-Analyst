@@ -77,7 +77,7 @@ function PreviewMock() {
   ];
   return (
     <motion.div
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120] p-4 shadow-2xl shadow-black/50"
+      className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120]/60 p-4 shadow-2xl shadow-black/50 backdrop-blur-2xl backdrop-saturate-150"
       initial={{ opacity: 0, y: 24, rotateX: 6 }}
       animate={{ opacity: 1, y: 0, rotateX: 0 }}
       transition={{ duration: DUR.slow, ease: EASE, delay: 0.15 }}
@@ -215,7 +215,7 @@ export default function Landing() {
         </Reveal>
         <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TRUST.map((t) => (
-            <HoverCard key={t.title} className="rounded-2xl border border-border p-5 dark:border-white/[0.06]">
+            <HoverCard key={t.title} className="glass rounded-2xl p-5">
               <motion.div variants={iconMotion} className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400"><t.icon className="h-5 w-5" /></motion.div>
               <h3 className="mt-3 font-semibold">{t.title}</h3>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t.body}</p>
@@ -232,7 +232,7 @@ export default function Landing() {
           </Reveal>
           <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
-              <HoverCard key={f.title} className="rounded-2xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/60">
+              <HoverCard key={f.title} className="glass rounded-2xl p-5">
                 <motion.div variants={iconMotion} className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow-sm"><f.icon className="h-5 w-5" /></motion.div>
                 <h3 className="mt-3 font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{f.body}</p>

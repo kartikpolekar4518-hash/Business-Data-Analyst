@@ -35,11 +35,8 @@ export function KpiCard({
       whileHover={{ y: -2 }}
       transition={SPRING}
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-colors duration-200",
-        "dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm dark:hover:border-brand-500/30",
-        accent
-          ? "border-brand-200 dark:border-brand-500/25"
-          : "border-border dark:border-white/[0.06]",
+        "group relative overflow-hidden rounded-2xl p-5 transition-all duration-200",
+        accent ? "glass glass-iridescent" : "glass",
       )}
     >
       {/* Accent glow wash on hover (dark) */}
@@ -59,7 +56,7 @@ export function KpiCard({
             "flex h-8 w-8 items-center justify-center rounded-lg",
             accent
               ? "text-white shadow-sm"
-              : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300",
+              : "bg-white/50 text-slate-500 ring-1 ring-inset ring-white/50 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10",
           )}
           style={accent ? { background: accentColor, boxShadow: `0 4px 14px -4px ${accentColor}` } : undefined}
         >
@@ -99,7 +96,7 @@ export function KpiCard({
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 w-60 rounded-xl border border-border bg-white p-3 text-xs text-slate-600 opacity-0 shadow-dropdown transition-all duration-150 group-hover:opacity-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <div className="glass-strong pointer-events-none absolute right-0 top-full z-10 mt-2 w-60 rounded-xl p-3 text-xs text-slate-600 opacity-0 shadow-dropdown transition-all duration-150 group-hover:opacity-100 dark:text-slate-300">
           {tooltip}
         </div>
       )}

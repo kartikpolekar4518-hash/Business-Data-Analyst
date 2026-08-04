@@ -11,14 +11,15 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
+  // Glossy liquid button: gradient fill + inset specular top line + soft glow
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/10 active:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400 dark:shadow-glow",
+    "bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.35),0_8px_24px_-8px_rgba(51,102,245,0.6)] hover:from-brand-400 hover:to-brand-600 active:from-brand-600 active:to-brand-700 dark:from-brand-400 dark:to-brand-600",
   secondary:
-    "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
+    "bg-slate-900 text-white hover:bg-slate-800 dark:bg-white/90 dark:text-slate-900 dark:hover:bg-white",
   outline:
-    "border border-border hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300",
-  ghost: "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400",
-  danger: "bg-red-600 text-white hover:bg-red-700 shadow-sm shadow-red-600/10 active:bg-red-800",
+    "border border-[color:var(--glass-border)] bg-transparent text-slate-700 hover:bg-slate-500/10 dark:text-slate-200 dark:hover:bg-white/10",
+  ghost: "hover:bg-white/60 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300",
+  danger: "bg-gradient-to-b from-red-500 to-red-600 text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.3),0_8px_24px_-8px_rgba(220,38,38,0.6)] hover:from-red-400 hover:to-red-600 active:from-red-600 active:to-red-700",
 };
 
 const sizeStyles: Record<Size, string> = {
@@ -83,9 +84,8 @@ export const Card = ({
 }) => (
   <div
     className={cn(
-      "rounded-xl border border-border bg-white shadow-card transition-all duration-200",
-      "dark:border-white/[0.06] dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm",
-      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-brand-500/25",
+      "glass rounded-2xl transition-all duration-200",
+      hoverable && "cursor-pointer hover:-translate-y-0.5 hover:shadow-glass-hover dark:hover:border-brand-400/25",
       className,
     )}
   >
@@ -102,7 +102,7 @@ export const CardHeader = ({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 dark:border-white/[0.06]">
+  <div className="flex items-start justify-between gap-4 border-b border-[color:var(--glass-border)] px-5 py-4">
     <div className="min-w-0">
       <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
         {title}
@@ -150,10 +150,9 @@ export const Input = forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
+      "glass-field h-10 w-full rounded-lg px-3 text-sm text-slate-900 outline-none transition",
       "placeholder:text-slate-400",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
+      "dark:text-slate-100 dark:placeholder:text-slate-500",
       className,
     )}
     {...props}
@@ -167,9 +166,8 @@ export const Select = forwardRef<
   <select
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100",
+      "glass-field h-10 w-full rounded-lg px-3 text-sm text-slate-900 outline-none transition",
+      "dark:text-slate-100",
       className,
     )}
     {...props}
@@ -183,15 +181,15 @@ export const Select = forwardRef<
 // ─────────────────────────────────────────────
 const badgeStyles = {
   slate:
-    "bg-slate-100 text-slate-700 dark:bg-white/5 dark:text-slate-300",
+    "bg-slate-500/10 text-slate-700 ring-1 ring-inset ring-slate-500/15 dark:bg-white/5 dark:text-slate-300 dark:ring-white/10",
   green:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
+    "bg-emerald-500/12 text-emerald-700 ring-1 ring-inset ring-emerald-500/20 dark:text-emerald-400",
   amber:
-    "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-  red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
-  blue: "bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300",
-  violet: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  teal: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
+    "bg-amber-500/12 text-amber-700 ring-1 ring-inset ring-amber-500/20 dark:text-amber-400",
+  red: "bg-red-500/12 text-red-700 ring-1 ring-inset ring-red-500/20 dark:text-red-400",
+  blue: "bg-brand-500/12 text-brand-700 ring-1 ring-inset ring-brand-500/20 dark:text-brand-300",
+  violet: "bg-violet-500/12 text-violet-700 ring-1 ring-inset ring-violet-500/20 dark:text-violet-300",
+  teal: "bg-cyan-500/12 text-cyan-700 ring-1 ring-inset ring-cyan-500/20 dark:text-cyan-300",
 };
 
 export const Badge = ({
@@ -257,8 +255,8 @@ export const EmptyState = ({
   description?: string;
   action?: ReactNode;
 }) => (
-  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-14 text-center dark:border-slate-700">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+  <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] py-14 text-center backdrop-blur-sm">
+    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/50 ring-1 ring-inset ring-white/40 dark:bg-white/5 dark:ring-white/10">
       <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
     </div>
     <h3 className="mt-4 text-[15px] font-semibold text-slate-900 dark:text-white">
@@ -357,7 +355,7 @@ export const Modal = ({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-md"
           onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -369,7 +367,7 @@ export const Modal = ({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="w-full max-w-md rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
+            className="glass-strong glass-iridescent w-full max-w-md rounded-2xl p-5 shadow-modal"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.96, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -410,7 +408,7 @@ export const Tabs = ({
 }) => (
   <div
     role="tablist"
-    className="flex gap-1 border-b border-border dark:border-slate-800"
+    className="flex gap-1 border-b border-[color:var(--glass-border)]"
   >
     {tabs.map((t) => (
       <button
@@ -476,7 +474,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 24, scale: 0.96 }}
                 transition={SPRING}
-                className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+                className="glass-strong flex items-center gap-3 rounded-xl px-4 py-3 text-sm text-slate-800 shadow-dropdown dark:text-slate-100"
               >
                 <Icon
                   className={cn(

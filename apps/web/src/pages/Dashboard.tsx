@@ -193,7 +193,7 @@ export default function Dashboard() {
 
       {/* ─── Industry suggestion banner ─── */}
       {showSuggestion && (
-        <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
+        <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 to-transparent p-4 backdrop-blur-md">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
             <Sparkles className="h-[18px] w-[18px]" />
           </div>
@@ -212,7 +212,7 @@ export default function Dashboard() {
 
       {/* ─── AI Insight banner ─── */}
       {insights.data && (
-        <div className="relative overflow-hidden rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-500/10 via-violet-500/[0.06] to-transparent p-4 dark:border-brand-500/20">
+        <div className="relative overflow-hidden rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-500/10 via-violet-500/[0.06] to-transparent p-4 backdrop-blur-md dark:border-brand-500/20">
           <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-brand-500/20 blur-3xl" />
           <div className="relative flex items-start gap-3">
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
@@ -237,7 +237,7 @@ export default function Dashboard() {
       <div className={cn("grid grid-cols-2 gap-4 md:grid-cols-3", data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5")}>
         {!data
           ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/70">
+              <div key={i} className="glass rounded-2xl p-5">
                 <Skeleton className="mb-3 h-4 w-20" />
                 <Skeleton className="h-7 w-28" />
                 <Skeleton className="mt-2 h-4 w-24" />

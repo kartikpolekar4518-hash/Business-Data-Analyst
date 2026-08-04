@@ -60,7 +60,7 @@ export default function DatasetDetail() {
           <CardBody className="overflow-x-auto p-0">
             {preview.isError ? <div className="p-5"><ErrorState message="Couldn't load the data preview." retry={() => preview.refetch()} /></div> : !preview.data ? <Spinner /> : (
               <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
+                <thead className="glass-table-head text-left">
                   <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -106,7 +106,7 @@ export default function DatasetDetail() {
           <CardBody className="overflow-x-auto p-0">
             {schema.isError ? <div className="p-5"><ErrorState message="Couldn't load the detected schema." retry={() => schema.refetch()} /></div> : !schema.data ? <Spinner /> : (
               <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
+                <thead className="glass-table-head text-left"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {schema.data.columns.map((c) => (
                     <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>

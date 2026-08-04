@@ -188,8 +188,9 @@ function Sidebar({
         transition={{ duration: DUR.base, ease: EASE }}
         className="fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col overflow-hidden text-slate-100 lg:static lg:z-auto"
       >
-        {/* Inner track holds its full width so a collapse slides rather than reflows */}
-        <div className="flex h-full w-[240px] flex-col border-r border-white/[0.06] bg-[#0a0f1a]/95 backdrop-blur-xl">
+        {/* Inner track holds its full width so a collapse slides rather than reflows.
+            Translucent dark glass — the aurora backdrop bleeds through the blur. */}
+        <div className="flex h-full w-[240px] flex-col border-r border-white/10 bg-[#0a0f1a]/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] backdrop-blur-2xl backdrop-saturate-150">
         {/* Brand */}
         <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40">
@@ -232,7 +233,7 @@ function Sidebar({
                             <>
                               <motion.span
                                 layoutId="nav-active-pill"
-                                className="absolute inset-0 rounded-lg bg-brand-500/[0.12]"
+                                className="absolute inset-0 rounded-lg bg-gradient-to-r from-brand-500/25 to-violet-500/15 ring-1 ring-inset ring-white/15 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)]"
                                 transition={SPRING}
                               />
                               <motion.span
@@ -331,7 +332,7 @@ function Header({
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
+    <header className="glass-strong sticky top-0 z-30 flex h-14 items-center gap-4 rounded-none border-x-0 border-t-0 px-4 lg:px-6">
       {/* Mobile hamburger */}
       <button
         className="lg:hidden"
@@ -424,7 +425,7 @@ function Header({
             <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden="true" />
             <motion.div
               role="menu"
-              className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+              className="glass-strong absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl p-1.5 shadow-dropdown"
               onMouseLeave={() => setMenu(false)}
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -501,7 +502,15 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [collapsed]);
 
   return (
-    <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
+    <div className="relative flex h-full bg-transparent">
+      {/* Ambient aurora backdrop — gives the glass panels colour to blur over,
+          in both themes. Sits behind everything, ignores pointer events. */}
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden" aria-hidden="true">
+        <div className="animate-aurora absolute -left-32 -top-24 h-[36rem] w-[36rem] rounded-full bg-brand-400/25 blur-[130px] dark:bg-brand-500/20" />
+        <div className="animate-aurora-slow absolute -right-24 top-1/3 h-[32rem] w-[32rem] rounded-full bg-violet-400/22 blur-[130px] dark:bg-violet-500/18" />
+        <div className="animate-aurora absolute bottom-[-8rem] left-1/3 h-[30rem] w-[30rem] rounded-full bg-cyan-300/20 blur-[130px] dark:bg-cyan-500/14" />
+      </div>
+
       <Sidebar
         open={sidebarOpen}
         collapsed={collapsed}

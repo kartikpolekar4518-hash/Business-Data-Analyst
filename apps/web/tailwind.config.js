@@ -63,6 +63,10 @@ export default {
         "glow-sm": "0 0 18px -6px rgba(89,140,255,0.5)",
         "glow-violet": "0 8px 30px -10px rgba(139,92,246,0.45)",
         "card-glow": "0 0 0 1px rgba(255,255,255,0.05), 0 18px 40px -20px rgba(0,0,0,0.8)",
+        // Liquid-glass elevation (paired with the .glass utilities in index.css)
+        "glass": "inset 0 1px 0 0 rgba(255,255,255,0.5), 0 10px 34px -14px rgba(30,41,90,0.18)",
+        "glass-sm": "inset 0 1px 0 0 rgba(255,255,255,0.4), 0 6px 20px -10px rgba(30,41,90,0.16)",
+        "glass-hover": "inset 0 1px 0 0 rgba(255,255,255,0.6), 0 18px 44px -16px rgba(30,41,90,0.24)",
       },
       // Entrance/exit motion is framer's job now. What remains here is the
       // looping ambient set, whose @keyframes live in index.css — Tailwind only

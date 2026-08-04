@@ -35,8 +35,8 @@ export function PlanCards({
           <div
             key={p.key}
             className={cn(
-              "flex flex-col rounded-2xl border bg-white p-6 dark:bg-slate-900/70",
-              featured ? "border-brand-500/60 shadow-card-hover dark:border-brand-500/50" : "border-border dark:border-white/[0.06]",
+              "glass flex flex-col rounded-2xl p-6",
+              featured && "glass-iridescent shadow-glass-hover",
             )}
           >
             <div className="flex items-center justify-between">
@@ -89,7 +89,7 @@ export function UsageMeter({ label, used, limit }: { label: string; used: number
         </span>
       </div>
       {!unlimited && (
-        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-500/10 ring-1 ring-inset ring-white/30 dark:bg-white/5 dark:ring-white/10">
           <div className={cn("h-full rounded-full transition-all", near ? "bg-amber-500" : "bg-brand-500")} style={{ width: `${pct}%` }} />
         </div>
       )}
