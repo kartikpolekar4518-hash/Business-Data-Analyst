@@ -58,10 +58,9 @@ type DataTableProps<T> = {
 const rawAccessor = <T,>(col: Column<T>, row: T) =>
   col.accessor ? col.accessor(row) : (row as Record<string, unknown>)[col.key];
 
+// Compares two non-null values. Null handling lives in `sorted` so nulls stay
+// last regardless of sort direction.
 function compare(a: unknown, b: unknown): number {
-  if (a == null && b == null) return 0;
-  if (a == null) return 1; // nulls last
-  if (b == null) return -1;
   if (typeof a === "number" && typeof b === "number") return a - b;
   return String(a).localeCompare(String(b), undefined, { numeric: true });
 }
@@ -93,6 +92,11 @@ export function DataTable<T>({
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
 
+  // Pair each row with its key once, against the original index, so the key is
+  // stable through sort/filter/paginate — index-derived `rowKey`s (e.g. `(_,i)=>i`)
+  // stay correct instead of picking up the shifted view index.
+  const keyed = useMemo(() => rows.map((row, i) => ({ row, key: rowKey(row, i) })), [rows, rowKey]);
+
   const searchText = useMemo(() => {
     const fn = searchAccessor ?? ((row: T) => columns.map((c) => rawAccessor(c, row) ?? "").join(" "));
     return (row: T) => fn(row).toLowerCase();
@@ -100,26 +104,32 @@ export function DataTable<T>({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return q ? rows.filter((r) => searchText(r).includes(q)) : rows;
-  }, [rows, search, searchText]);
+    return q ? keyed.filter((e) => searchText(e.row).includes(q)) : keyed;
+  }, [keyed, search, searchText]);
 
   const sorted = useMemo(() => {
     if (!sort) return filtered;
     const col = columns.find((c) => c.key === sort.key);
     if (!col) return filtered;
     const dir = sort.dir === "asc" ? 1 : -1;
-    return [...filtered].sort((a, b) => dir * compare(rawAccessor(col, a), rawAccessor(col, b)));
+    return [...filtered].sort((a, b) => {
+      const av = rawAccessor(col, a.row), bv = rawAccessor(col, b.row);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1; // nulls last, both directions
+      if (bv == null) return -1;
+      return dir * compare(av, bv);
+    });
   }, [filtered, sort, columns]);
 
   const pageCount = pageSize ? Math.max(1, Math.ceil(sorted.length / pageSize)) : 1;
-  // Filtering/sorting can shrink the result under the current page — clamp.
-  useEffect(() => { if (page > pageCount) setPage(1); }, [page, pageCount]);
+  // Filtering/sorting can shrink the result under the current page — clamp to the last page.
+  useEffect(() => { if (page > pageCount) setPage(pageCount); }, [page, pageCount]);
   const view = pageSize ? sorted.slice((page - 1) * pageSize, page * pageSize) : sorted;
 
   const emitSelection = (next: Set<string | number>) => {
     setSelected(next);
     if (onSelectionChange) {
-      const byKey = new Map(rows.map((r, i) => [rowKey(r, i), r] as const));
+      const byKey = new Map(keyed.map((e) => [e.key, e.row] as const));
       onSelectionChange([...next].map((k) => byKey.get(k)).filter((r): r is T => r !== undefined));
     }
   };
@@ -128,7 +138,7 @@ export function DataTable<T>({
     next.has(k) ? next.delete(k) : next.add(k);
     emitSelection(next);
   };
-  const viewKeys = view.map((r, i) => rowKey(r, (page - 1) * (pageSize ?? 0) + i));
+  const viewKeys = view.map((e) => e.key);
   const allOnPage = viewKeys.length > 0 && viewKeys.every((k) => selected.has(k));
   const someOnPage = viewKeys.some((k) => selected.has(k));
   const toggleAll = () => {
@@ -144,10 +154,9 @@ export function DataTable<T>({
 
   const align = { left: "text-left", right: "text-right", center: "text-center" } as const;
   const selectedRows = useMemo(() => {
-    const byKey = new Map(rows.map((r, i) => [rowKey(r, i), r] as const));
+    const byKey = new Map(keyed.map((e) => [e.key, e.row] as const));
     return [...selected].map((k) => byKey.get(k)).filter((r): r is T => r !== undefined);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected, rows]);
+  }, [selected, keyed]);
 
   const hasToolbar = title || subtitle || searchable || toolbar;
 
@@ -224,8 +233,7 @@ export function DataTable<T>({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
-              {view.map((row, i) => {
-                const k = rowKey(row, (page - 1) * (pageSize ?? 0) + i);
+              {view.map(({ row, key: k }, i) => {
                 const isSel = selected.has(k);
                 return (
                   <tr key={k} className={cn("transition-colors", isSel ? "bg-brand-50/60 dark:bg-brand-500/10" : "hover:bg-slate-50 dark:hover:bg-slate-800/40")}>

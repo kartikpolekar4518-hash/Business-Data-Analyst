@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
@@ -50,6 +51,17 @@ export default function Analytics() {
     setParams(next, { replace: true });
   };
   const clear = () => setParams(new URLSearchParams(), { replace: true });
+
+  // Stable identity so DataTable's search/sort memos survive re-renders (they key on `columns`).
+  const tableColumns = useMemo<Column<Record<string, unknown>>[]>(
+    () => (table.data?.columns ?? []).map((c) => ({
+      key: c,
+      header: c,
+      sortable: true,
+      accessor: (r) => r[c] as string | number | null | undefined,
+    })),
+    [table.data?.columns],
+  );
 
   const chips: Chip[] = [];
   if (query.dateFrom || query.dateTo)
@@ -127,12 +139,7 @@ export default function Analytics() {
       <DataTable
         title="Filtered rows"
         subtitle={table.data ? `${num(table.data.rows.length)} loaded of ${num(table.data.total)} rows — sort, search and page through them here; CSV export includes up to 500` : undefined}
-        columns={(table.data?.columns ?? []).map<Column<Record<string, unknown>>>((c) => ({
-          key: c,
-          header: c,
-          sortable: true,
-          accessor: (r) => r[c] as string | number | null | undefined,
-        }))}
+        columns={tableColumns}
         rows={table.data?.rows ?? []}
         rowKey={(_r, i) => i}
         loading={!table.data && table.isLoading}

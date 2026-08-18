@@ -15,8 +15,18 @@ export type WidgetItem = { id: string; type: string; title: string; size: Widget
 const SPAN: Record<WidgetSize, string> = { sm: "lg:col-span-1", md: "lg:col-span-2", lg: "lg:col-span-4" };
 const NEXT: Record<WidgetSize, WidgetSize> = { sm: "md", md: "lg", lg: "sm" };
 
+const isWidget = (x: unknown): x is WidgetItem =>
+  !!x && typeof x === "object" &&
+  typeof (x as WidgetItem).id === "string" && typeof (x as WidgetItem).type === "string" &&
+  typeof (x as WidgetItem).title === "string" && (x as WidgetItem).size in SPAN;
+
+// Guard against malformed or stale-schema payloads — a partial item would render
+// undefined grid spans and blank bodies with no recovery but a manual reset.
 function load(key: string, initial: WidgetItem[]): WidgetItem[] {
-  try { const s = localStorage.getItem(key); if (s) return JSON.parse(s); } catch { /* fall through */ }
+  try {
+    const s = localStorage.getItem(key);
+    if (s) { const parsed = JSON.parse(s); if (Array.isArray(parsed) && parsed.every(isWidget)) return parsed; }
+  } catch { /* fall through */ }
   return initial;
 }
 const uid = (type: string) => `${type}-${Date.now()}-${Math.round(Math.random() * 1e4)}`;
