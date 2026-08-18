@@ -4,7 +4,7 @@ import assert from "node:assert";
 import { profileDataset } from "./profile.js";
 import { detectSchema, cleanRows } from "./schema.js";
 import * as A from "./analytics.js";
-import { answer } from "./intent.js";
+import { answer, ruleParse, runIntent, type Intent } from "./intent.js";
 import { forecast } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
 import { getPack, suggestIndustry } from "./industries.js";
@@ -74,6 +74,17 @@ assert(declineRes.table!.rows.some((r) => r[0] === "Gadget"), "Gadget (revenue 2
 const growRes = answer("what product is growing fastest", rows, map);
 assert(growRes.intent.intent === "growing_groups", `growing-fastest routes to growing_groups, got ${growRes.intent.intent}`);
 assert(growRes.table!.rows.some((r) => r[0] === "Widget"), "Widget (revenue 100 -> 300) is flagged as growing");
+
+// 5b. Parse and execute are separable: ruleParse classifies without touching data,
+// and runIntent executes an intent from ANY source (the AI parser feeds it the same
+// shape). A structured intent built by hand — as the LLM would emit — executes correctly.
+assert(ruleParse("top 3 customers by revenue", map).intent === "top_n", "ruleParse classifies top_n");
+const handIntent: Intent = { intent: "top_n", metrics: ["revenue"], dimensions: ["customer_name"], filters: {}, limit: 3, visualization: "none" };
+const exec = runIntent(handIntent, rows, map);
+assert(exec.intent.intent === "top_n" && exec.table!.rows[0][0] === "Ada", "runIntent executes a hand-built intent -> Ada leads");
+assert(runIntent({ intent: "forecast", metrics: ["revenue"], dimensions: ["date"], filters: {}, limit: 3, visualization: "none" }, rows, map).metrics!.length === 3, "runIntent forecast yields 3 points");
+// An unresolvable intent degrades to the deterministic fallback, never throws.
+assert(runIntent({ intent: "unknown", metrics: [], dimensions: [], filters: {}, limit: 0, visualization: "none" }, rows, map).confidence === 0.2, "unknown intent -> fallback");
 
 // 6. Forecast produces the requested horizon with a valid confidence band.
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);

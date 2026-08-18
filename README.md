@@ -4,12 +4,17 @@ Upload business data → get automated dashboards, forecasts, alerts, a
 natural-language query interface, and board-ready PDF reports. Multi-tenant,
 role-based, works out of the box with sample retail data.
 
-> **Every result is deterministic and reproducible.** No LLM, no cloud
-> inference service, no non-determinism. Run the same query on the same
-> dataset a million times and you get the same answer a million times.
-> Schema detection, data profiling, natural-language intent parsing,
-> forecasting, and recommendations are all real code you can read, unit
-> test, audit, and run offline.
+> **Every number is deterministic and reproducible.** Schema detection, data
+> profiling, forecasting, KPIs, and recommendations are all real code you can
+> read, unit test, audit, and run offline — no model produces a figure. Given a
+> question's intent, the same dataset yields the same answer a million times.
+>
+> **Question understanding is optionally AI-assisted.** When `OPENAI_API_KEY`
+> is set, GPT interprets a free-form question into a structured intent, then
+> the deterministic engine computes the answer. The model is sent only the question
+> and your column names — **never your data rows** — so your figures never leave
+> your infrastructure. Leave the key unset and interpretation falls back to a
+> rule-based parser: fully deterministic, no external calls.
 
 ---
 
@@ -17,8 +22,8 @@ role-based, works out of the box with sample retail data.
 
 - **Auditable.** Every KPI, forecast, and recommendation has a code path you can read, step through, and unit-test. There is no model that produced the answer — the answer *is* the code path.
 - **Reproducible.** Same input, same output, forever. Regulator-friendly and compatible with financial-controls review.
-- **Private.** Data never leaves your infrastructure. Nothing is sent to a third-party inference service.
-- **Free at rest.** No per-token cost, no rate limits, no vendor bills.
+- **Private.** Your data rows never leave your infrastructure. With AI question understanding enabled, only the question text and your column names are sent to OpenAI — never the data itself; disable it and nothing is sent to any third-party service at all.
+- **Free at rest.** The deterministic engine has no per-token cost, no rate limits, and no vendor bills; the optional AI question layer is the only part that bills per query, and it's off unless you set a key.
 - **Fast.** Sub-100ms responses on typical business datasets — no network round-trip to a foreign model.
 
 ## Features
@@ -29,7 +34,7 @@ role-based, works out of the box with sample retail data.
 - **Schema detection** — rule-based mapping of columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory, …).
 - **Auto dashboards** — KPIs (revenue, profit, margin, orders, customers) with period-over-period comparison, plus revenue/profit trends and product/customer/region/category rankings. Generated dynamically from the detected schema — never hardcoded to one dataset.
 - **Analytics** — filter by date range, region, state, category, department, product, customer; filters live in the URL so a view is shareable. Data table + CSV export.
-- **Natural-language queries** — ask in plain English ("top 10 customers", "which month had the highest sales", "which products are declining"). Questions are matched to a **structured intent** by rules and regex, then executed through a controlled analytics layer. Every routing decision is a code branch — no model interpretation.
+- **Natural-language queries** — ask in plain English ("top 10 customers", "which month had the highest sales", "which products are declining"). Questions are mapped to a **structured intent** — by GPT when `OPENAI_API_KEY` is set, otherwise by rules and regex — then executed through a controlled analytics layer. The intent is always validated against a closed vocabulary and every number is computed deterministically; the model never runs SQL/code or sees your data rows.
 - **Forecasting** — linear-regression trend with a residual-based 95% confidence band that widens with horizon.
 - **Insights & alerts** — recommendations that separate *observed data* from *possible cause* from *recommendation*; automatic alerts for revenue drops, profit decline, inventory shortage, forecast risk, and unusual performance.
 - **Executive reports** — structured report + server-side **PDF export**.
@@ -146,7 +151,7 @@ Settings   GET|PATCH /api/settings
            POST|DELETE /api/settings/api-keys[/:id]
 ```
 
-> The `/api/ai/*` route prefix is retained for API stability; nothing under it invokes an AI model. The chat endpoint parses natural language with rules + regex and dispatches to the analytics layer.
+> The chat endpoint (`/api/ai/chat`) interprets the question with GPT when `OPENAI_API_KEY` is set (falling back to rules + regex otherwise), then dispatches to the deterministic analytics layer. The other `/api/ai/*` routes (`insights`, `conversations`) are rule-based and invoke no model.
 
 ## Tests
 
