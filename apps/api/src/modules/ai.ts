@@ -4,7 +4,8 @@ import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
-import { answer } from "../engine/intent.js";
+import { ruleParse, runIntent } from "../engine/intent.js";
+import { llmParseIntent } from "../ai/provider.js";
 import { deriveInsights } from "../engine/insights.js";
 import * as A from "../engine/analytics.js";
 
@@ -36,7 +37,11 @@ aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) =>
   const { message, datasetId, conversationId } = chatSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
 
-  const result = answer(message, rows, schema);
+  // Understand the question with Claude when configured; fall back to the deterministic
+  // rule parser when it isn't (or on any failure). Either way, runIntent computes the
+  // numbers deterministically — the model never sees the data rows.
+  const llmIntent = await llmParseIntent(message, schema);
+  const result = runIntent(llmIntent ?? ruleParse(message, schema), rows, schema);
 
   // Persist conversation + both messages.
   const convo = conversationId
