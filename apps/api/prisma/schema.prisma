@@ -1,4 +1,4 @@
-// DecisionIQ database schema.
+// NoPS database schema.
 // Row data is stored as JSON on Dataset (rows / cleanedRows) rather than a
 // per-cell table — correct and simple for MVP-size uploads.
 // ponytail: JSON row storage; move to a columnar store/warehouse if files grow past ~100k rows.

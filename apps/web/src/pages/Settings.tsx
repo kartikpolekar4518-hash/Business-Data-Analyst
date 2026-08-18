@@ -226,7 +226,7 @@ function ApiKeysTab() {
   return (
     <div className="space-y-4">
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
-        DecisionIQ needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong>hashed</strong> and never returned.
+        NoPS needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong>hashed</strong> and never returned.
       </div>
       <Card><CardHeader title="API keys" /><CardBody className="space-y-3">
         {data?.apiKeys.length ? data.apiKeys.map((k) => (

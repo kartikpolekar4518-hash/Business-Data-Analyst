@@ -2,7 +2,7 @@ import { app } from "./app.js";
 import { prisma } from "./prisma.js";
 import { env } from "./env.js";
 
-const server = app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port}`));
+const server = app.listen(env.port, () => console.log(`NoPS API listening on :${env.port}`));
 
 // Graceful shutdown: close database connections and server
 process.on("SIGTERM", async () => {

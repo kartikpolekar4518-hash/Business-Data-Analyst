@@ -200,7 +200,7 @@ function Sidebar({
             <BrainCircuit className="h-[18px] w-[18px] text-white" />
           </div>
           <span className="text-[16px] font-bold tracking-tight text-white">
-            {import.meta.env.VITE_APP_NAME || "DecisionIQ"}
+            {import.meta.env.VITE_APP_NAME || "NoPS"}
           </span>
         </div>
 

@@ -1,4 +1,4 @@
-# DecisionIQ — Deterministic Decision Intelligence Platform
+# NoPS — Deterministic Decision Intelligence Platform
 
 Upload business data → get automated dashboards, forecasts, alerts, a
 natural-language query interface, and board-ready PDF reports. Multi-tenant,
@@ -100,7 +100,7 @@ cd Business-Data-Analyst
 docker compose up --build
 ```
 
-Wait for `DecisionIQ API listening on :4000`, then open **http://localhost:4000** and log in with `admin@decisioniq.dev` / `password123`. Database, migrations, demo data, API, and web UI all start automatically.
+Wait for `NoPS API listening on :4000`, then open **http://localhost:4000** and log in with `admin@nops.dev` / `password123`. Database, migrations, demo data, API, and web UI all start automatically.
 
 ## Quick start (local development)
 
@@ -117,9 +117,9 @@ Seeded into the **Acme Retail (Demo)** workspace (password `password123`):
 
 | Role | Email | Can |
 |------|-------|-----|
-| ADMIN | `admin@decisioniq.dev` | everything: users, settings, API keys, uploads, reports, chat |
-| MANAGER | `manager@decisioniq.dev` | uploads, analytics, chat, reports, forecasts |
-| VIEWER | `viewer@decisioniq.dev` | view dashboards, reports, analytics |
+| ADMIN | `admin@nops.dev` | everything: users, settings, API keys, uploads, reports, chat |
+| MANAGER | `manager@nops.dev` | uploads, analytics, chat, reports, forecasts |
+| VIEWER | `viewer@nops.dev` | view dashboards, reports, analytics |
 
 The seed imports a realistic ~1,800-row retail dataset (18 months, 4 regions, 14 products) and writes it to `apps/api/src/sample/retail_sales.csv` so you can re-upload it through the UI.
 

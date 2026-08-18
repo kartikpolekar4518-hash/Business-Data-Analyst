@@ -28,7 +28,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();
-  if (loading) return <div className="grid h-full place-items-center"><Spinner label="Loading DecisionIQ…" /></div>;
+  if (loading) return <div className="grid h-full place-items-center"><Spinner label="Loading NoPS…" /></div>;
   if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
   return <Shell><Suspense fallback={<Spinner />}>{children}</Suspense></Shell>;
 }

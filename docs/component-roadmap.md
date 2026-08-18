@@ -1,4 +1,4 @@
-# DecisionIQ — Component Roadmap
+# NoPS — Component Roadmap
 
 ## Context
 
@@ -6,7 +6,7 @@ We have a ~500-item component inventory for a B2B analytics product. This
 document exists to keep that wish-list honest against what the app **already
 ships**, and to sequence the rest by leverage rather than by list order.
 
-The key finding: DecisionIQ is not a blank slate. Roughly **40% of the
+The key finding: NoPS is not a blank slate. Roughly **40% of the
 inventory already exists** — a coherent foundation of design tokens, dark mode,
 a framer-motion system, hand-rolled primitives, six chart types, KPI cards, an
 app shell, and every loading/empty/error state. The inventory is best read as a
@@ -77,7 +77,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
   setup, plus a `/charts` catalog page. See "Shipped in Phase 3" below. Deferred:
   geo/choropleth (needs map topology + projection) and the interaction wrappers
   (zoom, export, fullscreen) — pulled in when a page first needs them.
-- **Phase 4 — AI / DecisionIQ differentiators  ← shipped.** Reusable AI insight
+- **Phase 4 — AI / NoPS differentiators  ← shipped.** Reusable AI insight
   card, AI summary + citation, confidence meter, "Explain this metric", suggested
   prompts + follow-ups, thinking indicator — all presentation over the existing
   deterministic outputs. See "Shipped in Phase 4" below.

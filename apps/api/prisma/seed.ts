@@ -71,15 +71,15 @@ async function seedDemo(d: Demo) {
 }
 
 async function main() {
-  console.log("Seeding DecisionIQ demo data...");
+  console.log("Seeding NoPS demo data...");
 
   await seedDemo({
     orgName: "Acme Retail (Demo)",
     industry: "retail",
     users: [
-      { name: "Alex Admin", email: "admin@decisioniq.dev", role: "ADMIN" },
-      { name: "Morgan Manager", email: "manager@decisioniq.dev", role: "MANAGER" },
-      { name: "Vic Viewer", email: "viewer@decisioniq.dev", role: "VIEWER" },
+      { name: "Alex Admin", email: "admin@nops.dev", role: "ADMIN" },
+      { name: "Morgan Manager", email: "manager@nops.dev", role: "MANAGER" },
+      { name: "Vic Viewer", email: "viewer@nops.dev", role: "VIEWER" },
     ],
     rows: generateRetailData(),
     datasetName: "Retail Sales 2024–2025",
@@ -89,7 +89,7 @@ async function main() {
   await seedDemo({
     orgName: "MediCare Pharmacy (Demo)",
     industry: "pharmacy",
-    users: [{ name: "Priya Pharma", email: "pharmacy@decisioniq.dev", role: "ADMIN" }],
+    users: [{ name: "Priya Pharma", email: "pharmacy@nops.dev", role: "ADMIN" }],
     rows: generatePharmacyData(),
     datasetName: "Pharmacy Sales 2024–2025",
     fileName: "pharmacy_sales.csv",
@@ -98,13 +98,13 @@ async function main() {
   await seedDemo({
     orgName: "CloudFlow SaaS (Demo)",
     industry: "saas",
-    users: [{ name: "Sam SaaS", email: "saas@decisioniq.dev", role: "ADMIN" }],
+    users: [{ name: "Sam SaaS", email: "saas@nops.dev", role: "ADMIN" }],
     rows: generateSaasData(),
     datasetName: "Subscriptions 2024–2025",
     fileName: "saas_subscriptions.csv",
   });
 
-  console.log("✓ Logins (password: password123): admin@ / pharmacy@ / saas@decisioniq.dev");
+  console.log("✓ Logins (password: password123): admin@ / pharmacy@ / saas@nops.dev");
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

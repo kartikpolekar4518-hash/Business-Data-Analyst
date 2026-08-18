@@ -67,7 +67,7 @@ reportsRouter.get("/:id/pdf", wrap(async (req, res) => {
 
   doc.fontSize(22).fillColor("#111827").text(report.title);
   doc.moveDown(0.3);
-  doc.fontSize(9).fillColor("#6b7280").text(`Generated ${new Date(report.createdAt).toLocaleString()}  ·  DecisionIQ`);
+  doc.fontSize(9).fillColor("#6b7280").text(`Generated ${new Date(report.createdAt).toLocaleString()}  ·  NoPS`);
   doc.moveDown(1);
 
   section(doc, "Executive Summary");
