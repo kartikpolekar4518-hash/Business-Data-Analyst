@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send, Sparkles, User, Plus, History, MessageSquare } from "lucide-react";
 import { api, ApiError } from "../lib/api";
-import { Card, CardBody, Button, Input, Badge } from "../components/ui";
+import { Card, CardBody, Button, Input } from "../components/ui";
+import { AIThinking, SuggestedPrompts, ConfidenceMeter, followUpsFor } from "../components/ai";
 import { BarRankChart, TrendChart } from "../components/charts";
 import { num, timeAgo, cn } from "../lib/utils";
 import type { ChatMessage } from "../lib/types";
@@ -92,8 +93,7 @@ export default function AiChat() {
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 p-6 dark:border-slate-700">
-            <div className="mb-3 flex items-center gap-2 text-slate-500"><Sparkles className="h-4 w-4" />Try asking:</div>
-            <div className="flex flex-wrap gap-2">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm hover:border-brand-400 hover:text-brand-600 dark:border-slate-700">{s}</button>)}</div>
+            <SuggestedPrompts label="Try asking:" prompts={SUGGESTIONS} onPick={ask} />
           </div>
         )}
         {turns.map((t, i) => t.role === "user" ? (
@@ -107,7 +107,7 @@ export default function AiChat() {
             <div className="max-w-[85%] space-y-3">
               <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm shadow-sm dark:bg-slate-900">
                 <p>{t.text}</p>
-                {t.result && t.result.confidence > 0 && <div className="mt-2"><Badge tone={t.result.confidence >= 0.7 ? "green" : t.result.confidence >= 0.4 ? "amber" : "slate"}>Confidence {Math.round(t.result.confidence * 100)}%</Badge></div>}
+                {t.result && t.result.confidence > 0 && <ConfidenceMeter value={t.result.confidence} className="mt-2.5" />}
               </div>
               {t.result?.metrics && t.result.metrics.length > 0 && !t.result.chart && (
                 <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"><div className="text-xs text-slate-500">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
@@ -126,7 +126,15 @@ export default function AiChat() {
             </div>
           </div>
         ))}
-        {loading && <div className="flex gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4 animate-pulse" /></div><div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-400 shadow-sm dark:bg-slate-900">Analyzing…</div></div>}
+        {loading && (
+          <div className="flex gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4 animate-pulse" /></div>
+            <div className="rounded-2xl bg-white px-4 py-3 shadow-sm dark:bg-slate-900"><AIThinking /></div>
+          </div>
+        )}
+        {!loading && turns.length > 0 && turns[turns.length - 1].role === "assistant" && turns[turns.length - 1].result && (
+          <SuggestedPrompts label="Follow up:" prompts={followUpsFor()} onPick={ask} className="pl-10" />
+        )}
         <div ref={endRef} />
       </div>
 

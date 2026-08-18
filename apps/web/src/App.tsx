@@ -13,9 +13,11 @@ const Landing = lazy(() => import("./pages/Landing"));
 // Route-level code splitting: chart-heavy pages (and recharts itself) load on
 // demand instead of shipping in the login bundle.
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DashboardBuilder = lazy(() => import("./pages/DashboardBuilder"));
 const DataList = lazy(() => import("./pages/DataList"));
 const DatasetDetail = lazy(() => import("./pages/DatasetDetail"));
 const Analytics = lazy(() => import("./pages/Analytics"));
+const ChartLibrary = lazy(() => import("./pages/ChartLibrary"));
 const AiChat = lazy(() => import("./pages/AiChat"));
 const Forecasts = lazy(() => import("./pages/Forecasts"));
 const Reports = lazy(() => import("./pages/Reports"));
@@ -72,9 +74,11 @@ export default function App() {
             <Route path="/reset-password" element={<PublicOnly><ResetPassword /></PublicOnly>} />
 
             <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+            <Route path="/builder" element={<Protected><DashboardBuilder /></Protected>} />
             <Route path="/data" element={<Protected><DataList /></Protected>} />
             <Route path="/data/:datasetId" element={<Protected><DatasetDetail /></Protected>} />
             <Route path="/analytics" element={<Protected><Analytics /></Protected>} />
+            <Route path="/charts" element={<Protected><ChartLibrary /></Protected>} />
             <Route path="/ai-chat" element={<Protected><AiChat /></Protected>} />
             <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
             <Route path="/reports" element={<Protected><Reports /></Protected>} />

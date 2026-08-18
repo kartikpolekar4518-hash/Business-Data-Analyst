@@ -4,6 +4,7 @@ import { cn } from "../lib/utils";
 import { AnimatedNumber, SPRING } from "../lib/motion";
 import type { KpiFormat } from "../lib/kpi";
 import { Sparkline, CHART } from "./charts";
+import { ExplainMetric } from "./ai";
 
 export function KpiCard({
   label,
@@ -15,6 +16,7 @@ export function KpiCard({
   accent = false,
   spark,
   accentColor = CHART.blue,
+  explain = false,
 }: {
   label: string;
   value: number;
@@ -25,6 +27,7 @@ export function KpiCard({
   accent?: boolean;
   spark?: number[];
   accentColor?: string;
+  explain?: boolean;
 }) {
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
@@ -54,6 +57,8 @@ export function KpiCard({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           {label}
         </span>
+        <div className="flex items-center gap-1">
+        {explain && <ExplainMetric label={label} value={value} format={format} changePct={changePct} />}
         <div
           className={cn(
             "flex h-8 w-8 items-center justify-center rounded-lg",
@@ -64,6 +69,7 @@ export function KpiCard({
           style={accent ? { background: accentColor, boxShadow: `0 4px 14px -4px ${accentColor}` } : undefined}
         >
           <Icon className="h-[16px] w-[16px]" />
+        </div>
         </div>
       </div>
 

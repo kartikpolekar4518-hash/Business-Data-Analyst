@@ -39,11 +39,11 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 1 | App shell & layout | 🟡 | Shell/sidebar/header/breadcrumb ✅. Gaps: command palette, global search, resizable/split grid, right inspector, fullscreen mode |
 | 2 | Navigation | 🟡 | Sidebar nav, tabs, breadcrumb ✅. Gaps: segmented control, pagination (now ✅), stepper, saved-views selector |
 | 3 | KPI / metric | 🟡 | Card + trend + sparkline ✅. Gaps: target/progress/benchmark/status/confidence/anomaly/AI-explanation variants, drill-down |
-| 4 | Charts & viz | 🟡 | 6 of ~40 types. Gaps: combo, waterfall, funnel, gauge, bullet, heatmap, treemap, sunburst, sankey, radar, box/violin, candlestick, pareto, cohort, geo/choropleth; interactions: crosshair, zoom, series toggle, drill-down, export, fullscreen |
+| 4 | Charts & viz | 🟡 | **Phase 3** added combo, waterfall, funnel, scatter/bubble, radar, gauge, treemap, heatmap (+ a `/charts` catalog). ~14 types now. Gaps remaining: bullet, sunburst, sankey, box/violin, candlestick, pareto, cohort, geo/choropleth; interactions: crosshair, zoom, drill-down, export, fullscreen |
 | 5 | **Tables** | 🟡→✅ | **This batch: reusable `DataTable`** (sort/search/paginate/select/sticky). Gaps remaining: virtualization, reorder/resize columns, grouped rows/subtotals, inline editing, cell mini-charts |
-| 6 | Filters & data controls | 🟡 | URL-driven filters, date/select ✅. Gaps: filter chips, active-filter counter, saved filters/presets, relative-date, numeric-range/slider, multi-select combobox |
-| 7 | Dashboard components | 🟡 | KPI row, chart/table cards ✅. Gaps: configurable widgets (drag/resize/duplicate), insight/goal/recommendation cards, widget settings panel |
-| 8 | AI components | 🟡 | NL query box + rule/GPT intent + insights ✅. Gaps: AI insight cards, "Explain this metric", "Why did this change?", anomaly/forecast explanations, suggested prompts, confidence/citation UI, reasoning indicator |
+| 6 | Filters & data controls | 🟡→✅ | **Phase 2:** multi-select combobox, relative-date presets, filter chips + active-filter counter, saved views. Gaps remaining: numeric-range/slider, boolean/tag filters |
+| 7 | Dashboard components | 🟡→✅ | **Phase 5:** configurable widget grid (drag-reorder, resize, duplicate, remove, fullscreen, add-from-palette, persisted) + goal card + a `/builder` page. Gaps remaining: pixel-precise resize, cross-device layout sync |
+| 8 | AI components | 🟡→✅ | **Phase 4:** reusable AI insight card, AI summary + data-source citation, confidence meter, "Explain this metric" / "Why did this change?", suggested-prompt + follow-up chips, reasoning/thinking indicator. Gaps remaining: dedicated anomaly/forecast-explanation cards, NL command bar |
 | 9 | Forecasting | 🟡 | Forecast chart + confidence band + accuracy ✅. Gaps: scenario selector (best/base/worst), what-if, scenario comparison, risk indicator |
 | 10 | Alerts & monitoring | 🟡 | Alert list/banner/notification bell ✅. Gaps: alert rule builder, frequency/recipient selectors, alert history |
 | 11 | Data upload & sources | 🟡 | Drag-drop CSV/XLSX, quality checks, connectors modal ✅. Gaps: column mapper, schema viewer, sync status, per-source cards |
@@ -69,19 +69,21 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 
 - **Phase 1 — Table system + form/overlay primitives  ← this batch.** Unblocks the
   most downstream components. See "Shipped in this batch" below.
-- **Phase 2 — Filters & saved views.** Filter chips, active-filter counter,
-  multi-select combobox, relative-date + numeric-range, saved filters/presets.
-  Extends the existing URL-driven filter model in `Analytics.tsx`.
-- **Phase 3 — Chart library expansion.** Add combo, waterfall, funnel, gauge,
-  heatmap, scatter/bubble, treemap, and a geo/choropleth on top of the existing
-  Recharts setup in `charts.tsx`; add shared interactions (series toggle, zoom,
-  export, fullscreen).
-- **Phase 4 — AI / DecisionIQ differentiators.** AI insight cards, "Explain this
-  metric", "Why did this change?", anomaly/forecast explanations, suggested
-  prompts, confidence + data-source citation UI. Backs onto the deterministic
-  engine + optional GPT intent layer already in `apps/api/src/engine/intent.ts`.
-- **Phase 5 — Dashboard widget system.** Configurable widgets (drag/resize/
-  duplicate/settings), insight/goal/recommendation/forecast cards, bento layout.
+- **Phase 2 — Filters & saved views  ← shipped.** Multi-select combobox,
+  relative-date presets, filter chips + active-filter counter, saved views.
+  See "Shipped in Phase 2" below.
+- **Phase 3 — Chart library expansion  ← shipped.** Combo, waterfall, funnel,
+  scatter/bubble, radar, gauge, treemap, heatmap on top of the existing Recharts
+  setup, plus a `/charts` catalog page. See "Shipped in Phase 3" below. Deferred:
+  geo/choropleth (needs map topology + projection) and the interaction wrappers
+  (zoom, export, fullscreen) — pulled in when a page first needs them.
+- **Phase 4 — AI / DecisionIQ differentiators  ← shipped.** Reusable AI insight
+  card, AI summary + citation, confidence meter, "Explain this metric", suggested
+  prompts + follow-ups, thinking indicator — all presentation over the existing
+  deterministic outputs. See "Shipped in Phase 4" below.
+- **Phase 5 — Dashboard widget system  ← shipped.** Configurable widget grid
+  (drag-reorder, resize, duplicate, remove, fullscreen, add-from-palette,
+  persisted) + goal card + a `/builder` page. See "Shipped in Phase 5" below.
 - **Phase 6 — Reports & collaboration.** Report builder + templates + scheduling;
   then sharing, comments, activity feed, version history.
 
@@ -111,3 +113,85 @@ rather than built speculatively up front.
   sort, search, and pagination for free.
 
 All web types pass `npm run typecheck --workspace apps/web`.
+
+## Shipped in this batch (Phase 2)
+
+**New components** — `apps/web/src/components/filters.tsx`:
+- `MultiSelect` — searchable checklist combobox (select several values per dimension)
+- `RelativeDateSelect` — presets (Today, Last 7/30/90 days, This month/quarter/year, …)
+- `FilterChips` — active filters as removable chips + an active-filter counter
+- `SavedViews` — name and persist the current filter query to `localStorage`, re-apply later
+
+**Backend — multi-value filters (backward compatible):**
+- `apps/api/src/engine/analytics.ts`: `Filters` dimensions accept `string | string[]`;
+  `applyFilters` OR-matches a set, case-insensitively. Single values unchanged.
+- `apps/api/src/modules/analytics.ts`: dimension params accept repeated query params
+  (`?region=A&region=B`). Also fixed date validation — `.datetime()` rejected the
+  `YYYY-MM-DD` strings the date inputs send, silently dropping every date-filtered
+  query; it now accepts date-or-datetime.
+- `apps/api/src/engine/selfcheck.ts`: regression asserts for single- and multi-value
+  dimension filters.
+
+**Integration** — `apps/web/src/pages/Analytics.tsx`:
+- Single-selects replaced with `MultiSelect`; added the quick-range picker, saved
+  views, and a live filter-chip row. Filters remain URL-driven (shareable links),
+  now via repeated params for multi-value dimensions.
+
+API suite green (`npm test` in `apps/api`); web + api typecheck clean.
+
+## Shipped in this batch (Phase 3)
+
+**New chart types** — `apps/web/src/components/charts.tsx` (all Recharts- or
+SVG-native, no new dependencies; each reuses the shared `CHART`/`SERIES` palette,
+`useAxis` theming, and `useSeriesAnimation` motion, and works light + dark):
+- `ComboChart` (bar + line, dual axis), `WaterfallChart` (signed running total),
+  `FunnelStages`, `ScatterBubbleChart` (z → bubble size), `RadarProfile`,
+  `GaugeChart` (half-dial vs. max), `TreemapChart`, `Heatmap` (matrix intensity).
+
+**Catalog page** — `apps/web/src/pages/ChartLibrary.tsx` at `/charts` (linked in
+the sidebar under *Analytics*): renders every chart type with sample data as
+living documentation. Code-split, so it adds nothing to the initial bundle.
+
+Wired via `apps/web/src/App.tsx` (route) and `Shell.tsx` (nav). Web typecheck and
+`npm run build` both pass.
+
+## Shipped in this batch (Phase 5)
+
+**New components** — `apps/web/src/components/widgets.tsx`:
+- `WidgetGrid` — a configurable bento grid: drag to reorder (native DnD), cycle
+  size (sm/md/lg column span), duplicate, remove, fullscreen, and add from a
+  palette. Layout persists per user in `localStorage`; "Reset layout" restores
+  the default. Bodies come from a `renderBody(item)` prop, so any content fits.
+- `GoalCard` — progress toward a target with a completion state.
+
+**Page** — `apps/web/src/pages/DashboardBuilder.tsx` at `/builder` (sidebar:
+*Main*): composes widgets from the real overview + insights data (metric, goal,
+executive insight, trend, composition, ranking). Code-split.
+
+Wired via `App.tsx` (route) and `Shell.tsx` (nav). Web typecheck + build pass.
+
+## Shipped in this batch (Phase 4)
+
+**New components** — `apps/web/src/components/ai.tsx`. An AI-styled *presentation*
+layer over the deterministic engine — **nothing invents a number**; every figure
+shown is one the engine already computed, in keeping with the product's
+"deterministic and auditable" positioning:
+- `AIInsightCard` — a `Recommendation` as observed → cause → recommended, with
+  impact badge and (newly surfaced) confidence meter
+- `AISummary` — the executive-insight banner, now with a citation slot
+- `AICitation` — the auditability breadcrumb ("Computed from <dataset> · N rows")
+- `ConfidenceMeter`, `ImpactBadge` — shared indicators
+- `AIThinking` — reasoning/processing indicator (reduced-motion aware)
+- `SuggestedPrompts` + `followUpsFor()` — prompt and follow-up chips
+- `ExplainMetric` — deterministic "Explain this metric / Why did this change?"
+  popover generated from the KPI's own value + period-over-period change
+
+**Integration:**
+- `Kpi.tsx`: optional `explain` prop adds the Explain popover to any KPI tile.
+- `Dashboard.tsx`: inline insight banner → `AISummary`+`AICitation`; inline
+  recommendations → `AIInsightCard` (now showing confidence); KPI cards get
+  `explain`.
+- `AiChat.tsx`: `SuggestedPrompts` (empty state), `AIThinking` (loading),
+  `ConfidenceMeter` (per answer), and follow-up chips after each answer.
+
+Web typecheck + `npm run build` pass.

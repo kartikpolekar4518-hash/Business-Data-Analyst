@@ -44,6 +44,13 @@ assert(topCust[0].label === "Ada" && topCust[0].value === 400, "Ada leads with 4
 const inRange = A.applyFilters(rows, map, { dateFrom: "2024-01-01", dateTo: "2024-04-05" });
 assert(inRange.length === 5, `dateTo must include its own day, expected 5 rows got ${inRange.length}`);
 
+// 3a-ii. Dimension filters accept a set (OR-matched, case-insensitive) as well as a
+// single value — the multi-select filter feature.
+const oneRegion = A.applyFilters(rows, map, { region: "East" });
+assert(oneRegion.length === 2, `single region 'East' matches 2 rows case-insensitively, got ${oneRegion.length}`);
+const multiRegion = A.applyFilters(rows, map, { region: ["West", "East"] });
+assert(multiRegion.length === 5, `region set [West, East] matches all 5 rows, got ${multiRegion.length}`);
+
 // 3b. Period-over-period KPIs are measured on a consistent basis (regression: the
 // customers/orders KPIs used to compare the wrong quantities, so change was bogus).
 assert(ov.customers.previous === 2, `customers 'previous' should be prior-period distinct count (2), got ${ov.customers.previous}`);

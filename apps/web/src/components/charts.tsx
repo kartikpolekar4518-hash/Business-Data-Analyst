@@ -1,5 +1,8 @@
 import { memo, useId, useMemo, useState } from "react";
-import { ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, PieChart, Pie, Cell } from "recharts";
+import {
+  ResponsiveContainer, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Area, AreaChart, ComposedChart, PieChart, Pie, Cell,
+  ScatterChart, Scatter, ZAxis, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadialBarChart, RadialBar, FunnelChart, Funnel, Treemap, LabelList,
+} from "recharts";
 import { motion, useReducedMotion } from "framer-motion";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
@@ -253,5 +256,202 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
         <Line dataKey="forecast" stroke={CHART.violet} strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 3 }} type="monotone" {...anim} />
       </ComposedChart>
     </ResponsiveContainer>
+  );
+});
+
+const clamp = (n: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n));
+
+/* ───────── Combo — bars + line on a secondary axis ───────── */
+export const ComboChart = memo(function ComboChart({ data, barName = "Revenue", lineName = "Margin %", lineFormat = (v: number) => `${v}%`, height = 300 }: { data: { label: string; bar: number; line: number }[]; barName?: string; lineName?: string; lineFormat?: (v: number) => string; height?: number }) {
+  const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
+  const gid = useId();
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={1} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0.55} /></linearGradient></defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+        <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
+        <YAxis yAxisId="left" tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
+        <YAxis yAxisId="right" orientation="right" tick={tick} axisLine={false} tickLine={false} width={44} tickFormatter={lineFormat} />
+        <Tooltip contentStyle={tooltipStyle} />
+        <Bar yAxisId="left" dataKey="bar" name={barName} fill={`url(#${gid})`} radius={[6, 6, 0, 0]} maxBarSize={38} {...anim} />
+        <Line yAxisId="right" dataKey="line" name={lineName} stroke={CHART.violet} strokeWidth={2.5} dot={false} type="monotone" {...anim} />
+      </ComposedChart>
+    </ResponsiveContainer>
+  );
+});
+
+/* ───────── Waterfall — running total of signed deltas ───────── */
+export const WaterfallChart = memo(function WaterfallChart({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
+  const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
+  const rows = useMemo(() => {
+    let cum = 0;
+    return data.map((d) => { const start = cum; cum += d.value; return { label: d.label, base: Math.min(start, cum), delta: Math.abs(d.value), value: d.value, cumulative: cum, positive: d.value >= 0 }; });
+  }, [data]);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
+        <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
+        <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={{ fill: "rgba(91,140,255,0.06)" }}
+          formatter={(_v, _n, item: { payload?: { value: number; cumulative: number } }) => {
+            const p = item?.payload; return p ? [`${p.value >= 0 ? "+" : ""}${fmtK(p.value)}  (∑ ${fmtK(p.cumulative)})`, "Change"] : ["", ""];
+          }}
+        />
+        <Bar dataKey="base" stackId="w" fill="transparent" />
+        <Bar dataKey="delta" stackId="w" radius={[4, 4, 0, 0]} maxBarSize={46} {...anim}>
+          {rows.map((r, i) => <Cell key={i} fill={r.positive ? CHART.emerald : CHART.rose} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  );
+});
+
+/* ───────── Funnel — stage-to-stage drop-off ───────── */
+export const FunnelStages = memo(function FunnelStages({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
+  const { tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <FunnelChart>
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtK(v)} />
+        <Funnel dataKey="value" data={data} isAnimationActive={anim.isAnimationActive} animationDuration={anim.animationDuration}>
+          <LabelList position="right" dataKey="label" stroke="none" fill={tick.fill} fontSize={12} />
+          <LabelList position="inside" dataKey="value" stroke="none" fill="#fff" fontSize={12} formatter={(v: number) => fmtK(v)} />
+          {data.map((_, i) => <Cell key={i} fill={SERIES[i % SERIES.length]} />)}
+        </Funnel>
+      </FunnelChart>
+    </ResponsiveContainer>
+  );
+});
+
+/* ───────── Scatter / bubble — correlation (z drives bubble size) ───────── */
+export const ScatterBubbleChart = memo(function ScatterBubbleChart({ data, xName = "x", yName = "y", height = 300 }: { data: { x: number; y: number; z?: number; label?: string }[]; xName?: string; yName?: string; height?: number }) {
+  const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
+  const hasZ = data.some((d) => d.z != null);
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <ScatterChart margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={grid} />
+        <XAxis type="number" dataKey="x" name={xName} tick={tick} axisLine={false} tickLine={false} tickFormatter={fmtK} />
+        <YAxis type="number" dataKey="y" name={yName} tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
+        {hasZ && <ZAxis type="number" dataKey="z" range={[60, 420]} />}
+        <Tooltip contentStyle={tooltipStyle} cursor={{ strokeDasharray: "3 3" }} formatter={(v: number) => fmtK(v)} />
+        <Scatter data={data} fill={CHART.blue} fillOpacity={0.7} {...anim} />
+      </ScatterChart>
+    </ResponsiveContainer>
+  );
+});
+
+/* ───────── Radar — multi-metric profile comparison ───────── */
+export const RadarProfile = memo(function RadarProfile({ data, series, height = 300 }: { data: Record<string, number | string>[]; series: string[]; height?: number }) {
+  const { grid, tick, tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <RadarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
+        <PolarGrid stroke={grid} />
+        <PolarAngleAxis dataKey="label" tick={tick} />
+        <PolarRadiusAxis tick={tick} axisLine={false} tickFormatter={fmtK} />
+        <Tooltip contentStyle={tooltipStyle} />
+        {series.map((s, i) => <Radar key={s} name={s} dataKey={s} stroke={SERIES[i % SERIES.length]} fill={SERIES[i % SERIES.length]} fillOpacity={0.22} strokeWidth={2} {...anim} />)}
+      </RadarChart>
+    </ResponsiveContainer>
+  );
+});
+
+/* ───────── Gauge — single value against a max (half dial) ───────── */
+export const GaugeChart = memo(function GaugeChart({ value, max = 100, label, unit = "", color = CHART.blue, height = 180 }: { value: number; max?: number; label?: string; unit?: string; color?: string; height?: number }) {
+  const { dark } = useAxis();
+  const anim = useSeriesAnimation();
+  const pct = clamp(value / (max || 1)) * 100;
+  return (
+    <div className="relative" style={{ height }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <RadialBarChart data={[{ value: pct }]} startAngle={180} endAngle={0} innerRadius="72%" outerRadius="100%" cy="88%">
+          <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+          <RadialBar dataKey="value" cornerRadius={12} fill={color} background={{ fill: dark ? "rgba(148,163,184,0.14)" : "#eef2f7" }} {...anim} />
+        </RadialBarChart>
+      </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-col items-center">
+        <span className="text-2xl font-bold text-slate-900 dark:text-white">{fmtK(value)}{unit}</span>
+        {label && <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>}
+      </div>
+    </div>
+  );
+});
+
+/* ───────── Treemap — part-to-whole by area ───────── */
+type TreemapCellProps = { x?: number; y?: number; width?: number; height?: number; index?: number; name?: string; value?: number };
+const TreemapCell = ({ x = 0, y = 0, width = 0, height = 0, index = 0, name, value }: TreemapCellProps) => {
+  const fill = SERIES[index % SERIES.length];
+  const room = width > 60 && height > 28;
+  return (
+    <g>
+      <rect x={x} y={y} width={width} height={height} rx={4} fill={fill} fillOpacity={0.85} stroke="rgba(255,255,255,0.6)" strokeWidth={1} />
+      {room && (
+        <>
+          <text x={x + 8} y={y + 18} fill="#fff" fontSize={12} fontWeight={600}>{name}</text>
+          <text x={x + 8} y={y + 34} fill="#fff" fillOpacity={0.85} fontSize={11}>{value != null ? fmtK(value) : ""}</text>
+        </>
+      )}
+    </g>
+  );
+};
+export const TreemapChart = memo(function TreemapChart({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
+  const { tooltipStyle } = useAxis();
+  const anim = useSeriesAnimation();
+  const nodes = data.map((d) => ({ name: d.label, size: d.value }));
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <Treemap data={nodes} dataKey="size" stroke="#fff" content={<TreemapCell />} isAnimationActive={anim.isAnimationActive} animationDuration={anim.animationDuration}>
+        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtK(v)} />
+      </Treemap>
+    </ResponsiveContainer>
+  );
+});
+
+/* ───────── Heatmap — matrix intensity (SVG-free CSS grid) ───────── */
+export const Heatmap = memo(function Heatmap({ data, xLabels, yLabels }: { data: { x: string; y: string; value: number }[]; xLabels: string[]; yLabels: string[] }) {
+  const lookup = useMemo(() => { const m = new Map<string, number>(); for (const d of data) m.set(`${d.x}|${d.y}`, d.value); return m; }, [data]);
+  const values = data.map((d) => d.value);
+  const min = Math.min(...values, 0);
+  const max = Math.max(...values, 1);
+  const span = max - min || 1;
+  return (
+    <div className="overflow-x-auto">
+      <div className="inline-grid gap-1 text-xs" style={{ gridTemplateColumns: `auto repeat(${xLabels.length}, minmax(2.5rem, 1fr))` }}>
+        <div />
+        {xLabels.map((x) => <div key={x} className="truncate px-1 pb-1 text-center font-medium text-slate-500 dark:text-slate-400">{x}</div>)}
+        {yLabels.map((y) => (
+          <div key={y} className="contents">
+            <div className="flex items-center pr-2 font-medium text-slate-500 dark:text-slate-400">{y}</div>
+            {xLabels.map((x) => {
+              const v = lookup.get(`${x}|${y}`);
+              const t = v == null ? 0 : clamp((v - min) / span);
+              return (
+                <div
+                  key={x}
+                  title={v == null ? `${x} · ${y}: —` : `${x} · ${y}: ${fmtK(v)}`}
+                  className={cn("flex h-9 items-center justify-center rounded-md text-[11px] font-medium tabular-nums", v == null && "ring-1 ring-inset ring-border dark:ring-white/10")}
+                  style={{
+                    background: v == null ? "transparent" : `rgba(91,140,255,${0.12 + t * 0.8})`,
+                    color: t > 0.55 ? "#fff" : undefined,
+                  }}
+                >
+                  {v == null ? "" : fmtK(v)}
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 });

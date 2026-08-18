@@ -2,8 +2,10 @@ import { type ReactNode, useState, useRef, useEffect, useCallback } from "react"
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Database,
   BarChart3,
+  PieChart,
   MessagesSquare,
   TrendingUp,
   FileText,
@@ -37,6 +39,7 @@ const NAV_SECTIONS = [
     label: "Main",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/builder", label: "Builder", icon: LayoutGrid },
       { to: "/data", label: "Data", icon: Database },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
       {
@@ -51,6 +54,7 @@ const NAV_SECTIONS = [
     label: "Analytics",
     items: [
       { to: "/forecasts", label: "Forecasts", icon: TrendingUp },
+      { to: "/charts", label: "Chart library", icon: PieChart },
       { to: "/reports", label: "Reports", icon: FileText },
       { to: "/alerts", label: "Alerts", icon: Bell },
     ],

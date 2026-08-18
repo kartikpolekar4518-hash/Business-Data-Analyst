@@ -5,15 +5,18 @@ import type { IndustryPack } from "./industries.js";
 // The controlled analytics query layer. Everything the "AI" and dashboards can
 // compute goes through these deterministic functions — no arbitrary SQL/code.
 
+// Dimension filters accept a single value or a set (OR-matched). A single string
+// stays valid, so existing callers are unaffected.
+type Dim = string | string[];
 export interface Filters {
   dateFrom?: string;
   dateTo?: string;
-  region?: string;
-  state?: string;
-  category?: string;
-  department?: string;
-  product?: string;
-  customer?: string;
+  region?: Dim;
+  state?: Dim;
+  category?: Dim;
+  department?: Dim;
+  product?: Dim;
+  customer?: Dim;
 }
 
 function num(v: unknown): number {
@@ -50,7 +53,13 @@ function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
         if (to && d > to) return false;
       }
     }
-    const eq = (sem: Semantic, val?: string) => !val || (s[sem] && str(r[s[sem]!]).toLowerCase() === val.toLowerCase());
+    const eq = (sem: Semantic, val?: Dim) => {
+      const vals = val == null ? [] : Array.isArray(val) ? val : [val];
+      if (vals.length === 0) return true;
+      if (!s[sem]) return false; // filtering on an absent column excludes everything (unchanged)
+      const cell = str(r[s[sem]!]).toLowerCase();
+      return vals.some((v) => cell === str(v).toLowerCase());
+    };
     return eq("region", f.region) && eq("state", f.state) && eq("category", f.category) &&
       eq("department", f.department) && eq("product_name", f.product) && eq("customer_name", f.customer);
   });
