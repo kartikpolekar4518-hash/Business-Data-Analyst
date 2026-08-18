@@ -27,13 +27,8 @@ import { Card, CardHeader, CardBody, Skeleton, ErrorState, Button, Badge, useToa
 import { KpiCard } from "../components/Kpi";
 import { EmptyWorkspace, GettingStartedChecklist, WelcomeTour, type ChecklistStep } from "../components/Onboarding";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
+import { AISummary, AICitation, AIInsightCard } from "../components/ai";
 import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
-
-const impactBadge = {
-  HIGH: { tone: "red" as const, label: "High impact" },
-  MEDIUM: { tone: "amber" as const, label: "Medium impact" },
-  LOW: { tone: "slate" as const, label: "Low impact" },
-} as const;
 
 const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
 // Static classes so Tailwind keeps them; the grid tightens to the KPI count (a
@@ -212,25 +207,9 @@ export default function Dashboard() {
 
       {/* ─── AI Insight banner ─── */}
       {insights.data && (
-        <div className="relative overflow-hidden rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-500/10 via-violet-500/[0.06] to-transparent p-4 dark:border-brand-500/20">
-          <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-brand-500/20 blur-3xl" />
-          <div className="relative flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
-              <BrainCircuit className="h-[18px] w-[18px] text-white" />
-            </div>
-            <div className="min-w-0 flex-1 pt-0.5">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
-                  AI Executive Insight
-                </span>
-                <Badge tone="blue" dot>Live</Badge>
-              </div>
-              <p className="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                {insights.data.headline}
-              </p>
-            </div>
-          </div>
-        </div>
+        <AISummary citation={<AICitation source={data?.datasetName} />}>
+          {insights.data.headline}
+        </AISummary>
       )}
 
       {/* ─── KPI Cards (driven by the industry pack) ─── */}
@@ -255,6 +234,7 @@ export default function Dashboard() {
                 accentColor={ACCENTS[i % ACCENTS.length]}
                 spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
                 tooltip={k.tooltip}
+                explain
               />
             ))}
       </div>
@@ -350,44 +330,9 @@ export default function Dashboard() {
               <ErrorState message="Couldn't load recommendations." retry={() => insights.refetch()} />
             ) : insights.data?.recommendations.length ? (
               <div className="divide-y divide-border dark:divide-white/[0.06]">
-                {insights.data.recommendations.map((r) => {
-                  const Icon = insightIconMap[insightKey(r.title)];
-                  return (
-                    <div key={r.title} className="flex items-start gap-4 py-4 first:pt-0 last:pb-0">
-                      <div
-                        className={cn(
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                          r.impact === "HIGH"
-                            ? "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400"
-                            : r.impact === "MEDIUM"
-                            ? "bg-amber-100 text-amber-600 dark:bg-amber-500/15 dark:text-amber-400"
-                            : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400",
-                        )}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <h4 className="truncate text-sm font-semibold text-slate-900 dark:text-white">{r.title}</h4>
-                          <Badge tone={impactBadge[r.impact].tone} dot>{impactBadge[r.impact].label}</Badge>
-                        </div>
-                        <div className="mt-2 space-y-1 text-[13px]">
-                          <p className="text-slate-600 dark:text-slate-400">
-                            <span className="font-medium text-slate-700 dark:text-slate-300">Observed:</span>{" "}
-                            {r.observation}
-                          </p>
-                          <p className="text-slate-600 dark:text-slate-400">
-                            <span className="font-medium text-slate-700 dark:text-slate-300">Cause:</span>{" "}
-                            {r.explanation}
-                          </p>
-                          <p className="font-medium text-brand-600 dark:text-brand-400">
-                            <span>Recommended:</span> {r.action}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                {insights.data.recommendations.map((r) => (
+                  <AIInsightCard key={r.title} rec={r} icon={insightIconMap[insightKey(r.title)]} />
+                ))}
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">

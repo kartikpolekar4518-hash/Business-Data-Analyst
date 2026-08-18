@@ -43,7 +43,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 5 | **Tables** | 🟡→✅ | **This batch: reusable `DataTable`** (sort/search/paginate/select/sticky). Gaps remaining: virtualization, reorder/resize columns, grouped rows/subtotals, inline editing, cell mini-charts |
 | 6 | Filters & data controls | 🟡→✅ | **Phase 2:** multi-select combobox, relative-date presets, filter chips + active-filter counter, saved views. Gaps remaining: numeric-range/slider, boolean/tag filters |
 | 7 | Dashboard components | 🟡 | KPI row, chart/table cards ✅. Gaps: configurable widgets (drag/resize/duplicate), insight/goal/recommendation cards, widget settings panel |
-| 8 | AI components | 🟡 | NL query box + rule/GPT intent + insights ✅. Gaps: AI insight cards, "Explain this metric", "Why did this change?", anomaly/forecast explanations, suggested prompts, confidence/citation UI, reasoning indicator |
+| 8 | AI components | 🟡→✅ | **Phase 4:** reusable AI insight card, AI summary + data-source citation, confidence meter, "Explain this metric" / "Why did this change?", suggested-prompt + follow-up chips, reasoning/thinking indicator. Gaps remaining: dedicated anomaly/forecast-explanation cards, NL command bar |
 | 9 | Forecasting | 🟡 | Forecast chart + confidence band + accuracy ✅. Gaps: scenario selector (best/base/worst), what-if, scenario comparison, risk indicator |
 | 10 | Alerts & monitoring | 🟡 | Alert list/banner/notification bell ✅. Gaps: alert rule builder, frequency/recipient selectors, alert history |
 | 11 | Data upload & sources | 🟡 | Drag-drop CSV/XLSX, quality checks, connectors modal ✅. Gaps: column mapper, schema viewer, sync status, per-source cards |
@@ -77,10 +77,10 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
   setup, plus a `/charts` catalog page. See "Shipped in Phase 3" below. Deferred:
   geo/choropleth (needs map topology + projection) and the interaction wrappers
   (zoom, export, fullscreen) — pulled in when a page first needs them.
-- **Phase 4 — AI / DecisionIQ differentiators.** AI insight cards, "Explain this
-  metric", "Why did this change?", anomaly/forecast explanations, suggested
-  prompts, confidence + data-source citation UI. Backs onto the deterministic
-  engine + optional GPT intent layer already in `apps/api/src/engine/intent.ts`.
+- **Phase 4 — AI / DecisionIQ differentiators  ← shipped.** Reusable AI insight
+  card, AI summary + citation, confidence meter, "Explain this metric", suggested
+  prompts + follow-ups, thinking indicator — all presentation over the existing
+  deterministic outputs. See "Shipped in Phase 4" below.
 - **Phase 5 — Dashboard widget system.** Configurable widgets (drag/resize/
   duplicate/settings), insight/goal/recommendation/forecast cards, bento layout.
 - **Phase 6 — Reports & collaboration.** Report builder + templates + scheduling;
@@ -153,3 +153,29 @@ living documentation. Code-split, so it adds nothing to the initial bundle.
 
 Wired via `apps/web/src/App.tsx` (route) and `Shell.tsx` (nav). Web typecheck and
 `npm run build` both pass.
+
+## Shipped in this batch (Phase 4)
+
+**New components** — `apps/web/src/components/ai.tsx`. An AI-styled *presentation*
+layer over the deterministic engine — **nothing invents a number**; every figure
+shown is one the engine already computed, in keeping with the product's
+"deterministic and auditable" positioning:
+- `AIInsightCard` — a `Recommendation` as observed → cause → recommended, with
+  impact badge and (newly surfaced) confidence meter
+- `AISummary` — the executive-insight banner, now with a citation slot
+- `AICitation` — the auditability breadcrumb ("Computed from <dataset> · N rows")
+- `ConfidenceMeter`, `ImpactBadge` — shared indicators
+- `AIThinking` — reasoning/processing indicator (reduced-motion aware)
+- `SuggestedPrompts` + `followUpsFor()` — prompt and follow-up chips
+- `ExplainMetric` — deterministic "Explain this metric / Why did this change?"
+  popover generated from the KPI's own value + period-over-period change
+
+**Integration:**
+- `Kpi.tsx`: optional `explain` prop adds the Explain popover to any KPI tile.
+- `Dashboard.tsx`: inline insight banner → `AISummary`+`AICitation`; inline
+  recommendations → `AIInsightCard` (now showing confidence); KPI cards get
+  `explain`.
+- `AiChat.tsx`: `SuggestedPrompts` (empty state), `AIThinking` (loading),
+  `ConfidenceMeter` (per answer), and follow-up chips after each answer.
+
+Web typecheck + `npm run build` pass.
