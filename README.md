@@ -155,13 +155,24 @@ Settings   GET|PATCH /api/settings
 
 ## Tests
 
-The engine ships with a runnable regression suite (assert-based, no framework):
+Run everything — engine regression suites plus the `node:test` unit tests — with one command (no extra test framework; the built-in Node runner is driven through `tsx`):
+
+```bash
+npm test
+```
+
+This runs on every push and pull request via GitHub Actions (`.github/workflows/ci.yml`), alongside `npm run typecheck`.
+
+**Engine regression suites** (assert-based, run standalone too):
 
 ```bash
 npx tsx apps/api/src/engine/selfcheck.ts
+npx tsx apps/api/src/engine/statistics.selfcheck.ts
 ```
 
-Covers profiling, schema detection, KPI period-over-period math, row cleaning, NL intent routing, forecasting, and insight derivation. Every bug fixed in this codebase gets a new assert.
+Cover profiling, schema detection, KPI period-over-period math, row cleaning, NL intent routing, forecasting, and insight derivation. Every bug fixed in this codebase gets a new assert.
+
+**Unit tests** (`*.test.ts`) cover the security-critical paths outside the pure engine: connector-credential encryption (AES-GCM round-trip + tamper detection), the SSRF host guard and SQL-identifier quoting, the role gate, error-handler status mapping, and the AI layer's no-key privacy fallback.
 
 ## Prisma / database
 
