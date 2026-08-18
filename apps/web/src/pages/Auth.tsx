@@ -4,7 +4,7 @@ import { BrainCircuit } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
 import { useIndustries } from "../lib/industries";
-import { Button, Input, Label, Select, ErrorState } from "../components/ui";
+import { Button, Input, PasswordInput, Label, Select, ErrorState } from "../components/ui";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
@@ -59,10 +59,10 @@ export function Login() {
     <AuthLayout title="Welcome back" subtitle="Sign in to your workspace.">
       <form onSubmit={submit} className="space-y-4">
         {error && <ErrorState message={error} />}
-        <div><Label htmlFor="email">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+        <div><Label htmlFor="email">Email</Label><Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
         <div>
           <div className="flex items-center justify-between"><Label htmlFor="pw">Password</Label><Link to="/forgot-password" className="text-xs text-brand-600 hover:underline">Forgot?</Link></div>
-          <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <PasswordInput id="pw" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
         <p className="text-center text-sm text-slate-500">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
@@ -96,17 +96,17 @@ export function Signup() {
     <AuthLayout title="Create your workspace" subtitle="Start analyzing your business data in minutes.">
       <form onSubmit={submit} className="space-y-4">
         {error && <ErrorState message={error} />}
-        <div><Label>Your name</Label><Input value={form.name} onChange={set("name")} required /></div>
-        <div><Label>Work email</Label><Input type="email" value={form.email} onChange={set("email")} required /></div>
-        <div><Label>Organization name</Label><Input value={form.organizationName} onChange={set("organizationName")} required /></div>
+        <div><Label htmlFor="su-name">Your name</Label><Input id="su-name" autoComplete="name" value={form.name} onChange={set("name")} required /></div>
+        <div><Label htmlFor="su-email">Work email</Label><Input id="su-email" type="email" autoComplete="email" value={form.email} onChange={set("email")} required /></div>
+        <div><Label htmlFor="su-org">Organization name</Label><Input id="su-org" autoComplete="organization" value={form.organizationName} onChange={set("organizationName")} required /></div>
         <div>
-          <Label>Business type</Label>
-          <Select value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })}>
+          <Label htmlFor="su-industry">Business type</Label>
+          <Select id="su-industry" value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })}>
             {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
           </Select>
           <p className="mt-1 text-xs text-slate-400">Your dashboard adapts to this. You can change it later in Settings.</p>
         </div>
-        <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-slate-400">At least 8 characters.</p></div>
+        <div><Label htmlFor="su-pw">Password</Label><PasswordInput id="su-pw" autoComplete="new-password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-slate-400">At least 8 characters.</p></div>
         <Button type="submit" className="w-full" loading={loading}>Create account</Button>
         <p className="text-center text-sm text-slate-500">Have an account? <Link to="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></p>
       </form>
@@ -117,10 +117,14 @@ export function Signup() {
 export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState<{ devToken?: string } | null>(null);
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const submit = async (e: React.FormEvent) => {
-    e.preventDefault(); setLoading(true);
+    e.preventDefault();
+    if (loading) return; // guard against duplicate submits while in flight
+    setError(""); setLoading(true);
     try { const r = await api.post<{ devToken?: string }>("/auth/forgot-password", { email }); setSent(r); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "Something went wrong. Please try again."); }
     finally { setLoading(false); }
   };
   return (
@@ -133,7 +137,8 @@ export function ForgotPassword() {
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
-          <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
+          {error && <ErrorState message={error} />}
+          <div><Label htmlFor="fp-email">Email</Label><Input id="fp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
           <Button type="submit" className="w-full" loading={loading}>Send reset link</Button>
           <Link to="/login" className="block text-center text-sm text-brand-600 hover:underline">Back to sign in</Link>
         </form>
@@ -161,8 +166,8 @@ export function ResetPassword() {
       {done ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">Password updated. Redirecting to sign in…</div> : (
         <form onSubmit={submit} className="space-y-4">
           {error && <ErrorState message={error} />}
-          <div><Label>Reset token</Label><Input value={token} onChange={(e) => setToken(e.target.value)} required /></div>
-          <div><Label>New password</Label><Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></div>
+          <div><Label htmlFor="rp-token">Reset token</Label><Input id="rp-token" value={token} onChange={(e) => setToken(e.target.value)} required /></div>
+          <div><Label htmlFor="rp-pw">New password</Label><PasswordInput id="rp-pw" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} /></div>
           <Button type="submit" className="w-full" loading={loading}>Update password</Button>
         </form>
       )}

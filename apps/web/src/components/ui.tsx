@@ -1,8 +1,14 @@
-import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef, useState, useEffect, createContext, useContext, useCallback, useRef, type ComponentType } from "react";
+import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, forwardRef, useId, useState, useEffect, createContext, useContext, useCallback, useRef, type ComponentType } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
-import { Loader2, X, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { Loader2, X, CheckCircle2, AlertCircle, Info, ChevronDown, Eye, EyeOff } from "lucide-react";
+
+// Merge a caller-supplied aria-describedby with an extra id (e.g. an error
+// message), preserving both rather than overwriting. Returns undefined when
+// there is nothing to describe.
+const describedBy = (existing: string | undefined, extra: string | false): string | undefined =>
+  [existing, extra || null].filter(Boolean).join(" ") || undefined;
 
 // ─────────────────────────────────────────────
 // Button — 5 variants, 3 sizes, loading state
@@ -143,40 +149,112 @@ export const Label = ({
   </label>
 );
 
-export const Input = forwardRef<
-  HTMLInputElement,
-  InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => (
-  <input
-    ref={ref}
-    className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
-      "placeholder:text-slate-400",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
-      className,
-    )}
-    {...props}
-  />
-));
+// Renders the accessible error message linked to a field via aria-describedby.
+const FieldError = ({ id, children }: { id: string; children: ReactNode }) => (
+  <p id={id} className="mt-1.5 flex items-start gap-1 text-[12px] font-medium text-red-600 dark:text-red-400">
+    <AlertCircle className="mt-px h-3.5 w-3.5 shrink-0" />
+    <span>{children}</span>
+  </p>
+);
 
-export const Select = forwardRef<
-  HTMLSelectElement,
-  React.SelectHTMLAttributes<HTMLSelectElement>
->(({ className, children, ...props }, ref) => (
-  <select
-    ref={ref}
-    className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100",
-      className,
-    )}
-    {...props}
-  >
-    {children}
-  </select>
-));
+type InputProps = InputHTMLAttributes<HTMLInputElement> & { error?: string };
+
+export const Input = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, error, id, "aria-describedby": ariaDescribedBy, ...props }, ref) => {
+    // Stable fallback id so the error message can be linked even when the
+    // caller doesn't pass one; a caller-supplied id always wins.
+    const reactId = useId();
+    const fieldId = id ?? reactId;
+    const errorId = `${fieldId}-error`;
+    return (
+      <>
+        <input
+          ref={ref}
+          id={fieldId}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy(ariaDescribedBy, !!error && errorId)}
+          className={cn(
+            "h-10 w-full rounded-lg border bg-white px-3 text-sm text-slate-900 outline-none transition",
+            "placeholder:text-slate-400",
+            "dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
+            error
+              ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-red-500/60"
+              : "border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10",
+            className,
+          )}
+          {...props}
+        />
+        {error && <FieldError id={errorId}>{error}</FieldError>}
+      </>
+    );
+  },
+);
+
+type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement> & { error?: string };
+
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, children, error, id, "aria-describedby": ariaDescribedBy, ...props }, ref) => {
+    const reactId = useId();
+    const fieldId = id ?? reactId;
+    const errorId = `${fieldId}-error`;
+    return (
+      <>
+        {/* The native chevron is hidden (appearance-none) and replaced with the
+            design-system ChevronDown; the select itself stays fully native. */}
+        <div className="relative">
+          <select
+            ref={ref}
+            id={fieldId}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={describedBy(ariaDescribedBy, !!error && errorId)}
+            className={cn(
+              "h-10 w-full appearance-none rounded-lg border bg-white px-3 pr-9 text-sm text-slate-900 outline-none transition",
+              "dark:bg-slate-900/60 dark:text-slate-100",
+              error
+                ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 dark:border-red-500/60"
+                : "border-border focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10",
+              className,
+            )}
+            {...props}
+          >
+            {children}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
+        </div>
+        {error && <FieldError id={errorId}>{error}</FieldError>}
+      </>
+    );
+  },
+);
+
+// ─────────────────────────────────────────────
+// PasswordInput — Input with an accessible show/hide toggle
+// ─────────────────────────────────────────────
+export const PasswordInput = forwardRef<HTMLInputElement, InputProps>(
+  ({ className, ...props }, ref) => {
+    const [visible, setVisible] = useState(false);
+    return (
+      <div className="relative">
+        <Input
+          ref={ref}
+          type={visible ? "text" : "password"}
+          className={cn("pr-10", className)}
+          {...props}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "Hide password" : "Show password"}
+          aria-pressed={visible}
+          // Full-height 40px control; the icon stays 16px, the hit area is larger.
+          className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center rounded-r-lg text-slate-400 transition-colors hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200"
+        >
+          {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    );
+  },
+);
 
 // ─────────────────────────────────────────────
 // Badge — premium pill with dot variant
@@ -280,7 +358,9 @@ export const ErrorState = ({
   message: string;
   retry?: () => void;
 }) => (
-  <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+  // role=alert: this component is used for submission/request failures that
+  // warrant an immediate screen-reader announcement.
+  <div role="alert" className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
     <AlertCircle className="h-4 w-4 shrink-0" />
     <span className="flex-1">{message}</span>
     {retry && (
@@ -309,6 +389,9 @@ export const Modal = ({
   children: ReactNode;
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  // Remember what was focused before the modal opened, so focus can return
+  // there on close (WCAG 2.4.3). Mirrors the account-menu pattern in Shell.tsx.
+  const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -318,6 +401,18 @@ export const Modal = ({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
+
+  // Capture the opener on open; restore focus to it on close. Guards against the
+  // opener having been unmounted while the modal was open.
+  useEffect(() => {
+    if (open) {
+      openerRef.current = document.activeElement as HTMLElement | null;
+      return;
+    }
+    const opener = openerRef.current;
+    if (opener && document.contains(opener)) opener.focus();
+    openerRef.current = null;
+  }, [open]);
 
   // Focus trap
   useEffect(() => {
@@ -383,7 +478,7 @@ export const Modal = ({
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="-mr-1 flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -447,12 +542,15 @@ const ToastCtx = createContext<{
 }>({ toast: () => {} });
 export const useToast = () => useContext(ToastCtx);
 
+// Most three toasts on screen at once; a new one past the cap drops the oldest.
+const MAX_TOASTS = 3;
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toast = useCallback(
     (message: string, tone: Toast["tone"] = "info") => {
       const id = Date.now() + Math.random();
-      setToasts((t) => [...t, { id, message, tone }]);
+      setToasts((t) => [...t, { id, message, tone }].slice(-MAX_TOASTS));
       setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
     },
     [],
@@ -461,17 +559,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={{ toast }}>
       {children}
-      <div
-        aria-live="polite"
-        className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2"
-      >
+      <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2">
         <AnimatePresence initial={false}>
           {toasts.map((t) => {
             const Icon = icons[t.tone];
+            // Errors demand immediate attention (assertive); success/info are
+            // polite so they don't interrupt the user.
+            const assertive = t.tone === "error";
             return (
               <motion.div
                 key={t.id}
                 layout
+                role={assertive ? "alert" : "status"}
+                aria-live={assertive ? "assertive" : "polite"}
                 initial={{ opacity: 0, x: 24, scale: 0.96 }}
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 24, scale: 0.96 }}

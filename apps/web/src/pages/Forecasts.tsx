@@ -33,8 +33,8 @@ export default function Forecasts() {
       {can("ADMIN", "MANAGER") && (
         <Card><CardBody>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="w-40"><Label>Metric</Label><Select value={metric} onChange={(e) => setMetric(e.target.value)}><option value="revenue">Revenue</option><option value="profit">Profit</option><option value="orders">Orders</option></Select></div>
-            <div className="w-40"><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>{[1, 3, 6, 12].map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
+            <div className="w-40"><Label htmlFor="fc-metric">Metric</Label><Select id="fc-metric" value={metric} onChange={(e) => setMetric(e.target.value)}><option value="revenue">Revenue</option><option value="profit">Profit</option><option value="orders">Orders</option></Select></div>
+            <div className="w-40"><Label htmlFor="fc-horizon">Horizon (months)</Label><Select id="fc-horizon" value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>{[1, 3, 6, 12].map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
             <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button>
           </div>
         </CardBody></Card>

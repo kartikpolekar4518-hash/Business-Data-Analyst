@@ -99,7 +99,14 @@ export default function Dashboard() {
     setLoadingSample(true);
     try {
       await api.post("/uploads/sample");
-      await qc.invalidateQueries();
+      // Only the data-derived views change; ["alerts"] prefix-matches the unread
+      // badge query too. Auth/org/profile/billing/settings are untouched.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["overview"] }),
+        qc.invalidateQueries({ queryKey: ["insights"] }),
+        qc.invalidateQueries({ queryKey: ["datasets"] }),
+        qc.invalidateQueries({ queryKey: ["alerts"] }),
+      ]);
     } catch (e) {
       toast(e instanceof ApiError ? e.message : "Couldn't load sample data", "error");
     } finally {

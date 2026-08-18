@@ -5,6 +5,9 @@ import { defineConfig } from "vitest/config";
 // would only report a misleading near-zero for untested UI.
 export default defineConfig({
   test: {
+    // jsdom so component tests can render and assert on the DOM. Pure-logic
+    // tests (utils/kpi) run fine here too.
+    environment: "jsdom",
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "text"],

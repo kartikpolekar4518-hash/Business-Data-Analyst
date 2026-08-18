@@ -67,8 +67,8 @@ export default function Analytics() {
           </div>
           {FILTERS.map((f) => (
             <div key={f.key}>
-              <Label>{f.label}</Label>
-              <Select value={query[f.key] ?? ""} onChange={(e) => setFilter(f.key, e.target.value)}>
+              <Label htmlFor={`f-${f.key}`}>{f.label}</Label>
+              <Select id={`f-${f.key}`} value={query[f.key] ?? ""} onChange={(e) => setFilter(f.key, e.target.value)}>
                 <option value="">All</option>
                 {(opts[f.key] ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
               </Select>

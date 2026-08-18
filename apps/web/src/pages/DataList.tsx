@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, Label } from "../components/ui";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, PasswordInput, Label } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
 import type { DatasetSummary, Connection, ConnectorType } from "../lib/types";
 
@@ -73,7 +73,14 @@ export default function DataList() {
     try {
       await api.post("/uploads/sample");
       toast("Sample dataset loaded — explore your dashboard", "success");
-      qc.invalidateQueries();
+      // Only the data-derived views change; ["alerts"] prefix-matches the unread
+      // badge too. Auth/org/profile/billing/settings are left untouched.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["overview"] }),
+        qc.invalidateQueries({ queryKey: ["insights"] }),
+        qc.invalidateQueries({ queryKey: ["datasets"] }),
+        qc.invalidateQueries({ queryKey: ["alerts"] }),
+      ]);
     } catch (e) { toast(e instanceof ApiError ? e.message : "Couldn't load sample data", "error"); }
     finally { setLoadingSample(false); }
   }
@@ -203,26 +210,26 @@ function ConnectModal({ type, onClose, onSaved }: { type: ConnectorType; onClose
   return (
     <Modal open onClose={onClose} title={`Connect ${CONNECTOR_LABEL[type]}`}>
       <div className="space-y-3">
-        <div><Label>Connection name</Label><Input value={form.name} onChange={set("name")} placeholder="e.g. Production orders" /></div>
+        <div><Label htmlFor="conn-name">Connection name</Label><Input id="conn-name" value={form.name} onChange={set("name")} placeholder="e.g. Production orders" /></div>
         {isSheet ? (
           <div>
-            <Label>Google Sheet URL</Label>
-            <Input value={form.sheetUrl} onChange={set("sheetUrl")} placeholder="https://docs.google.com/spreadsheets/d/…" />
+            <Label htmlFor="conn-sheet">Google Sheet URL</Label>
+            <Input id="conn-sheet" value={form.sheetUrl} onChange={set("sheetUrl")} placeholder="https://docs.google.com/spreadsheets/d/…" />
             <p className="mt-1 text-xs text-slate-500">Share the sheet as “anyone with the link” so we can read it.</p>
           </div>
         ) : (
           <>
             <div className="grid grid-cols-3 gap-3">
-              <div className="col-span-2"><Label>Host</Label><Input value={form.host} onChange={set("host")} placeholder="db.example.com" /></div>
-              <div><Label>Port</Label><Input value={form.port} onChange={set("port")} inputMode="numeric" placeholder="5432" /></div>
+              <div className="col-span-2"><Label htmlFor="conn-host">Host</Label><Input id="conn-host" value={form.host} onChange={set("host")} placeholder="db.example.com" /></div>
+              <div><Label htmlFor="conn-port">Port</Label><Input id="conn-port" value={form.port} onChange={set("port")} inputMode="numeric" placeholder="5432" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Database</Label><Input value={form.database} onChange={set("database")} /></div>
-              <div><Label>Table</Label><Input value={form.table} onChange={set("table")} placeholder="public.orders" /></div>
+              <div><Label htmlFor="conn-db">Database</Label><Input id="conn-db" value={form.database} onChange={set("database")} /></div>
+              <div><Label htmlFor="conn-table">Table</Label><Input id="conn-table" value={form.table} onChange={set("table")} placeholder="public.orders" /></div>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>User</Label><Input value={form.user} onChange={set("user")} /></div>
-              <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} /></div>
+              <div><Label htmlFor="conn-user">User</Label><Input id="conn-user" autoComplete="username" value={form.user} onChange={set("user")} /></div>
+              <div><Label htmlFor="conn-pw">Password</Label><PasswordInput id="conn-pw" autoComplete="off" value={form.password} onChange={set("password")} /></div>
             </div>
           </>
         )}

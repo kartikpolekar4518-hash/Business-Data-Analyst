@@ -6,7 +6,7 @@ import { api, ApiError } from "../lib/api";
 import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { useIndustries } from "../lib/industries";
-import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Input, PasswordInput, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
 import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 
 export default function SettingsPage() {
@@ -109,10 +109,10 @@ function OrgTab() {
   };
   return (
     <Card><CardHeader title="Company profile" /><CardBody className="max-w-md space-y-4">
-      <div><Label>Organization name</Label><Input defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
+      <div><Label htmlFor="org-name">Organization name</Label><Input id="org-name" defaultValue={data?.organization.name} onChange={(e) => setName(e.target.value)} disabled={!can("ADMIN")} /></div>
       <div>
-        <Label>Business type</Label>
-        <Select value={industry ?? data?.organization.industry ?? "generic"} onChange={(e) => setIndustry(e.target.value)} disabled={!can("ADMIN")}>
+        <Label htmlFor="org-industry">Business type</Label>
+        <Select id="org-industry" value={industry ?? data?.organization.industry ?? "generic"} onChange={(e) => setIndustry(e.target.value)} disabled={!can("ADMIN")}>
           {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
         </Select>
         <p className="mt-1 text-xs text-slate-400">Your dashboards, KPIs, and labels adapt to this.</p>
@@ -146,7 +146,7 @@ function UsersTab() {
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">{u.name[0]}</div>
             <div className="flex-1"><div className="font-medium">{u.name} {u.id === user?.id && <span className="text-xs text-slate-400">(you)</span>}</div><div className="text-xs text-slate-500">{u.email}</div></div>
             {can("ADMIN") && u.id !== user?.id ? (
-              <Select value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
+              <Select aria-label={`Role for ${u.name}`} value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
             ) : <Badge tone="blue">{u.role}</Badge>}
             {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" aria-label={`Remove ${u.name}`} onClick={() => remove(u.membershipId, u.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
           </div>
@@ -200,9 +200,9 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
       ) : (
         <form onSubmit={submit} className="space-y-3">
           {error && <ErrorState message={error} />}
-          <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
-          <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
-          <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
+          <div><Label htmlFor="invite-name">Name</Label><Input id="invite-name" autoComplete="name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
+          <div><Label htmlFor="invite-email">Email</Label><Input id="invite-email" type="email" autoComplete="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
+          <div><Label htmlFor="invite-role">Role</Label><Select id="invite-role" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
           <p className="text-xs text-slate-400">We'll generate a one-time password you can share with them.</p>
           <Button type="submit" className="w-full" loading={loading}>Create account</Button>
         </form>
@@ -237,9 +237,9 @@ function ApiKeysTab() {
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
         {can("ADMIN") && (
           <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-            <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
-            <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
-            <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
+            <div className="w-40"><Label htmlFor="key-name">Name</Label><Input id="key-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
+            <div className="w-40"><Label htmlFor="key-provider">Provider</Label><Input id="key-provider" value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
+            <div className="flex-1"><Label htmlFor="key-secret">Secret</Label><PasswordInput id="key-secret" autoComplete="off" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
             <Button onClick={add} disabled={!form.name || !form.provider || form.key.length < 8}>Add key</Button>
           </div>
         )}

@@ -75,16 +75,22 @@ function useUnreadAlerts() {
 }
 
 /* ─────────────────────────────────────────────
-   Alert badge — unread count pill
+   Notification count — one formatter + accessible label shared by every badge,
+   so the cap (99+) and screen-reader wording stay consistent app-wide.
    ───────────────────────────────────────────── */
+const formatCount = (n: number) => (n > 99 ? "99+" : String(n));
+const unreadLabel = (n: number) => `${n > 99 ? "99 or more" : n} unread ${n === 1 ? "alert" : "alerts"}`;
+
+/* Sidebar alert badge — inline count pill next to the nav label. */
 function AlertBadge() {
   const { data: alerts } = useUnreadAlerts();
-
-  if (!alerts?.unread) return null;
+  const unread = alerts?.unread ?? 0;
+  if (!unread) return null;
 
   return (
-    <span className="relative ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white backdrop-blur-sm">
-      {alerts.unread > 99 ? "99+" : alerts.unread}
+    <span className="ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-semibold leading-none text-white">
+      <span aria-hidden="true">{formatCount(unread)}</span>
+      <span className="sr-only">{unreadLabel(unread)}</span>
     </span>
   );
 }
@@ -334,17 +340,17 @@ function Header({
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
       {/* Mobile hamburger */}
       <button
-        className="lg:hidden"
+        className="-ml-1 flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 lg:hidden"
         onClick={onMenuClick}
         aria-label="Open navigation"
       >
-        <Menu className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+        <Menu className="h-5 w-5" />
       </button>
 
       {/* Desktop sidebar toggle */}
       <button
         onClick={onToggleCollapse}
-        className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 lg:flex"
+        className="hidden h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 lg:flex"
         aria-label={collapsed ? "Show navigation" : "Hide navigation"}
       >
         {collapsed ? (
@@ -374,7 +380,7 @@ function Header({
       {/* Theme toggle */}
       <button
         onClick={toggle}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
         aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
       >
         {theme === "dark" ? (
@@ -387,17 +393,18 @@ function Header({
       {/* Notifications */}
       <NavLink
         to="/alerts"
-        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="relative flex h-10 w-10 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
         aria-label={
           alerts?.unread
-            ? `Notifications (${alerts.unread} unread)`
+            ? `Notifications, ${unreadLabel(alerts.unread)}`
             : "Notifications"
         }
       >
         <Bell className="h-[17px] w-[17px]" />
         {alerts?.unread ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-[2px] ring-white dark:ring-slate-950">
-            {alerts.unread > 9 ? "9+" : alerts.unread}
+          // Decorative: the count is announced via the link's aria-label above.
+          <span aria-hidden="true" className="absolute right-1 top-1 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-[2px] ring-white dark:ring-slate-950">
+            {formatCount(alerts.unread)}
           </span>
         ) : null}
       </NavLink>
@@ -425,7 +432,6 @@ function Header({
             <motion.div
               role="menu"
               className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
-              onMouseLeave={() => setMenu(false)}
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: -4 }}
