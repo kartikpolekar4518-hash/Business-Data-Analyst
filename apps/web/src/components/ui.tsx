@@ -2,7 +2,7 @@ import { type ReactNode, type ButtonHTMLAttributes, type InputHTMLAttributes, fo
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
-import { Loader2, X, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { Loader2, X, CheckCircle2, AlertCircle, Info, Check, ChevronLeft, ChevronRight } from "lucide-react";
 
 // ─────────────────────────────────────────────
 // Button — 5 variants, 3 sizes, loading state
@@ -495,3 +495,308 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     </ToastCtx.Provider>
   );
 }
+
+// ─────────────────────────────────────────────
+// Checkbox — controlled, brand-filled
+// ─────────────────────────────────────────────
+export const Checkbox = ({
+  checked,
+  indeterminate,
+  onChange,
+  disabled,
+  label,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label?: ReactNode;
+  className?: string;
+  "aria-label"?: string;
+}) => (
+  <label className={cn("inline-flex cursor-pointer items-center gap-2 select-none", disabled && "cursor-not-allowed opacity-50", className)}>
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={indeterminate ? "mixed" : checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-950",
+        checked || indeterminate
+          ? "border-brand-600 bg-brand-600 text-white dark:border-brand-500 dark:bg-brand-500"
+          : "border-border bg-white dark:border-white/15 dark:bg-slate-900/60",
+      )}
+    >
+      {indeterminate ? <span className="h-0.5 w-2 rounded-full bg-white" /> : checked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+    </button>
+    {label && <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>}
+  </label>
+);
+
+// ─────────────────────────────────────────────
+// Switch — toggle
+// ─────────────────────────────────────────────
+export const Switch = ({
+  checked,
+  onChange,
+  disabled,
+  label,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+  label?: ReactNode;
+  className?: string;
+  "aria-label"?: string;
+}) => (
+  <label className={cn("inline-flex cursor-pointer items-center gap-2.5 select-none", disabled && "cursor-not-allowed opacity-50", className)}>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
+        checked ? "bg-brand-600 dark:bg-brand-500" : "bg-slate-300 dark:bg-slate-700",
+      )}
+    >
+      <motion.span
+        layout
+        transition={SPRING}
+        className="inline-block h-4 w-4 rounded-full bg-white shadow-sm"
+        style={{ marginLeft: checked ? 18 : 2 }}
+      />
+    </button>
+    {label && <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>}
+  </label>
+);
+
+// ─────────────────────────────────────────────
+// Textarea
+// ─────────────────────────────────────────────
+export const Textarea = forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>
+>(({ className, ...props }, ref) => (
+  <textarea
+    ref={ref}
+    className={cn(
+      "w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-slate-900 outline-none transition",
+      "placeholder:text-slate-400",
+      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
+      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500",
+      className,
+    )}
+    {...props}
+  />
+));
+
+// ─────────────────────────────────────────────
+// Tooltip — hover/focus, positioned around a trigger
+// ─────────────────────────────────────────────
+export const Tooltip = ({
+  content,
+  side = "top",
+  children,
+}: {
+  content: ReactNode;
+  side?: "top" | "bottom" | "left" | "right";
+  children: ReactNode;
+}) => {
+  const [open, setOpen] = useState(false);
+  const pos = {
+    top: "bottom-full left-1/2 -translate-x-1/2 mb-1.5",
+    bottom: "top-full left-1/2 -translate-x-1/2 mt-1.5",
+    left: "right-full top-1/2 -translate-y-1/2 mr-1.5",
+    right: "left-full top-1/2 -translate-y-1/2 ml-1.5",
+  }[side];
+  return (
+    <span
+      className="relative inline-flex"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={() => setOpen(false)}
+    >
+      {children}
+      <AnimatePresence>
+        {open && content != null && (
+          <motion.span
+            role="tooltip"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: DUR.fast, ease: EASE }}
+            className={cn(
+              "pointer-events-none absolute z-50 w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown dark:bg-slate-700",
+              pos,
+            )}
+          >
+            {content}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </span>
+  );
+};
+
+// ─────────────────────────────────────────────
+// Dropdown — trigger + menu, closes on outside click / escape
+// ─────────────────────────────────────────────
+export const Dropdown = ({
+  trigger,
+  children,
+  align = "left",
+  className,
+}: {
+  trigger: ReactNode;
+  children: ReactNode | ((close: () => void) => ReactNode);
+  align?: "left" | "right";
+  className?: string;
+}) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const close = useCallback(() => setOpen(false), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative inline-flex">
+      <span onClick={() => setOpen((o) => !o)}>{trigger}</span>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, scale: 0.97, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.97, y: -4 }}
+            transition={{ duration: DUR.fast, ease: EASE }}
+            className={cn(
+              "absolute top-full z-50 mt-1.5 min-w-[10rem] overflow-hidden rounded-xl border border-border bg-white p-1 shadow-dropdown dark:border-slate-700 dark:bg-slate-800",
+              align === "right" ? "right-0" : "left-0",
+              className,
+            )}
+          >
+            {typeof children === "function" ? children(close) : children}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export const DropdownItem = ({
+  onClick,
+  icon: Icon,
+  danger,
+  disabled,
+  children,
+}: {
+  onClick?: () => void;
+  icon?: ComponentType<{ className?: string }>;
+  danger?: boolean;
+  disabled?: boolean;
+  children: ReactNode;
+}) => (
+  <button
+    type="button"
+    role="menuitem"
+    disabled={disabled}
+    onClick={onClick}
+    className={cn(
+      "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors",
+      "disabled:pointer-events-none disabled:opacity-50",
+      danger
+        ? "text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+        : "text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/60",
+    )}
+  >
+    {Icon && <Icon className="h-4 w-4 shrink-0 opacity-70" />}
+    {children}
+  </button>
+);
+
+// ─────────────────────────────────────────────
+// Pagination — page controls with compact range
+// ─────────────────────────────────────────────
+function pageRange(current: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const out: (number | "…")[] = [1];
+  const from = Math.max(2, current - 1);
+  const to = Math.min(total - 1, current + 1);
+  if (from > 2) out.push("…");
+  for (let i = from; i <= to; i++) out.push(i);
+  if (to < total - 1) out.push("…");
+  out.push(total);
+  return out;
+}
+
+export const Pagination = ({
+  page,
+  pageCount,
+  onChange,
+  className,
+}: {
+  page: number;
+  pageCount: number;
+  onChange: (page: number) => void;
+  className?: string;
+}) => {
+  if (pageCount <= 1) return null;
+  const go = (p: number) => onChange(Math.min(pageCount, Math.max(1, p)));
+  const btn =
+    "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40";
+  return (
+    <div className={cn("flex items-center gap-1", className)}>
+      <button className={cn(btn, "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800")} onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous page">
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      {pageRange(page, pageCount).map((p, i) =>
+        p === "…" ? (
+          <span key={`gap-${i}`} className="px-1 text-sm text-slate-400">…</span>
+        ) : (
+          <button
+            key={p}
+            onClick={() => go(p)}
+            aria-current={p === page ? "page" : undefined}
+            className={cn(
+              btn,
+              p === page
+                ? "bg-brand-600 font-medium text-white dark:bg-brand-500"
+                : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+            )}
+          >
+            {p}
+          </button>
+        ),
+      )}
+      <button className={cn(btn, "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800")} onClick={() => go(page + 1)} disabled={page >= pageCount} aria-label="Next page">
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+};
