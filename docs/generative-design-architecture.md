@@ -430,24 +430,34 @@ reads those results by reference and decides only how to present them.
 
 ## 14. Phased rollout
 
-- **Phase A — Spec + deterministic renderer (no AI).** Define `DashboardSpec`,
-  the JSON schema, the Component DNA registry, and a renderer that reproduces the
-  *current* pack dashboard purely from a spec. Proves the IR and the data-reference
-  boundary end-to-end. Add the Spec Validation Gate.
-- **Phase B — Color Intelligence + style families.** Runtime token engine, palette
-  generation, light/dark transform, accessibility gates.
-- **Phase C — AI Design Director.** The Director emits the spec (validated in
-  Phase A's gate). Add `DesignSeed` + "Generate another design."
-- **Phase D — Quality Engine + gating.** Scoring, repair/regenerate loop, and the
-  threshold that lets v2 become default per-dataset while the pack dashboard
-  remains the fallback.
-- **Phase E — Production learning loop (future optimization, not required).**
-  Collect product signals — which generated dashboards users keep, which layouts
-  they modify, which components they remove, which styles they prefer, which
-  specs fail validation, which configurations get more interaction — and use them
-  *initially to improve ranking and design selection*, not to assume a custom
-  trained model. A ranking/optimization layer over the generative grammar, added
-  only once there is enough signal.
+> **Status:** Phases A–D are implemented as the `/dashboard-v2` route + the
+> `apps/api/src/engine/{spec,spec-validate,color,design-director,quality}.ts`
+> pipeline; Phase E is scaffolded (`design-signals.ts`, no persistence). The
+> pack dashboard remains the default and fallback.
+
+- **Phase A — Spec + deterministic renderer (no AI). ✅** `DashboardSpec` +
+  Component DNA registry (`spec.ts`), the Spec Validation Gate (`spec-validate.ts`),
+  and a renderer (`SpecRenderer.tsx`) that reproduces the pack dashboard purely
+  from a validated spec. Proves the IR and the data-reference boundary.
+- **Phase B — Color Intelligence + style families. ✅** Deterministic HSL palette
+  engine (`color.ts`): industry hues shaped by a style modifier, semantic +
+  categorical colors, light/dark transform, and a WCAG contrast report the
+  Quality Engine gates on.
+- **Phase C — AI Design Director. ✅** A deterministic, auditable planner
+  (`design-director.ts`) selects style/density/palette and includes/drops blocks
+  by data context, emitting a candidate spec; `DesignDirector` is the seam an LLM
+  plugs into. `DesignSeed` + "Generate another design" re-roll the identity
+  without touching numbers.
+- **Phase D — Quality Engine + gating. ✅** Ten-dimension scoring, a
+  repair→regenerate loop keeping the best candidate (`quality.ts`), and the
+  threshold that decides whether v2 clears the bar.
+- **Phase E — Production learning loop (future optimization, not required). 🟡
+  scaffolded.** `design-signals.ts` defines the collectable signals — kept,
+  regenerated, block removed/modified, style preferred, validation failed — and a
+  pure preference-ranking seam; `POST /analytics/design-signal` validates and
+  acknowledges them. No model is trained and nothing is persisted yet; the loop
+  still selects purely by quality score. Wiring the preference bonus into ranking
+  is the remaining Phase E work.
 
 ## 15. Risks & open questions
 

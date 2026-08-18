@@ -20,19 +20,40 @@ export interface Block {
   data?: DataBinding;
 }
 
+export interface Palette {
+  id: string;
+  theme: "light" | "dark";
+  bg: string; surface: string; surfaceSecondary: string; border: string;
+  text: string; textMuted: string;
+  primary: string; secondary: string; accent: string;
+  success: string; warning: string; danger: string; info: string;
+  categorical: string[];
+  accessibility: { textContrast: number; mutedContrast: number; primaryContrast: number; passed: boolean; notes: string[] };
+}
+
 export interface DashboardSpec {
   specVersion: string;
   meta: { businessType: string; purpose: string; density: string; styleFamily: string; theme: string };
   designSeed: Record<string, unknown>;
-  theme: { paletteId: string; tokenOverlay: string };
+  theme: { paletteId: string; tokenOverlay: string; palette?: Palette };
   layout: { primitive: string; regions: string[]; responsive: Record<string, string> };
   blocks: Block[];
+}
+
+export interface QualityScore {
+  dimensions: Record<string, number>;
+  composite: number;
+  passed: boolean;
+  threshold: number;
 }
 
 export interface SpecResponse {
   spec: DashboardSpec;
   valid: boolean;
   errors: string[];
+  quality: QualityScore;
+  attempts: number;
+  regenerated: boolean;
 }
 
 export type Resolved =

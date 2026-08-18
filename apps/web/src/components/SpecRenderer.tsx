@@ -9,16 +9,16 @@ import { kpiIcon } from "../lib/kpi";
 import { Card, CardHeader, CardBody } from "./ui";
 import { KpiCard } from "./Kpi";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "./charts";
-import { resolveBinding, byPriority, type Block, type DashboardSpec } from "../lib/spec";
+import { resolveBinding, byPriority, type Block, type DashboardSpec, type Palette } from "../lib/spec";
 import type { OverviewResponse, Rank } from "../lib/types";
 
-const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
+const FALLBACK_ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
 
 function Empty({ text }: { text: string }) {
   return <p className="py-8 text-center text-sm text-slate-400">{text}</p>;
 }
 
-function NumberedRanking({ data, format, emptyText }: { data: Rank[]; format: "money" | "number"; emptyText: string }) {
+function NumberedRanking({ data, format, emptyText, bar }: { data: Rank[]; format: "money" | "number"; emptyText: string; bar: string }) {
   if (!data.length) return <Empty text={emptyText} />;
   const fmt = format === "money" ? money : num;
   const max = Math.max(...data.map((p) => p.value)) || 1;
@@ -33,7 +33,7 @@ function NumberedRanking({ data, format, emptyText }: { data: Rank[]; format: "m
               <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">{fmt(p.value)}</span>
             </div>
             <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-              <motion.div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${CHART.blue}88, ${CHART.blue})` }}
+              <motion.div className="h-full rounded-full" style={{ background: `linear-gradient(90deg, ${bar}88, ${bar})` }}
                 initial={{ width: 0 }} animate={{ width: `${(p.value / max) * 100}%` }}
                 transition={{ duration: DUR.slow, ease: EASE, delay: i * 0.06 }} />
             </div>
@@ -55,9 +55,10 @@ function Framed({ block, children }: { block: Block; children: React.ReactNode }
   );
 }
 
-function renderBlock(block: Block, ov: OverviewResponse) {
+function renderBlock(block: Block, ov: OverviewResponse, palette?: Palette) {
   const r = resolveBinding(block.data, ov);
   const p = block.props ?? {};
+  const accents = palette?.categorical?.length ? palette.categorical : FALLBACK_ACCENTS;
 
   switch (block.component) {
     case "KpiCard": {
@@ -66,7 +67,7 @@ function renderBlock(block: Block, ov: OverviewResponse) {
       const idx = (p.accentIndex as number) ?? 0;
       return (
         <KpiCard key={block.id} label={k.label} value={k.value} format={k.format} changePct={k.changePct}
-          icon={kpiIcon(k.icon)} accent={p.emphasis === "primary"} accentColor={ACCENTS[idx % ACCENTS.length]}
+          icon={kpiIcon(k.icon)} accent={p.emphasis === "primary"} accentColor={accents[idx % accents.length]}
           spark={k.spark && k.spark.length > 1 ? k.spark : undefined} tooltip={k.tooltip} explain />
       );
     }
@@ -85,7 +86,7 @@ function renderBlock(block: Block, ov: OverviewResponse) {
     case "RankingList":
       return (
         <Framed key={block.id} block={block}>
-          <NumberedRanking data={r?.kind === "ranking" ? r.value : []} format={(p.format as "money" | "number") ?? "money"} emptyText={(p.emptyText as string) ?? "No data"} />
+          <NumberedRanking data={r?.kind === "ranking" ? r.value : []} format={(p.format as "money" | "number") ?? "money"} emptyText={(p.emptyText as string) ?? "No data"} bar={palette?.primary ?? CHART.blue} />
         </Framed>
       );
     case "BarRankChart":
@@ -108,14 +109,20 @@ const REGION_GRID: Record<string, string> = {
 
 export function SpecRenderer({ spec, overview }: { spec: DashboardSpec; overview: OverviewResponse }) {
   const regions = spec.layout.regions.length ? spec.layout.regions : ["kpiRow", "mainGrid", "detail"];
+  const palette = spec.theme.palette;
+  // Scope the generated palette to this subtree so different design identities
+  // are visibly different, without touching the app's global theme.
+  const style = palette
+    ? ({ background: palette.bg, borderColor: palette.border, ["--nops-primary" as string]: palette.primary } as React.CSSProperties)
+    : undefined;
   return (
-    <div className="space-y-6">
+    <div className={cn("space-y-6", palette && "rounded-2xl border p-4 sm:p-6")} style={style}>
       {regions.map((region) => {
         const blocks = spec.blocks.filter((b) => b.region === region).sort(byPriority);
         if (!blocks.length) return null;
         return (
           <div key={region} className={cn(REGION_GRID[region] ?? "grid gap-6")}>
-            {blocks.map((b) => renderBlock(b, overview))}
+            {blocks.map((b) => renderBlock(b, overview, palette))}
           </div>
         );
       })}

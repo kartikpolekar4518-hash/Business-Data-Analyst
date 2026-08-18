@@ -8,6 +8,7 @@
 // the data-reference boundary end to end.
 import type { SchemaMap } from "./schema.js";
 import type { IndustryPack } from "./industries.js";
+import type { Palette } from "./color.js";
 
 export const SPEC_VERSION = "1.0.0";
 
@@ -122,7 +123,7 @@ export interface DashboardSpec {
   specVersion: string;
   meta: { businessType: string; purpose: string; density: Density; styleFamily: StyleFamily; theme: Theme };
   designSeed: DesignSeed;
-  theme: { paletteId: string; tokenOverlay: string };
+  theme: { paletteId: string; tokenOverlay: string; palette?: Palette };
   layout: { primitive: LayoutPrimitive; regions: Region[]; responsive: Record<string, string> };
   blocks: Block[];
 }

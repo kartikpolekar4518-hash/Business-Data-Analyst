@@ -7,8 +7,10 @@ import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
 import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industries.js";
-import { buildDashboardSpec, availableOutputs, type BuildOpts, type StyleFamily, type Density, type Theme } from "../engine/spec.js";
-import { validateSpec } from "../engine/spec-validate.js";
+import type { StyleFamily, Density, Theme } from "../engine/spec.js";
+import { generateDashboard } from "../engine/quality.js";
+import type { DataContext, DesignPrefs } from "../engine/design-director.js";
+import type { Semantic } from "../engine/schema.js";
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
@@ -115,27 +117,48 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
   });
 }));
 
-// Generative dashboard spec (Phase A) — the DashboardSpec IR built
-// deterministically from the industry pack. The v2 renderer fetches this plus
-// `/overview` (the resolvable outputs) and composes the dashboard from the spec.
-// Query params let the client re-roll the visual design without touching numbers.
+// Generative dashboard spec — the full pipeline: the Design Director plans a
+// candidate from the pack + data context + DesignSeed, the Spec Validation Gate
+// checks it, and the Quality Engine repairs/regenerates until it clears the bar.
+// The renderer fetches this plus `/overview` (the resolvable outputs) and
+// composes the dashboard. Query params re-roll the visual design — the numbers,
+// computed deterministically elsewhere, never change.
 analyticsRouter.get("/spec", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
-  const { schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const { rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
   const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
   const pack = getPack(org?.industry);
 
-  const opts: BuildOpts = {
-    styleFamily: req.query.style as StyleFamily | undefined,
+  const ctx: DataContext = { rowCount: rows.length, present: new Set(Object.keys(schema) as Semantic[]) };
+  const prefs: DesignPrefs = {
+    style: req.query.style as StyleFamily | undefined,
     density: req.query.density as Density | undefined,
     theme: req.query.theme as Theme | undefined,
-    variationSeed: req.query.seed ? Number(req.query.seed) || 0 : undefined,
   };
-  const spec = buildDashboardSpec(pack, schema, opts);
-  // Gate the deterministic builder's own output — catches vocabulary/binding
-  // regressions before a spec ever reaches the renderer.
-  const result = validateSpec(spec, availableOutputs(pack));
-  res.json({ spec, valid: result.valid, errors: result.errors });
+  const seed = req.query.seed ? Number(req.query.seed) || 0 : 0;
+
+  const result = generateDashboard(pack, schema, ctx, seed, prefs);
+  res.json({
+    spec: result.spec,
+    valid: result.validation.valid,
+    errors: result.validation.errors,
+    quality: result.quality,
+    attempts: result.attempts,
+    regenerated: result.regenerated,
+  });
+}));
+
+// Phase E scaffold — collect a design signal. Future ranking input; today it is
+// validated and acknowledged, not persisted (no learned model is used yet).
+analyticsRouter.post("/design-signal", wrap(async (req, res) => {
+  const parsed = z.object({
+    kind: z.enum(["kept", "regenerated", "block_removed", "block_modified", "style_preferred", "validation_failed"]),
+    styleFamily: z.string(),
+    blockId: z.string().optional(),
+    seed: z.number().optional(),
+  }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "invalid signal" });
+  res.json({ ok: true });
 }));
 
 analyticsRouter.get("/revenue", timeSeries("revenue"));
