@@ -3,6 +3,18 @@ import * as XLSX from "xlsx";
 
 export type Row = Record<string, unknown>;
 
+// A spreadsheet/CSV header is attacker-controlled. Never let one become a key
+// that pollutes Object.prototype downstream (defence-in-depth alongside keeping
+// the xlsx parser current).
+const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+function sanitizeRow(row: Row): Row {
+  const out: Row = {};
+  for (const [k, v] of Object.entries(row)) {
+    if (!DANGEROUS_KEYS.has(k)) out[k] = v;
+  }
+  return out;
+}
+
 export interface ParsedFile {
   rows: Row[];
   columns: string[];
@@ -32,8 +44,8 @@ function parseCsv(buffer: Buffer): ParsedFile {
     if (result.errors.length > 0) {
       console.warn(`[parse] CSV parsing warnings: ${result.errors.map(e => e.message).join(", ")}`);
     }
-    const rows = (result.data || []).filter((r) => Object.keys(r).length > 0);
-    const columns = result.meta.fields ?? inferColumns(rows);
+    const rows = (result.data || []).filter((r) => Object.keys(r).length > 0).map(sanitizeRow);
+    const columns = (result.meta.fields ?? inferColumns(rows)).filter((c) => !DANGEROUS_KEYS.has(c));
     return { rows, columns };
   } catch (e) {
     throw new Error(`Failed to parse CSV: ${e instanceof Error ? e.message : String(e)}`);
@@ -47,7 +59,7 @@ function parseXlsx(buffer: Buffer): ParsedFile {
     const rows = XLSX.utils.sheet_to_json<Row>(sheet, { defval: "", raw: false });
     // Normalize null values to empty string to match CSV behavior
     const normalized = rows.map(r => Object.fromEntries(
-      Object.entries(r).map(([k, v]) => [k, v === null ? "" : v])
+      Object.entries(sanitizeRow(r)).map(([k, v]) => [k, v === null ? "" : v])
     ));
     return { rows: normalized, columns: inferColumns(normalized) };
   } catch (e) {

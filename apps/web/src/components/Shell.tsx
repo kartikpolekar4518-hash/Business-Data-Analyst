@@ -219,7 +219,7 @@ function Sidebar({
                       key={n.to}
                       to={n.to}
                       onClick={onClose}
-                      className={({ isActive }) =>
+                      className={({ isActive }: { isActive: boolean }) =>
                         cn(
                           "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors duration-150",
                           isActive
@@ -228,7 +228,7 @@ function Sidebar({
                         )
                       }
                     >
-                      {({ isActive }) => (
+                      {({ isActive }: { isActive: boolean }) => (
                         <>
                           {/* Shared layoutId — the pill and glow bar travel
                               between routes instead of popping. */}

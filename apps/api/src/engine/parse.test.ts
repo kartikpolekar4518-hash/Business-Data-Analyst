@@ -68,3 +68,13 @@ test("XLSX: empty cells become '' to match CSV behavior, never null", () => {
   assert.equal(rows[1].region, "", "missing cell is an empty string");
   assert.ok(!Object.values(rows[1]).includes(null), "no null values leak through");
 });
+
+// ---------- prototype-pollution guard ----------
+test("strips prototype-polluting header keys (CSV)", () => {
+  const { rows, columns } = parseFile({ buffer: csv("__proto__,constructor,name\nx,y,Ada"), fileName: "d.csv" });
+  assert.ok(!columns.includes("__proto__") && !columns.includes("constructor"), "dangerous columns removed");
+  assert.deepEqual(columns, ["name"]);
+  assert.equal(rows[0].name, "Ada");
+  assert.equal(({} as Record<string, unknown>).polluted, undefined);
+  assert.equal(Object.prototype.hasOwnProperty.call(rows[0], "__proto__"), false);
+});
