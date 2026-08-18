@@ -19,18 +19,13 @@ body {
 
 .dark body {
   @apply text-slate-100;
-  background-color: #060a13;
-  background-image:
-    radial-gradient(55rem 55rem at 100% -12%, rgba(89, 140, 255, 0.12), transparent 60%),
-    radial-gradient(48rem 48rem at -12% 8%, rgba(139, 92, 246, 0.10), transparent 58%),
-    radial-gradient(40rem 40rem at 60% 120%, rgba(34, 211, 238, 0.06), transparent 60%);
-  background-attachment: fixed;
+  background-color: #0b0f17;
 }
 
-/* ✅ Thin scrollbars — modern & unobtrusive */
+/* Thin scrollbars */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { 
+::-webkit-scrollbar-thumb {
   @apply bg-slate-300/60 dark:bg-slate-700/60;
   border-radius: 3px;
 }
@@ -38,19 +33,19 @@ body {
   @apply bg-slate-400/80 dark:bg-slate-600/80;
 }
 
-/* ✅ Selection color */
+/* Selection color */
 ::selection {
   @apply bg-brand-500/15 text-brand-700 dark:bg-brand-400/20 dark:text-brand-300;
 }
 
-/* ✅ Focus ring system */
+/* Focus ring system */
 *:focus-visible {
   @apply outline-none;
   box-shadow: 0 0 0 3px rgba(51,102,245,0.25);
   border-radius: 4px;
 }
 
-/* ✅ Skeleton shimmer base */
+/* Skeleton shimmer base */
 @layer components {
   .skeleton {
     @apply relative overflow-hidden rounded-lg;
@@ -74,14 +69,13 @@ body {
     background-size: 200% 100%;
   }
 
-  /* ✅ Card base component */
+  /* Card base component — flat elevation, no glow or blur */
   .card {
     @apply rounded-xl border border-border bg-white shadow-card transition-shadow duration-200;
   }
 
   .dark .card {
-    @apply border-white/[0.06] bg-slate-900/70 backdrop-blur-sm;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 40px -20px rgba(0, 0, 0, 0.8);
+    @apply border-white/[0.08] bg-slate-900 shadow-card-dark;
   }
 
   .card:hover {
@@ -89,11 +83,10 @@ body {
   }
 
   .dark .card:hover {
-    @apply border-brand-500/25;
-    box-shadow: 0 0 0 1px rgba(89, 140, 255, 0.12), 0 22px 45px -22px rgba(0, 0, 0, 0.9);
+    @apply border-white/[0.14];
   }
 
-  /* ✅ Page header */
+  /* Page header */
   .page-header {
     @apply mb-8;
   }
@@ -106,7 +99,7 @@ body {
     @apply mt-1 text-body text-slate-500 dark:text-slate-400;
   }
 
-  /* ✅ Section styling */
+  /* Section styling */
   .section-header {
     @apply mb-4 flex items-center justify-between;
   }
@@ -115,24 +108,23 @@ body {
     @apply text-heading-3 text-slate-900 dark:text-white;
   }
 
-  /* ✅ KPI grid */
+  /* KPI grid */
   .kpi-grid {
     @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4;
   }
 
-  /* ✅ Chart grid */
+  /* Chart grid */
   .chart-grid {
     @apply grid grid-cols-1 gap-4 lg:grid-cols-2;
   }
 
-  /* ✅ Sidebar nav item */
+  /* Sidebar nav item — filled pill for active, no colored edge-stripe */
   .nav-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150;
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-150;
   }
 
   .nav-item-active {
-    @apply bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300;
-    box-shadow: inset 3px 0 0 theme('colors.brand.500');
+    @apply bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300;
   }
 
   .nav-item-inactive {
@@ -140,56 +132,14 @@ body {
   }
 }
 
-/* ✅ Ambient motion — these loop forever, so they stay on the GPU as CSS
-   rather than running through framer's animation frame loop. */
-@keyframes aurora {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33%      { transform: translate3d(6%, -4%, 0) scale(1.12); }
-  66%      { transform: translate3d(-5%, 5%, 0) scale(0.94); }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-
-@keyframes sheen {
-  0%       { transform: translateX(-120%) skewX(-18deg); }
-  60%, 100% { transform: translateX(240%) skewX(-18deg); }
-}
-
+/* Skeleton shimmer — the one remaining looping animation. */
 @keyframes shimmer {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
 
-/* ✅ Transition utilities */
 @layer utilities {
-  .animate-aurora {
-    animation: aurora 18s ease-in-out infinite;
-    will-change: transform;
-  }
-
-  .animate-aurora-slow {
-    animation: aurora 26s ease-in-out infinite reverse;
-    will-change: transform;
-  }
-
-  .animate-float {
-    animation: float 5s ease-in-out infinite;
-  }
-
-  .animate-sheen {
-    animation: sheen 6s ease-in-out infinite;
-    will-change: transform;
-  }
-
-  /* ✅ Glass effect */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-slate-950/80;
-  }
-
-  /* ✅ Text truncation */
+  /* Text truncation */
   .truncate-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -198,7 +148,7 @@ body {
   }
 }
 
-/* ✅ Motion preference respect */
+/* Motion preference respect */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

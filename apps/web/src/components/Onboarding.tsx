@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import {
-  UploadCloud, Sparkles, Check, ArrowRight, X,
+  UploadCloud, PlayCircle, Check, ArrowRight, X,
   Database, BarChart3, MessagesSquare, FileText, BrainCircuit,
 } from "lucide-react";
 import { cn } from "../lib/utils";
@@ -29,7 +29,7 @@ export function EmptyWorkspace({
   return (
     <div className="mx-auto max-w-3xl py-8">
       <div className="text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand-600">
           <BrainCircuit className="h-6 w-6 text-white" />
         </div>
         <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white">Welcome to DecisionIQ</h1>
@@ -61,15 +61,15 @@ export function EmptyWorkspace({
 
           <Card hoverable className="h-full">
             <CardBody className="flex h-full flex-col">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
-                <Sparkles className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                <PlayCircle className="h-5 w-5" />
               </div>
               <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Explore with sample data</h3>
               <p className="mt-1 flex-1 text-sm text-slate-500 dark:text-slate-400">
                 See the full product on a realistic dataset before uploading anything.
               </p>
               <Button className="mt-3 w-full" loading={loadingSample} onClick={onLoadSample}>
-                <Sparkles className="h-4 w-4" /> Load sample data
+                <PlayCircle className="h-4 w-4" /> Load sample data
               </Button>
             </CardBody>
           </Card>
@@ -183,7 +183,7 @@ export function WelcomeTour({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <Modal open={open} onClose={onClose} title="Welcome to DecisionIQ">
       <div className="text-center">
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow-sm">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-brand-600 text-white">
           <s.icon className="h-5 w-5" />
         </div>
         <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">{s.title}</h3>

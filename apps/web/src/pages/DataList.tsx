@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
+import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, PlayCircle, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, Label } from "../components/ui";
@@ -102,7 +102,7 @@ export default function DataList() {
         <div className="flex items-center gap-3 text-sm text-slate-500">
           <span>No file handy?</span>
           <Button variant="outline" size="sm" loading={loadingSample} onClick={loadSample}>
-            <Sparkles className="h-4 w-4" /> Load sample data
+            <PlayCircle className="h-4 w-4" /> Load sample data
           </Button>
         </div>
       )}

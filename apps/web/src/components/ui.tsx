@@ -12,7 +12,7 @@ type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
   primary:
-    "bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/10 active:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400 dark:shadow-glow",
+    "bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400",
   secondary:
     "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
   outline:
@@ -84,8 +84,8 @@ export const Card = ({
   <div
     className={cn(
       "rounded-xl border border-border bg-white shadow-card transition-all duration-200",
-      "dark:border-white/[0.06] dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm",
-      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-brand-500/25",
+      "dark:border-white/[0.08] dark:bg-slate-900 dark:shadow-card-dark",
+      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-white/[0.14]",
       className,
     )}
   >

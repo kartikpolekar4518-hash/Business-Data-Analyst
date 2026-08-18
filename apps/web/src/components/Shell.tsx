@@ -189,10 +189,10 @@ function Sidebar({
         className="fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col overflow-hidden text-slate-100 lg:static lg:z-auto"
       >
         {/* Inner track holds its full width so a collapse slides rather than reflows */}
-        <div className="flex h-full w-[240px] flex-col border-r border-white/[0.06] bg-[#0a0f1a]/95 backdrop-blur-xl">
+        <div className="flex h-full w-[240px] flex-col border-r border-white/[0.06] bg-[#0b0f17]">
         {/* Brand */}
         <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600">
             <BrainCircuit className="h-[18px] w-[18px] text-white" />
           </div>
           <span className="text-[16px] font-bold tracking-tight text-white">
@@ -226,22 +226,14 @@ function Sidebar({
                     >
                       {({ isActive }) => (
                         <>
-                          {/* Shared layoutId — the pill and glow bar travel
-                              between routes instead of popping. */}
+                          {/* Shared layoutId — the active pill glides between
+                              routes instead of popping. No glow bar. */}
                           {isActive && (
-                            <>
-                              <motion.span
-                                layoutId="nav-active-pill"
-                                className="absolute inset-0 rounded-lg bg-brand-500/[0.12]"
-                                transition={SPRING}
-                              />
-                              <motion.span
-                                layoutId="nav-active"
-                                // margin, not -translate-y-1/2: framer owns transform here
-                                className="absolute left-0 top-1/2 -mt-2.5 h-5 w-[3px] rounded-r-full bg-brand-400 shadow-[0_0_10px_1px] shadow-brand-400/70"
-                                transition={SPRING}
-                              />
-                            </>
+                            <motion.span
+                              layoutId="nav-active-pill"
+                              className="absolute inset-0 rounded-lg bg-brand-500/[0.12]"
+                              transition={SPRING}
+                            />
                           )}
                           <n.icon className="relative h-[18px] w-[18px] shrink-0" />
                           <span className="relative truncate">{n.label}</span>
@@ -258,7 +250,7 @@ function Sidebar({
         {/* Bottom — user summary */}
         <div className="border-t border-white/5 px-3 py-3">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-xs font-semibold text-white">
               {user?.name?.[0] ?? "U"}
             </div>
             <div className="min-w-0 flex-1">
@@ -331,7 +323,7 @@ function Header({
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white px-4 dark:border-white/[0.06] dark:bg-[#0b0f17] lg:px-6">
       {/* Mobile hamburger */}
       <button
         className="lg:hidden"
@@ -412,7 +404,7 @@ function Header({
           aria-haspopup="true"
           className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600 text-xs font-semibold text-white">
             {user?.name?.[0] ?? "U"}
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-slate-400" />

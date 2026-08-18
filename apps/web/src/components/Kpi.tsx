@@ -36,19 +36,12 @@ export function KpiCard({
       transition={SPRING}
       className={cn(
         "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-colors duration-200",
-        "dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm dark:hover:border-brand-500/30",
+        "dark:bg-slate-900 dark:shadow-card-dark dark:hover:border-white/[0.14]",
         accent
           ? "border-brand-200 dark:border-brand-500/25"
-          : "border-border dark:border-white/[0.06]",
+          : "border-border dark:border-white/[0.08]",
       )}
     >
-      {/* Accent glow wash on hover (dark) */}
-      <span
-        className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:group-hover:opacity-60"
-        style={{ background: accentColor }}
-        aria-hidden="true"
-      />
-
       {/* Header row: label + icon */}
       <div className="relative flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">

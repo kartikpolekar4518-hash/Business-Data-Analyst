@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send, Sparkles, User, Plus, History, MessageSquare } from "lucide-react";
+import { Send, BrainCircuit, Lightbulb, User, Plus, History, MessageSquare } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { Card, CardBody, Button, Input, Badge } from "../components/ui";
 import { BarRankChart, TrendChart } from "../components/charts";
@@ -92,7 +92,7 @@ export default function AiChat() {
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (
           <div className="rounded-xl border border-dashed border-slate-300 p-6 dark:border-slate-700">
-            <div className="mb-3 flex items-center gap-2 text-slate-500"><Sparkles className="h-4 w-4" />Try asking:</div>
+            <div className="mb-3 flex items-center gap-2 text-slate-500"><Lightbulb className="h-4 w-4" />Try asking:</div>
             <div className="flex flex-wrap gap-2">{SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="rounded-full border border-slate-200 px-3 py-1.5 text-sm hover:border-brand-400 hover:text-brand-600 dark:border-slate-700">{s}</button>)}</div>
           </div>
         )}
@@ -103,7 +103,7 @@ export default function AiChat() {
           </div>
         ) : (
           <div key={i} className="flex gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4" /></div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><BrainCircuit className="h-4 w-4" /></div>
             <div className="max-w-[85%] space-y-3">
               <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm shadow-sm dark:bg-slate-900">
                 <p>{t.text}</p>
@@ -126,7 +126,7 @@ export default function AiChat() {
             </div>
           </div>
         ))}
-        {loading && <div className="flex gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4 animate-pulse" /></div><div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-400 shadow-sm dark:bg-slate-900">Analyzing…</div></div>}
+        {loading && <div className="flex gap-2"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><BrainCircuit className="h-4 w-4 animate-pulse" /></div><div className="rounded-2xl bg-white px-4 py-3 text-sm text-slate-400 shadow-sm dark:bg-slate-900">Analyzing…</div></div>}
         <div ref={endRef} />
       </div>
 

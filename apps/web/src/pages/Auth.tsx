@@ -9,15 +9,11 @@ import { Button, Input, Label, Select, ErrorState } from "../components/ui";
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
     <div className="grid min-h-full lg:grid-cols-2">
-      {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-[#0a0f1a] p-12 text-white lg:flex">
-        {/* Glows + grid */}
-        <div className="pointer-events-none absolute -left-24 top-1/4 h-96 w-96 rounded-full bg-brand-500/25 blur-[100px]" />
-        <div className="pointer-events-none absolute -right-16 bottom-0 h-80 w-80 rounded-full bg-violet-500/20 blur-[100px]" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
-        <div className="relative flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40"><BrainCircuit className="h-5 w-5" /></div><span className="text-xl font-bold">DecisionIQ</span></div>
-        <div className="relative">
-          <h1 className="text-4xl font-bold leading-tight tracking-tight">Turn business data<br />into <span className="bg-gradient-to-r from-brand-300 to-violet-300 bg-clip-text text-transparent">decisions.</span></h1>
+      {/* Brand panel — solid deep slate, no orbs or grid */}
+      <div className="hidden flex-col justify-between bg-[#0b0f17] p-12 text-white lg:flex">
+        <div className="flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600"><BrainCircuit className="h-5 w-5" /></div><span className="text-xl font-bold">DecisionIQ</span></div>
+        <div>
+          <h1 className="text-4xl font-bold leading-tight tracking-tight">Turn business data<br />into <span className="text-brand-400">decisions.</span></h1>
           <p className="mt-4 max-w-md text-slate-300">Upload a spreadsheet and get automated dashboards, forecasts, alerts, and an AI analyst that answers questions in plain English — no data team required.</p>
           <div className="mt-8 flex gap-8 text-sm text-slate-400">
             <div><div className="text-2xl font-bold text-white">Auto</div>dashboards</div>
@@ -25,12 +21,12 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle: st
             <div><div className="text-2xl font-bold text-white">PDF</div>exec reports</div>
           </div>
         </div>
-        <p className="relative text-xs text-slate-500">© {new Date().getFullYear()} DecisionIQ</p>
+        <p className="text-xs text-slate-500">© {new Date().getFullYear()} DecisionIQ</p>
       </div>
       {/* Form panel */}
       <div className="flex items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-2xl border border-border bg-white/70 p-7 shadow-card backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/60 dark:shadow-card-glow">
-          <div className="mb-6 flex items-center gap-2 lg:hidden"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-white"><BrainCircuit className="h-5 w-5" /></div><span className="text-lg font-bold">DecisionIQ</span></div>
+        <div className="w-full max-w-sm rounded-2xl border border-border bg-white p-7 shadow-card dark:border-white/[0.08] dark:bg-slate-900 dark:shadow-card-dark">
+          <div className="mb-6 flex items-center gap-2 lg:hidden"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-white"><BrainCircuit className="h-5 w-5" /></div><span className="text-lg font-bold">DecisionIQ</span></div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
           <div className="mt-6">{children}</div>
