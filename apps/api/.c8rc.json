@@ -1,0 +1,8 @@
+{
+  "all": true,
+  "src": ["src"],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.itest.ts", "src/**/*.selfcheck.ts", "src/index.ts", "src/app.ts"],
+  "reporter": ["text-summary", "text"],
+  "skip-full": true
+}

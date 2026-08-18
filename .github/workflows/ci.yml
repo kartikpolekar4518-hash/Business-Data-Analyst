@@ -36,7 +36,9 @@ jobs:
       # Generate the Prisma client so @prisma/client resolves during typecheck + tests.
       - run: npm run prisma:generate --workspace apps/api
       - run: npm run typecheck
-      - run: npm test
+      # Unit + selfcheck suites with coverage reporting (both workspaces).
+      - run: npm run test:coverage --workspace apps/api
+      - run: npm run test:coverage --workspace apps/web
       # Apply the schema, then run the DB-backed integration tests.
       - run: npm run prisma:deploy --workspace apps/api
       - run: npm run test:integration --workspace apps/api

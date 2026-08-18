@@ -15,7 +15,8 @@
     "test": "npm run test:unit && npm run test:selfcheck",
     "test:unit": "DATABASE_URL=\"postgres://test:test@localhost:5432/test\" tsx --test \"src/**/*.test.ts\"",
     "test:selfcheck": "tsx src/engine/selfcheck.ts && tsx src/engine/statistics.selfcheck.ts",
-    "test:integration": "tsx --test \"src/**/*.itest.ts\""
+    "test:integration": "tsx --test \"src/**/*.itest.ts\"",
+    "test:coverage": "c8 npm test"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -49,6 +50,7 @@
     "@types/pdfkit": "^0.13.9",
     "@types/pg": "^8.11.10",
     "@types/supertest": "^7.2.1",
+    "c8": "^12.0.0",
     "prisma": "^5.22.0",
     "supertest": "^7.2.2",
     "tsx": "^4.19.2",
