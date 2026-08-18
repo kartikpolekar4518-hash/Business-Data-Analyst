@@ -2,7 +2,7 @@
 //   npx tsx apps/api/src/engine/selfcheck.ts
 import assert from "node:assert";
 import { profileDataset } from "./profile.js";
-import { detectSchema, cleanRows } from "./schema.js";
+import { detectSchema, cleanRows, mergeAiSemantics } from "./schema.js";
 import * as A from "./analytics.js";
 import { answer, ruleParse, runIntent, type Intent } from "./intent.js";
 import { forecast } from "./forecast.js";
@@ -33,6 +33,23 @@ assert(map.revenue === "revenue", "revenue mapped");
 assert(map.date === "order_date", "date mapped");
 assert(map.region === "region", "region mapped");
 assert(map.customer_name === "customer_name", "customer mapped");
+
+// 2b. AI schema merge is gap-fill only, pure, and never overrides a regex mapping.
+const mbase = detectSchema(profileDataset([{ amt: "100", blob: "West", cust: "Ada" }], ["amt", "blob", "cust"]).columns);
+assert(!mbase.map.revenue && !mbase.map.region && !mbase.map.customer_name, "regex leaves amt/blob/cust unmapped");
+const merged = mergeAiSemantics(mbase, [
+  { name: "amt", semantic: "revenue" },
+  { name: "blob", semantic: "revenue" }, // revenue already taken by amt -> ignored (first wins)
+  { name: "blob", semantic: "region" },
+  { name: "cust", semantic: "none" },    // 'none' -> skipped, cust stays unmapped
+  { name: "ghost", semantic: "profit" }, // no such column -> skipped
+]);
+assert(merged.map.revenue === "amt", "AI fills revenue from amt");
+assert(merged.map.region === "blob", "AI fills region from blob (revenue already taken)");
+assert(!merged.map.profit, "AI mapping for a missing column is ignored");
+assert(!merged.map.customer_name, "'none' semantic leaves the column unmapped");
+assert(merged.columns.find((c) => c.name === "amt")!.semantic === "revenue", "annotated column semantic updated");
+assert(mbase.map.revenue === undefined, "merge did not mutate the input map");
 
 // 3. Analytics: revenue = sum(revenue) = 100+200+150+150+0 = 600.
 const ov = A.overview(rows, map);

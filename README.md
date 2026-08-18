@@ -4,17 +4,18 @@ Upload business data → get automated dashboards, forecasts, alerts, a
 natural-language query interface, and board-ready PDF reports. Multi-tenant,
 role-based, works out of the box with sample retail data.
 
-> **Every number is deterministic and reproducible.** Schema detection, data
-> profiling, forecasting, KPIs, and recommendations are all real code you can
-> read, unit test, audit, and run offline — no model produces a figure. Given a
-> question's intent, the same dataset yields the same answer a million times.
+> **Every number is deterministic and reproducible.** Data profiling, forecasting,
+> KPIs, and recommendations are all real code you can read, unit test, audit, and
+> run offline — no model produces a figure. Given a schema and a question's intent,
+> the same dataset yields the same answer a million times.
 >
-> **Question understanding is optionally AI-assisted.** When `OPENAI_API_KEY`
-> is set, GPT interprets a free-form question into a structured intent, then
-> the deterministic engine computes the answer. The model is sent only the question
-> and your column names — **never your data rows** — so your figures never leave
-> your infrastructure. Leave the key unset and interpretation falls back to a
-> rule-based parser: fully deterministic, no external calls.
+> **Interpretation is optionally AI-assisted.** When `OPENAI_API_KEY` is set, GPT
+> handles the judgement calls — mapping messy columns to business meaning,
+> recognizing the industry, and turning a free-form question into a structured
+> intent — and the deterministic engine computes every number from there. GPT is
+> sent only column names/types, a few sample values, and the question — **never your
+> full data rows**. Leave the key unset and everything falls back to rule-based
+> parsing: fully deterministic, no external calls.
 
 ---
 
@@ -31,7 +32,7 @@ role-based, works out of the box with sample retail data.
 - **Auth & organizations** — signup / login / logout, forgot + reset password, JWT, role-based access (ADMIN / MANAGER / VIEWER), full tenant isolation by `organizationId`.
 - **Data upload** — drag & drop CSV/XLSX/XLS, parsed, profiled, and quality-checked on ingest.
 - **Data-quality engine** — detects missing values, duplicates, empty columns, numeric-in-text, statistical outliers, whitespace, inconsistent case/dates, suspicious column names. Accept/reject cleaning suggestions; the **original file is never modified**.
-- **Schema detection** — rule-based mapping of columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory, …).
+- **Schema & industry detection** — maps columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory, …) and recognizes the business type (retail, pharmacy, SaaS) to tailor the dashboard. Rule-based by default; when `OPENAI_API_KEY` is set, GPT also reads column types and a few sample values to map messy/renamed/non-English columns and classify the industry that regex would miss. GPT only labels columns and picks a pack — every number is still computed deterministically, and only column names, types, and sample values (never full rows) are sent.
 - **Auto dashboards** — KPIs (revenue, profit, margin, orders, customers) with period-over-period comparison, plus revenue/profit trends and product/customer/region/category rankings. Generated dynamically from the detected schema — never hardcoded to one dataset.
 - **Analytics** — filter by date range, region, state, category, department, product, customer; filters live in the URL so a view is shareable. Data table + CSV export.
 - **Natural-language queries** — ask in plain English ("top 10 customers", "which month had the highest sales", "which products are declining"). Questions are mapped to a **structured intent** — by GPT when `OPENAI_API_KEY` is set, otherwise by rules and regex — then executed through a controlled analytics layer. The intent is always validated against a closed vocabulary and every number is computed deterministically; the model never runs SQL/code or sees your data rows.

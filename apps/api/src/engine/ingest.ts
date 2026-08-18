@@ -1,7 +1,8 @@
 import { prisma } from "../prisma.js";
 import { profileDataset } from "./profile.js";
-import { detectSchema } from "./schema.js";
+import { detectSchema, mergeAiSemantics } from "./schema.js";
 import { getPack, suggestIndustry } from "./industries.js";
+import { llmAnalyzeSchema } from "../ai/provider.js";
 import { refreshAlerts } from "../modules/alerts.js";
 import { stripRows } from "../modules/context.js";
 import type { Row } from "./parse.js";
@@ -28,8 +29,13 @@ export async function ingestRows(input: IngestInput) {
   const { organizationId, actorId } = input;
   const profile = profileDataset(input.rows, input.columns);
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
-  const { map, columns } = detectSchema(profile.columns, getPack(org?.industry).rules);
-  const suggestedIndustry = suggestIndustry(profile.columns);
+  const regexDetected = detectSchema(profile.columns, getPack(org?.industry).rules);
+
+  // AI-assisted detection when configured: gap-fill column meanings regex missed and let
+  // the model classify the industry. Null (no key / failure) => pure regex, exactly as before.
+  const ai = await llmAnalyzeSchema(profile.columns);
+  const { map, columns } = ai ? mergeAiSemantics(regexDetected, ai.mappings) : regexDetected;
+  const suggestedIndustry = ai?.industry ?? suggestIndustry(profile.columns);
 
   const dataset = await prisma.dataset.create({
     data: {

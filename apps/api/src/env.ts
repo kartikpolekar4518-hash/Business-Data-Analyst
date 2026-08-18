@@ -21,6 +21,10 @@ export const env = {
   // (fully deterministic, no external calls). aiModel is swappable without code changes.
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   aiModel: process.env.AI_MODEL ?? "gpt-5-nano",
+  // AI schema detection may send a few sample values per column (never full rows) so the
+  // model can infer meaning from data, not just column names. Set to "false" to send only
+  // column names + types (stronger privacy, weaker detection).
+  aiDetectSampleValues: process.env.AI_DETECT_SAMPLE_VALUES !== "false",
   // Connectors: symmetric key that encrypts saved connection credentials.
   connectorEncryptionKey: process.env.CONNECTOR_ENCRYPTION_KEY ?? "dev-insecure-connector-key-change-me",
   // Allow connecting to private/loopback hosts (needed for local/demo DBs). Off

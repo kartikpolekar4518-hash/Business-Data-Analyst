@@ -39,6 +39,36 @@ const RULES: SemanticRule[] = [
 
 export type SchemaMap = Partial<Record<Semantic, string>>;
 
+// The closed vocabulary the AI schema detector may map columns to (schema.ts is the
+// single source of truth; ai/provider.ts and selfcheck.ts reuse this).
+export const SEMANTICS: Exclude<Semantic, "none">[] = [
+  "order_id", "customer_id", "customer_name", "product_id", "product_name",
+  "revenue", "sales", "cost", "profit", "quantity", "unit_price",
+  "date", "region", "state", "city", "category", "department", "inventory",
+  "prescription_id", "medicine_name", "patient_id", "subscription_id", "plan",
+];
+
+type Annotated = ColumnProfile & { semantic: Semantic };
+
+// Merge AI-proposed column semantics into a regex-detected schema — GAP-FILL ONLY.
+// A confident regex mapping is never overridden: an AI entry is applied only when its
+// target semantic is still unset AND its column is still unmapped. Pure, deterministic.
+export function mergeAiSemantics(
+  base: { map: SchemaMap; columns: Annotated[] },
+  ai: { name: string; semantic: Semantic }[],
+): { map: SchemaMap; columns: Annotated[] } {
+  const map: SchemaMap = { ...base.map };
+  const columns = base.columns.map((c) => ({ ...c }));
+  for (const { name, semantic } of ai) {
+    if (semantic === "none" || map[semantic]) continue; // skip none + slots regex already filled
+    const col = columns.find((c) => c.name === name);
+    if (!col || col.semantic !== "none") continue; // column must exist and be unmapped
+    map[semantic] = name;
+    col.semantic = semantic;
+  }
+  return { map, columns };
+}
+
 // `extraRules` are an industry pack's vocabulary; they run BEFORE the base retail
 // rules so pack-specific meanings (e.g. "medicine" -> medicine_name) win over the
 // generic product_name match. Called without a pack, behaviour is unchanged.

@@ -1,8 +1,10 @@
 import OpenAI from "openai";
 import { z } from "zod";
 import { env } from "../env.js";
-import type { SchemaMap } from "../engine/schema.js";
+import { SEMANTICS, type SchemaMap, type Semantic } from "../engine/schema.js";
 import { INTENTS, type Intent } from "../engine/intent.js";
+import type { ColumnProfile } from "../engine/profile.js";
+import { PACKS } from "../engine/industries.js";
 
 // AI question understanding — the "translate-only" layer. GPT turns a free-form
 // question into a structured Intent; the deterministic engine (engine/intent.ts →
@@ -90,5 +92,77 @@ export async function llmParseIntent(question: string, schema: SchemaMap): Promi
     };
   } catch {
     return null; // any failure => caller falls back to the rule-based parser
+  }
+}
+
+// ── AI-assisted schema + industry detection (runs once at ingest) ──
+// GPT reads each column's name, type, and (when enabled) a few sample values, then maps
+// columns to business meaning and classifies the industry. The engine still computes every
+// number; this only labels columns and picks a pack. Sample values — never full rows — are
+// the only cell data sent, and only when AI_DETECT_SAMPLE_VALUES is on.
+
+const PACK_KEYS = Object.keys(PACKS);
+
+const Analyzed = z.object({
+  columns: z.array(z.object({ name: z.string(), semantic: z.string() })),
+  industry: z.string(),
+});
+const VALID_SEMANTICS = new Set<string>(SEMANTICS);
+
+const analyzeSchemaJson = {
+  type: "object",
+  properties: {
+    columns: {
+      type: "array",
+      description: "One entry per input column, mapping it to a business meaning or 'none'.",
+      items: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          semantic: { type: "string", enum: [...SEMANTICS, "none"] },
+        },
+        required: ["name", "semantic"],
+        additionalProperties: false,
+      },
+    },
+    industry: { type: "string", enum: PACK_KEYS, description: "The best-fit business type." },
+  },
+  required: ["columns", "industry"],
+  additionalProperties: false,
+} as const;
+
+const DETECT_SYSTEM = `You classify a dataset's columns and business type. For each column you are given its name, inferred data type, and possibly a few sample values. Map every column to the single best-fitting business meaning from the allowed list, or "none" if nothing fits. Then classify the whole dataset into one business type. Base your judgement on the meaning of the columns and their sample values, not just wording — e.g. a column named "amt" holding money is revenue; "code" holding West/East is region.`;
+
+export async function llmAnalyzeSchema(
+  columns: ColumnProfile[],
+): Promise<{ mappings: { name: string; semantic: Semantic }[]; industry: string } | null> {
+  if (!client || !columns.length) return null;
+  const lines = columns.map((c) => {
+    const samples = env.aiDetectSampleValues && c.sampleValues?.length
+      ? `, e.g. ${c.sampleValues.slice(0, 5).map((v) => JSON.stringify(v)).join(", ")}`
+      : "";
+    return `- "${c.name}" (type: ${c.type}${samples})`;
+  }).join("\n");
+  try {
+    const res = await client.chat.completions.create({
+      model: env.aiModel,
+      messages: [
+        { role: "system", content: DETECT_SYSTEM },
+        { role: "user", content: `Columns:\n${lines}\n\nAllowed business meanings: ${SEMANTICS.join(", ")}.\nBusiness types: ${PACK_KEYS.join(", ")}.` },
+      ],
+      response_format: { type: "json_schema", json_schema: { name: "schema_analysis", strict: true, schema: analyzeSchemaJson } },
+    });
+    const msg = res.choices[0]?.message;
+    if (!msg || msg.refusal || !msg.content) return null;
+    const a = Analyzed.parse(JSON.parse(msg.content));
+    return {
+      // Keep only recognised semantics; drop "none" and anything off-vocabulary.
+      mappings: a.columns
+        .filter((c) => VALID_SEMANTICS.has(c.semantic))
+        .map((c) => ({ name: c.name, semantic: c.semantic as Semantic })),
+      industry: PACK_KEYS.includes(a.industry) ? a.industry : "generic",
+    };
+  } catch {
+    return null; // any failure => caller keeps the regex-detected schema
   }
 }
