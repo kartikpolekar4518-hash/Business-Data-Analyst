@@ -7,6 +7,8 @@ import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
 import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industries.js";
+import { buildDashboardSpec, availableOutputs, type BuildOpts, type StyleFamily, type Density, type Theme } from "../engine/spec.js";
+import { validateSpec } from "../engine/spec-validate.js";
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
@@ -111,6 +113,29 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
       customer: A.distinctValues(rows, schema, "customer_name"),
     },
   });
+}));
+
+// Generative dashboard spec (Phase A) — the DashboardSpec IR built
+// deterministically from the industry pack. The v2 renderer fetches this plus
+// `/overview` (the resolvable outputs) and composes the dashboard from the spec.
+// Query params let the client re-roll the visual design without touching numbers.
+analyticsRouter.get("/spec", wrap(async (req, res) => {
+  const orgId = req.auth!.organizationId;
+  const { schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
+  const pack = getPack(org?.industry);
+
+  const opts: BuildOpts = {
+    styleFamily: req.query.style as StyleFamily | undefined,
+    density: req.query.density as Density | undefined,
+    theme: req.query.theme as Theme | undefined,
+    variationSeed: req.query.seed ? Number(req.query.seed) || 0 : undefined,
+  };
+  const spec = buildDashboardSpec(pack, schema, opts);
+  // Gate the deterministic builder's own output — catches vocabulary/binding
+  // regressions before a spec ever reaches the renderer.
+  const result = validateSpec(spec, availableOutputs(pack));
+  res.json({ spec, valid: result.valid, errors: result.errors });
 }));
 
 analyticsRouter.get("/revenue", timeSeries("revenue"));

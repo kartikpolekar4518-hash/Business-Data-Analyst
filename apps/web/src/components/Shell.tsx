@@ -3,6 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   LayoutGrid,
+  Sparkles,
   Database,
   BarChart3,
   PieChart,
@@ -39,6 +40,7 @@ const NAV_SECTIONS = [
     label: "Main",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/dashboard-v2", label: "Dashboard (Generative)", icon: Sparkles },
       { to: "/builder", label: "Builder", icon: LayoutGrid },
       { to: "/data", label: "Data", icon: Database },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
