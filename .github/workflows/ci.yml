@@ -8,6 +8,24 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      # Integration tests (apps/api *.itest.ts) run against a real Postgres.
+      # Credentials match the DATABASE_URL hardcoded in the api test scripts.
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://test:test@localhost:5432/test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,3 +37,6 @@ jobs:
       - run: npm run prisma:generate --workspace apps/api
       - run: npm run typecheck
       - run: npm test
+      # Apply the schema, then run the DB-backed integration tests.
+      - run: npm run prisma:deploy --workspace apps/api
+      - run: npm run test:integration --workspace apps/api

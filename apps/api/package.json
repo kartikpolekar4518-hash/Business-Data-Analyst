@@ -14,7 +14,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run test:unit && npm run test:selfcheck",
     "test:unit": "DATABASE_URL=\"postgres://test:test@localhost:5432/test\" tsx --test \"src/**/*.test.ts\"",
-    "test:selfcheck": "tsx src/engine/selfcheck.ts && tsx src/engine/statistics.selfcheck.ts"
+    "test:selfcheck": "tsx src/engine/selfcheck.ts && tsx src/engine/statistics.selfcheck.ts",
+    "test:integration": "tsx --test \"src/**/*.itest.ts\""
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -47,7 +48,9 @@
     "@types/papaparse": "^5.3.15",
     "@types/pdfkit": "^0.13.9",
     "@types/pg": "^8.11.10",
+    "@types/supertest": "^7.2.1",
     "prisma": "^5.22.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
