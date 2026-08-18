@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # npm workspaces (root manifest covers apps/api + apps/web).
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      # One PR for routine minor/patch bumps; majors stay separate for review.
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  # Keep the GitHub Actions used in CI/CodeQL patched too.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
