@@ -9,6 +9,9 @@ export interface AuthContext {
   userId: string;
   organizationId: string;
   role: Role;
+  // Session-invalidation counter. Signed into the JWT and re-checked against the
+  // user's current value on every request so a password reset kills old tokens.
+  tokenVersion?: number;
 }
 
 declare global {
@@ -31,9 +34,15 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     const decoded = jwt.verify(token, env.jwtSecret) as AuthContext;
     const member = await prisma.organizationMember.findFirst({
       where: { userId: decoded.userId, organizationId: decoded.organizationId },
+      include: { user: { select: { tokenVersion: true } } },
     });
     if (!member) throw new HttpError(401, "Membership not found");
-    req.auth = { userId: member.userId, organizationId: member.organizationId, role: member.role };
+    // A password reset bumps tokenVersion; tokens minted before it no longer match.
+    // Tokens issued before this field existed carry no version — treated as 0.
+    if ((decoded.tokenVersion ?? 0) !== member.user.tokenVersion) {
+      throw new HttpError(401, "Session expired, please sign in again");
+    }
+    req.auth = { userId: member.userId, organizationId: member.organizationId, role: member.role, tokenVersion: member.user.tokenVersion };
     next();
   } catch (e) {
     if (e instanceof HttpError) return next(e);

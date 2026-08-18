@@ -71,6 +71,19 @@ async function seedDemo(d: Demo) {
 }
 
 async function main() {
+  // Refuse to plant known-credential demo accounts (password123) into a
+  // production database. This seed resets those passwords every run, so
+  // running it against a real deployment is an account-takeover risk.
+  // Set ALLOW_DEMO_SEED=true only if you deliberately want demo data in prod.
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEMO_SEED !== "true") {
+    console.error(
+      "[seed] Refusing to seed demo data under NODE_ENV=production. " +
+      "This would create/reset known demo logins (password123). " +
+      "Set ALLOW_DEMO_SEED=true to override intentionally.",
+    );
+    process.exit(1);
+  }
+
   console.log("Seeding DecisionIQ demo data...");
 
   await seedDemo({

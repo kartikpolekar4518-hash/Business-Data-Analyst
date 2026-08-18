@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -22,8 +23,39 @@ import { settingsRouter } from "./modules/settings.js";
 import { INDUSTRIES } from "./engine/industries.js";
 import { PLANS } from "./billing/plans.js";
 
-const app = express();
+export const app = express();
 app.disable("x-powered-by");
+
+// Security headers. The CSP is tuned for the single-container mode where this
+// API also serves the built SPA: allow same-origin assets, inline styles
+// (Recharts/framer set style attributes), Google Fonts, and data: URIs (the
+// SVG favicon). In dev the SPA is served by Vite, so this only governs the
+// production-served bundle. HSTS only bites over HTTPS, so it's inert locally.
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    // Cross-origin isolation would block the Google Fonts stylesheet; leave off.
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+
+// Behind a reverse proxy (Nginx/Cloudflare/Render/…) the client IP is in
+// X-Forwarded-For; trust it so rate limiting keys on the real client, not the
+// proxy. Configurable via TRUST_PROXY (hop count, boolean, or off by default).
+if (env.trustProxy) app.set("trust proxy", env.trustProxy);
+
 app.use(cors({ origin: env.appUrl.split(",") }));
 app.use(express.json({ limit: "2mb" }));
 
@@ -70,17 +102,18 @@ if (existsSync(webDist)) {
 
 app.use(errorHandler);
 
-const server = app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port}`));
+// Under NODE_ENV=test the app is imported by integration tests via supertest,
+// which drives the handler directly — so don't bind a port or install signal
+// handlers there.
+if (process.env.NODE_ENV !== "test") {
+  const server = app.listen(env.port, () => console.log(`DecisionIQ API listening on :${env.port}`));
 
-// Graceful shutdown: close database connections and server
-process.on("SIGTERM", async () => {
-  console.log("SIGTERM received, shutting down gracefully...");
-  server.close(() => console.log("Server closed"));
-  await prisma.$disconnect();
-});
-
-process.on("SIGINT", async () => {
-  console.log("SIGINT received, shutting down gracefully...");
-  server.close(() => console.log("Server closed"));
-  await prisma.$disconnect();
-});
+  // Graceful shutdown: close database connections and server
+  const shutdown = (signal: string) => {
+    console.log(`${signal} received, shutting down gracefully...`);
+    server.close(() => console.log("Server closed"));
+    void prisma.$disconnect();
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+}

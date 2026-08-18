@@ -24,16 +24,14 @@ const filterSchema = z.object({
 });
 
 function filtersFrom(query: any): A.Filters {
-  try {
-    const validated = filterSchema.parse(query);
-    return Object.fromEntries(
-      Object.entries(validated).filter(([, v]) => v !== undefined)
-    ) as A.Filters;
-  } catch (e) {
-    // Return empty filters if validation fails — don't break the query
-    console.warn("[analytics] Filter validation failed", e);
-    return {};
-  }
+  // A malformed filter must surface as a 400 — the ZodError propagates through
+  // the wrapped handler to the error middleware. Silently returning {} used to
+  // serve the *entire* unfiltered dataset for a bad param, which is worse than
+  // an error: the caller thinks they filtered and they didn't.
+  const validated = filterSchema.parse(query);
+  return Object.fromEntries(
+    Object.entries(validated).filter(([, v]) => v !== undefined)
+  ) as A.Filters;
 }
 
 const timeSeries = (metric: "revenue" | "profit") =>

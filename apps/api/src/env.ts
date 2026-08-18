@@ -28,7 +28,22 @@ export const env = {
   allowPrivateConnectorHosts: process.env.ALLOW_PRIVATE_CONNECTOR_HOSTS === "true",
   // Hard cap on rows pulled per connector sync, to bound memory/JSON storage.
   maxSyncRows: Number(process.env.MAX_SYNC_ROWS ?? 100_000),
+  // Upload ingestion caps — reject early so a small file that decompresses into
+  // an enormous workbook can't blow up memory / CPU / the JSONB write.
+  maxUploadRows: Number(process.env.MAX_UPLOAD_ROWS ?? 100_000),
+  maxUploadColumns: Number(process.env.MAX_UPLOAD_COLUMNS ?? 512),
+  maxCellLength: Number(process.env.MAX_CELL_LENGTH ?? 32_768),
+  // Reverse-proxy trust for correct client IPs in rate limiting. Off by default;
+  // set TRUST_PROXY to a hop count (e.g. 1) or "true" when behind a known proxy.
+  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
 };
+
+function parseTrustProxy(v: string | undefined): number | boolean {
+  if (!v || v === "false" || v === "0") return false;
+  if (v === "true") return true;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : true;
+}
 
 // Fail fast: never sign tokens with a secret that is published in this repo.
 const KNOWN_WEAK_SECRETS = new Set(["dev-insecure-secret-change-me", "change-me-in-production"]);

@@ -34,10 +34,20 @@ export default function Analytics() {
   };
   const clear = () => setParams(new URLSearchParams(), { replace: true });
 
+  // Neutralize CSV formula injection: a cell that starts with = + - @ (or tab/CR)
+  // is executed as a formula when the file is opened in Excel/Sheets, even inside
+  // a quoted field. Prefix such string cells with a single quote; numbers pass through.
+  function csvCell(v: unknown): string {
+    if (typeof v === "number") return String(v);
+    let s = v == null ? "" : String(v);
+    if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+    return JSON.stringify(s);
+  }
+
   function exportCsv() {
     if (!table.data) return;
     const { columns, rows } = table.data;
-    const csv = [columns.join(","), ...rows.map((r) => columns.map((c) => JSON.stringify(r[c] ?? "")).join(","))].join("\n");
+    const csv = [columns.join(","), ...rows.map((r) => columns.map((c) => csvCell(r[c])).join(","))].join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
     const a = document.createElement("a"); a.href = url; a.download = "analytics-export.csv"; a.click();
   }
@@ -96,7 +106,7 @@ export default function Analytics() {
 
       {/* Data table */}
       <Card>
-        <CardHeader title="Filtered rows" subtitle={table.data ? `Showing first ${Math.min(100, table.data.rows.length)} of ${num(table.data.total)} rows — CSV export includes up to 500` : undefined} />
+        <CardHeader title="Filtered rows" subtitle={table.data ? `Showing ${table.data.rows.length} of ${num(table.data.total)} rows — CSV export includes these ${table.data.rows.length} rows` : undefined} />
         <CardBody className="overflow-x-auto p-0">
           {table.isError ? <div className="p-5"><ErrorState message="Couldn't load the filtered rows." retry={() => table.refetch()} /></div> : !table.data ? <Spinner /> : (
             <table className="w-full text-sm">

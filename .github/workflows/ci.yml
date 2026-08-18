@@ -8,6 +8,26 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Postgres for the HTTP integration tests (tenant isolation).
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: diq
+          POSTGRES_PASSWORD: diq
+          POSTGRES_DB: diq
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U diq"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://diq:diq@localhost:5432/diq
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -19,3 +39,7 @@ jobs:
       - run: npm run prisma:generate --workspace apps/api
       - run: npm run typecheck
       - run: npm test
+      # Apply migrations to the service DB, then run the cross-tenant HTTP tests.
+      - run: npx prisma migrate deploy
+        working-directory: apps/api
+      - run: npm run test:integration --workspace apps/api

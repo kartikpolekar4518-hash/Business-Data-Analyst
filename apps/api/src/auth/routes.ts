@@ -1,7 +1,7 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import rateLimit from "express-rate-limit";
-import { randomUUID } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { env } from "../env.js";
@@ -10,6 +10,10 @@ import { signToken, requireAuth } from "./middleware.js";
 import { PACKS } from "../engine/industries.js";
 
 export const authRouter = Router();
+
+// Reset tokens are stored hashed, never raw — a DB leak then can't be replayed
+// to take over accounts. The raw token goes only to the user (email / dev echo).
+const hashToken = (raw: string) => createHash("sha256").update(raw).digest("hex");
 
 // Throttle only the credential surface (brute force, token guessing, reset spam).
 // Deliberately NOT applied to /me, which fires on every page load.
@@ -38,7 +42,7 @@ authRouter.post("/signup", wrap(async (req, res) => {
     return { user, org };
   });
 
-  const token = signToken({ userId: result.user.id, organizationId: result.org.id, role: "ADMIN" });
+  const token = signToken({ userId: result.user.id, organizationId: result.org.id, role: "ADMIN", tokenVersion: result.user.tokenVersion });
   res.status(201).json({ token, user: publicUser(result.user), organization: result.org, role: "ADMIN" });
 }));
 
@@ -55,7 +59,7 @@ authRouter.post("/login", wrap(async (req, res) => {
   }
   const membership = user.memberships[0];
   if (!membership) throw new HttpError(403, "No organization membership");
-  const token = signToken({ userId: user.id, organizationId: membership.organizationId, role: membership.role });
+  const token = signToken({ userId: user.id, organizationId: membership.organizationId, role: membership.role, tokenVersion: user.tokenVersion });
   res.json({ token, user: publicUser(user), organization: membership.organization, role: membership.role });
 }));
 
@@ -71,14 +75,15 @@ authRouter.post("/forgot-password", wrap(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
   let devToken: string | undefined;
   if (user) {
-    // Generate a cryptographically secure, URL-safe token
-    const token = randomUUID().replace(/-/g, "").substring(0, 32);
+    // Cryptographically secure token; only its SHA-256 hash is persisted.
+    const raw = randomBytes(32).toString("hex");
     await prisma.passwordResetToken.create({
-      data: { token, userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+      data: { token: hashToken(raw), userId: user.id, expiresAt: new Date(Date.now() + 60 * 60 * 1000) },
     });
-    // No email provider in the MVP — return the token in dev so the flow is testable.
-    // Never expose it in production: that would let anyone reset any account by email.
-    if (!env.isProd) devToken = token;
+    // No email provider in the MVP — return the raw token in dev so the flow is
+    // testable. Never expose it in production: that would let anyone reset any
+    // account by email.
+    if (!env.isProd) devToken = raw;
   }
   // Always 200 to avoid leaking which emails exist.
   res.json({ ok: true, message: "If that email exists, a reset link has been created.", devToken });
@@ -88,13 +93,14 @@ const resetSchema = z.object({ token: z.string(), password: z.string().min(8) })
 
 authRouter.post("/reset-password", wrap(async (req, res) => {
   const { token, password } = resetSchema.parse(req.body);
-  const record = await prisma.passwordResetToken.findUnique({ where: { token } });
+  const record = await prisma.passwordResetToken.findUnique({ where: { token: hashToken(token) } });
   if (!record || record.usedAt || record.expiresAt < new Date()) {
     throw new HttpError(400, "Invalid or expired reset token");
   }
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.$transaction([
-    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+    // Bumping tokenVersion invalidates every JWT issued before this reset.
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
     prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
   res.json({ ok: true });

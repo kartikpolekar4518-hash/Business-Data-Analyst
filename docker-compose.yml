@@ -27,13 +27,18 @@ services:
       JWT_EXPIRES_IN: 7d
       APP_URL: http://localhost:5173
       PORT: 4000
+      # Demo seeding is ON by default for this local one-command demo. Set
+      # SEED_DEMO=0 (and/or NODE_ENV=production) for any real deployment — the
+      # seed also hard-refuses under NODE_ENV=production regardless.
+      SEED_DEMO: ${SEED_DEMO:-1}
     ports:
       - "4000:4000"
     depends_on:
       db:
         condition: service_healthy
-    # Runs migrations + seed on first boot, then serves API + web UI on :4000.
-    command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js"
+    # Migrations always run. The demo seed runs only when SEED_DEMO=1, then the
+    # API + web UI serve on :4000. Production start is just migrate + server.
+    command: sh -c "npx prisma migrate deploy && ([ \"$$SEED_DEMO\" = \"1\" ] && npx tsx prisma/seed.ts || echo '[seed] skipped (SEED_DEMO != 1)') && node dist/index.js"
 
 volumes:
   pgdata:

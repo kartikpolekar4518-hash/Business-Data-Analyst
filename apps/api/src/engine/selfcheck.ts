@@ -86,6 +86,12 @@ assert(runIntent({ intent: "forecast", metrics: ["revenue"], dimensions: ["date"
 // An unresolvable intent degrades to the deterministic fallback, never throws.
 assert(runIntent({ intent: "unknown", metrics: [], dimensions: [], filters: {}, limit: 0, visualization: "none" }, rows, map).confidence === 0.2, "unknown intent -> fallback");
 
+// 5c. A metric the dataset can't support (this data has no quantity column) is
+// rejected, not silently answered with revenue — the AI parser can emit any
+// valid-enum metric, so runIntent guards it.
+assert(runIntent({ intent: "top_n", metrics: ["quantity"], dimensions: ["product_name"], filters: {}, limit: 3, visualization: "none" }, rows, map).intent.intent === "unknown", "unsupported metric (quantity, no column) -> unsupported");
+assert(runIntent({ intent: "top_n", metrics: ["revenue"], dimensions: ["product_name"], filters: {}, limit: 3, visualization: "none" }, rows, map).intent.intent === "top_n", "supported metric (revenue present) still executes");
+
 // 6. Forecast produces the requested horizon with a valid confidence band.
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);
 assert(fc.points.length === 3, "3 forecast points");

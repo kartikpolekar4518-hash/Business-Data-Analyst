@@ -77,6 +77,18 @@ function metric(intent: Intent): Metric {
 function seriesMetric(m: Metric): "revenue" | "profit" | "orders" {
   return m === "orders" ? "orders" : m === "profit" ? "profit" : "revenue";
 }
+// Whether a metric can actually be computed from this dataset's columns. The AI
+// parser may emit a valid-enum metric (e.g. "quantity") that the dataset has no
+// column for; without this the engine would silently substitute revenue and
+// return a misleading answer. Orders is always available (one per row).
+function metricAvailable(m: Metric, s: SchemaMap): boolean {
+  switch (m) {
+    case "revenue": return !!(s.revenue || s.sales || (s.quantity && s.unit_price));
+    case "profit": return !!(s.profit || s.cost);
+    case "quantity": return !!s.quantity;
+    case "orders": return true;
+  }
+}
 
 // --- classification: question -> structured intent (no data access) ---
 export function ruleParse(question: string, s: SchemaMap): Intent {
@@ -112,6 +124,12 @@ export function ruleParse(question: string, s: SchemaMap): Intent {
 export function runIntent(intent: Intent, rows: Row[], s: SchemaMap): ChatResult {
   const m = metric(intent);
   const dim = (intent.dimensions[0] ?? null) as Semantic | null;
+
+  // Reject a metric the dataset can't support instead of silently answering with
+  // a different one. Intents that don't consume `m` (inventory/unknown) are exempt.
+  if (intent.intent !== "inventory_risk" && intent.intent !== "unknown" && !metricAvailable(m, s)) {
+    return fallback(`This dataset has no ${METRIC_LABEL[m].toLowerCase()} column, so I can't answer that. Try a metric your data contains.`);
+  }
 
   switch (intent.intent) {
     case "forecast": {
