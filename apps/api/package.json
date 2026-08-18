@@ -11,7 +11,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "seed": "tsx prisma/seed.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run test:unit && npm run test:selfcheck",
+    "test:unit": "DATABASE_URL=\"postgres://test:test@localhost:5432/test\" tsx --test \"src/**/*.test.ts\"",
+    "test:selfcheck": "tsx src/engine/selfcheck.ts && tsx src/engine/statistics.selfcheck.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -19,7 +19,7 @@ const QUERY_TIMEOUT_MS = 15_000;
 // attacker-controlled SQL. Free-form queries are intentionally unsupported.
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$/;
 
-function quoteIdent(table: string, wrap: '"' | "`" | "[" ): string {
+export function quoteIdent(table: string, wrap: '"' | "`" | "[" ): string {
   if (!IDENT_RE.test(table)) throw new Error(`Invalid table name "${table}". Use letters, digits, underscore, and an optional schema prefix.`);
   return table.split(".").map((p) => wrap === "[" ? `[${p}]` : `${wrap}${p}${wrap}`).join(".");
 }
@@ -27,7 +27,7 @@ function quoteIdent(table: string, wrap: '"' | "`" | "[" ): string {
 // --- SSRF guard: refuse to connect to loopback/link-local/private hosts unless
 // explicitly allowed. The cloud metadata endpoint (169.254.169.254) is covered by
 // the link-local range. Overridable via ALLOW_PRIVATE_CONNECTOR_HOSTS for local DBs.
-function isPrivateIp(ip: string): boolean {
+export function isPrivateIp(ip: string): boolean {
   if (net.isIPv4(ip)) {
     const [a, b] = ip.split(".").map(Number);
     if (a === 10 || a === 127) return true;
