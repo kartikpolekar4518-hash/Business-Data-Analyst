@@ -15,12 +15,12 @@ export const env = {
   // Billing: set STRIPE_SECRET_KEY to enable real checkout. When unset, plan
   // changes fall back to a dev-only mock (never allowed in production).
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
-  // AI question understanding (optional): when ANTHROPIC_API_KEY is set, the chat
-  // endpoint uses Claude to interpret free-form questions into a structured intent,
+  // AI question understanding (optional): when OPENAI_API_KEY is set, the chat
+  // endpoint uses GPT to interpret free-form questions into a structured intent,
   // then the deterministic engine computes the answer. Unset = rule-based parser only
   // (fully deterministic, no external calls). aiModel is swappable without code changes.
-  anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? "",
-  aiModel: process.env.AI_MODEL ?? "claude-opus-5",
+  openaiApiKey: process.env.OPENAI_API_KEY ?? "",
+  aiModel: process.env.AI_MODEL ?? "gpt-5-nano",
   // Connectors: symmetric key that encrypts saved connection credentials.
   connectorEncryptionKey: process.env.CONNECTOR_ENCRYPTION_KEY ?? "dev-insecure-connector-key-change-me",
   // Allow connecting to private/loopback hosts (needed for local/demo DBs). Off

@@ -37,7 +37,7 @@ aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) =>
   const { message, datasetId, conversationId } = chatSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
 
-  // Understand the question with Claude when configured; fall back to the deterministic
+  // Understand the question with GPT when configured; fall back to the deterministic
   // rule parser when it isn't (or on any failure). Either way, runIntent computes the
   // numbers deterministically — the model never sees the data rows.
   const llmIntent = await llmParseIntent(message, schema);
