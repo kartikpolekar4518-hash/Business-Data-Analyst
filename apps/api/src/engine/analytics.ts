@@ -54,7 +54,8 @@ function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
       }
     }
     const eq = (sem: Semantic, val?: Dim) => {
-      const vals = val == null ? [] : Array.isArray(val) ? val : [val];
+      // Empty/blank values mean "no filter" (a bare `?region=` shouldn't narrow to blank cells).
+      const vals = (val == null ? [] : Array.isArray(val) ? val : [val]).filter((v) => str(v) !== "");
       if (vals.length === 0) return true;
       if (!s[sem]) return false; // filtering on an absent column excludes everything (unchanged)
       const cell = str(r[s[sem]!]).toLowerCase();
