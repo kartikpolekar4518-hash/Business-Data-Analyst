@@ -74,9 +74,6 @@ function metric(intent: Intent): Metric {
   const m = intent.metrics[0];
   return (METRICS as string[]).includes(m) ? (m as Metric) : "revenue";
 }
-function seriesMetric(m: Metric): "revenue" | "profit" | "orders" {
-  return m === "orders" ? "orders" : m === "profit" ? "profit" : "revenue";
-}
 
 // --- classification: question -> structured intent (no data access) ---
 export function ruleParse(question: string, s: SchemaMap): Intent {
@@ -115,7 +112,7 @@ export function runIntent(intent: Intent, rows: Row[], s: SchemaMap): ChatResult
 
   switch (intent.intent) {
     case "forecast": {
-      const series = A.timeSeries(rows, s, seriesMetric(m));
+      const series = A.timeSeries(rows, s, m);
       if (series.length < 2) return fallback("Not enough time-based history to forecast.");
       const fc = forecast(series.map((p) => ({ period: p.period, value: p.value })), 3);
       const next = fc.points[0];
@@ -131,7 +128,7 @@ export function runIntent(intent: Intent, rows: Row[], s: SchemaMap): ChatResult
 
     case "max_period":
     case "min_period": {
-      const series = A.timeSeries(rows, s, seriesMetric(m));
+      const series = A.timeSeries(rows, s, m);
       if (!series.length) return fallback("No date column detected to analyse by month.");
       const worst = intent.intent === "min_period";
       const best = [...series].sort((x, y) => (worst ? x.value - y.value : y.value - x.value))[0];
@@ -196,7 +193,9 @@ export function runIntent(intent: Intent, rows: Row[], s: SchemaMap): ChatResult
     }
 
     case "trend": {
-      const series = A.timeSeries(rows, s, seriesMetric(m));
+      const series = A.timeSeries(rows, s, m);
+      // Same guard as forecast/max_period: never present an empty chart as a confident answer.
+      if (!series.length) return fallback("No date column detected to chart this over time.");
       return {
         intent: { intent: "trend", metrics: [m], dimensions: ["date"], filters: {}, limit: series.length, visualization: "line" },
         explanation: `${METRIC_LABEL[m]} over time, by month.`,

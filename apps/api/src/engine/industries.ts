@@ -169,10 +169,17 @@ export function getPack(key?: string | null): IndustryPack {
 // of its signature semantics its own rules find; the best score that clears the
 // pack's `minSignals` wins, breaking ties by `priority` then specificity (fewer
 // total signals = more specific). Adding a pack needs no change here.
-export function suggestIndustry(columns: ColumnProfile[]): string {
+export function suggestIndustry(columns: (ColumnProfile & { semantic?: Semantic })[]): string {
+  // Columns persisted after ingest carry their resolved semantic (including any
+  // AI-assisted mapping). Count those too, so the suggestion reflects the schema the
+  // dashboard actually uses rather than re-deriving from column names alone.
+  const resolved = new Set(columns.map((c) => c.semantic).filter((s): s is Semantic => !!s && s !== "none"));
   const ranked = Object.values(PACKS)
     .filter((p) => p.signals.length > 0)
-    .map((p) => ({ pack: p, score: p.signals.filter((s) => detectSchema(columns, p.rules).map[s]).length }))
+    .map((p) => {
+      const detected = detectSchema(columns, p.rules).map;
+      return { pack: p, score: p.signals.filter((s) => detected[s] || resolved.has(s)).length };
+    })
     .filter((c) => c.score >= c.pack.minSignals)
     .sort((a, b) =>
       b.score - a.score ||

@@ -126,7 +126,7 @@ export function computeKpis(rows: Row[], s: SchemaMap, pack: IndustryPack, f: Fi
   }));
 }
 
-export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profit" | "orders", f: Filters = {}) {
+export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profit" | "orders" | "quantity", f: Filters = {}) {
   const filtered = applyFilters(rows, s, f);
   if (!s.date) return [];
   const buckets = new Map<string, number>();
@@ -134,7 +134,8 @@ export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profi
     const d = parseDate(r[s.date!]);
     if (!d) continue;
     const key = monthKey(d);
-    const val = metric === "revenue" ? rowRevenue(r, s) : metric === "profit" ? rowProfit(r, s) : 1;
+    const val = metric === "revenue" ? rowRevenue(r, s) : metric === "profit" ? rowProfit(r, s)
+      : metric === "quantity" ? num(s.quantity ? r[s.quantity] : 1) : 1;
     buckets.set(key, (buckets.get(key) || 0) + val);
   }
   return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, value]) => ({ period, value: round(value) }));

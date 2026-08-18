@@ -23,7 +23,7 @@ role-based, works out of the box with sample retail data.
 
 - **Auditable.** Every KPI, forecast, and recommendation has a code path you can read, step through, and unit-test. There is no model that produced the answer — the answer *is* the code path.
 - **Reproducible.** Same input, same output, forever. Regulator-friendly and compatible with financial-controls review.
-- **Private.** Your data rows never leave your infrastructure. With AI question understanding enabled, only the question text and your column names are sent to OpenAI — never the data itself; disable it and nothing is sent to any third-party service at all.
+- **Private.** Your data rows never leave your infrastructure. With the AI layer enabled, what goes to OpenAI is bounded: the question text and column names for chat, plus column types and up to 5 sample values per column at upload for schema detection (set `AI_DETECT_SAMPLE_VALUES=false` to send names and types only). Full rows are never sent, and with no key nothing is sent to any third-party service at all.
 - **Free at rest.** The deterministic engine has no per-token cost, no rate limits, and no vendor bills; the optional AI question layer is the only part that bills per query, and it's off unless you set a key.
 - **Fast.** Sub-100ms responses on typical business datasets — no network round-trip to a foreign model.
 

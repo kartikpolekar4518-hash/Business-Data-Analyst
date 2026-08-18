@@ -51,6 +51,16 @@ assert(!merged.map.customer_name, "'none' semantic leaves the column unmapped");
 assert(merged.columns.find((c) => c.name === "amt")!.semantic === "revenue", "annotated column semantic updated");
 assert(mbase.map.revenue === undefined, "merge did not mutate the input map");
 
+// 2c. Type guardrails: an AI mapping whose column type can't support the meaning is
+// rejected, so a mislabelled text column can never zero out revenue or fake a date axis.
+const tbase = detectSchema(profileDataset([{ notes: "call back", tag: "Q1" }], ["notes", "tag"]).columns);
+const tmerged = mergeAiSemantics(tbase, [
+  { name: "notes", semantic: "revenue" }, // text column -> rejected (would coerce to 0)
+  { name: "tag", semantic: "date" },      // non-date column -> rejected (would break trends)
+]);
+assert(!tmerged.map.revenue, "AI revenue mapping onto a text column is rejected");
+assert(!tmerged.map.date, "AI date mapping onto a non-date column is rejected");
+
 // 3. Analytics: revenue = sum(revenue) = 100+200+150+150+0 = 600.
 const ov = A.overview(rows, map);
 assert(ov.revenue.value === 600, `revenue expected 600, got ${ov.revenue.value}`);
@@ -102,6 +112,20 @@ assert(exec.intent.intent === "top_n" && exec.table!.rows[0][0] === "Ada", "runI
 assert(runIntent({ intent: "forecast", metrics: ["revenue"], dimensions: ["date"], filters: {}, limit: 3, visualization: "none" }, rows, map).metrics!.length === 3, "runIntent forecast yields 3 points");
 // An unresolvable intent degrades to the deterministic fallback, never throws.
 assert(runIntent({ intent: "unknown", metrics: [], dimensions: [], filters: {}, limit: 0, visualization: "none" }, rows, map).confidence === 0.2, "unknown intent -> fallback");
+
+// 5c. A quantity-metric intent must measure quantity, not silently report revenue.
+const qtyCols = ["order_date", "product_name", "units", "revenue"];
+const qtyRows = [
+  { order_date: "2024-01-05", product_name: "Widget", units: "1", revenue: "500" },
+  { order_date: "2024-02-05", product_name: "Widget", units: "9", revenue: "100" },
+];
+const qtyMap = detectSchema(profileDataset(qtyRows, qtyCols).columns).map;
+const qtyPeak = runIntent({ intent: "max_period", metrics: ["quantity"], dimensions: ["date"], filters: {}, limit: 1, visualization: "none" }, qtyRows, qtyMap);
+assert(qtyPeak.metrics![0].label === "2024-02" && qtyPeak.metrics![0].value === 9,
+  `max_period on quantity must use units (2024-02 = 9), got ${qtyPeak.metrics![0].label} = ${qtyPeak.metrics![0].value}`);
+// A trend with no date column returns the fallback rather than a confident empty chart.
+const noDate = runIntent({ intent: "trend", metrics: ["revenue"], dimensions: ["date"], filters: {}, limit: 0, visualization: "none" }, [{ a: "1" }], {});
+assert(noDate.intent.intent === "unknown", "trend without a date column -> fallback, not an empty chart");
 
 // 6. Forecast produces the requested horizon with a valid confidence band.
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);

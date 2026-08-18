@@ -38,10 +38,12 @@ aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) =>
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
 
   // Understand the question with GPT when configured; fall back to the deterministic
-  // rule parser when it isn't (or on any failure). Either way, runIntent computes the
-  // numbers deterministically — the model never sees the data rows.
+  // rule parser when it isn't, on any failure, or when the model itself can't classify
+  // the question ("unknown") — the rules often still can. Either way runIntent computes
+  // the numbers deterministically; the model never sees the data rows.
   const llmIntent = await llmParseIntent(message, schema);
-  const result = runIntent(llmIntent ?? ruleParse(message, schema), rows, schema);
+  const intent = llmIntent && llmIntent.intent !== "unknown" ? llmIntent : ruleParse(message, schema);
+  const result = runIntent(intent, rows, schema);
 
   // Persist conversation + both messages.
   const convo = conversationId

@@ -35,7 +35,10 @@ export async function ingestRows(input: IngestInput) {
   // the model classify the industry. Null (no key / failure) => pure regex, exactly as before.
   const ai = await llmAnalyzeSchema(profile.columns);
   const { map, columns } = ai ? mergeAiSemantics(regexDetected, ai.mappings) : regexDetected;
-  const suggestedIndustry = ai?.industry ?? suggestIndustry(profile.columns);
+  // The AI's industry is used only when it commits to a specific one; "generic" is its
+  // no-opinion answer and must not override a pack the column signals clearly support.
+  const regexIndustry = suggestIndustry(columns);
+  const suggestedIndustry = ai && ai.industry !== "generic" ? ai.industry : regexIndustry;
 
   const dataset = await prisma.dataset.create({
     data: {

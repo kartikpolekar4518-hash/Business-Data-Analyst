@@ -58,8 +58,10 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
   // The stored schema is kept pack-correct at write time, so it is used directly.
   // The column profile is fetched only here (not in loadDataset) to power the
   // "switch industry?" suggestion banner without bloating other analytics reads.
-  const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
-  const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
+  // Read the annotated columns (not profile.columns) so the suggestion accounts for
+  // AI-assisted mappings resolved at ingest, matching what the dashboard renders.
+  const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { columns: true } });
+  const cols = (prof?.columns as ColumnProfile[] | null) ?? [];
 
   const revenueTrend = A.timeSeries(rows, schema, "revenue", f);
   const profitTrend = A.timeSeries(rows, schema, "profit", f);

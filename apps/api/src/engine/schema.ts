@@ -50,6 +50,19 @@ export const SEMANTICS: Exclude<Semantic, "none">[] = [
 
 type Annotated = ColumnProfile & { semantic: Semantic };
 
+// Semantics whose column must hold numbers for downstream math to mean anything.
+const NUMERIC_SEMANTICS = new Set<Semantic>(["revenue", "sales", "cost", "profit", "quantity", "unit_price", "inventory"]);
+
+// Type guardrail for an AI-proposed mapping. Regex detection favours the column NAME
+// (a human named it), but an AI mapping is a guess about meaning, so it must also be
+// consistent with the profiled type — otherwise e.g. a free-text "notes" column mapped
+// to revenue would silently coerce to 0 and zero out every KPI.
+function aiMappingAllowed(semantic: Semantic, col: Annotated): boolean {
+  if (semantic === "date") return col.type === "date";
+  if (NUMERIC_SEMANTICS.has(semantic)) return col.type === "number" || col.type === "currency";
+  return true;
+}
+
 // Merge AI-proposed column semantics into a regex-detected schema — GAP-FILL ONLY.
 // A confident regex mapping is never overridden: an AI entry is applied only when its
 // target semantic is still unset AND its column is still unmapped. Pure, deterministic.
@@ -63,6 +76,7 @@ export function mergeAiSemantics(
     if (semantic === "none" || map[semantic]) continue; // skip none + slots regex already filled
     const col = columns.find((c) => c.name === name);
     if (!col || col.semantic !== "none") continue; // column must exist and be unmapped
+    if (!aiMappingAllowed(semantic, col)) continue; // type must support the claimed meaning
     map[semantic] = name;
     col.semantic = semantic;
   }

@@ -16,9 +16,21 @@ import { PACKS } from "../engine/industries.js";
 // caller falls back to the rule-based parser, so the chat endpoint never breaks.
 
 // One client, only when a key is configured. No key => feature off => always null.
+// Bounded latency: these calls sit inline in chat and ingest requests, so a slow or
+// unreachable API must degrade to the rule-based path quickly rather than stall the
+// request. No retry — the deterministic fallback is a better answer than a longer wait.
 const client = env.openaiApiKey
-  ? new OpenAI({ apiKey: env.openaiApiKey, timeout: 12_000, maxRetries: 1 })
+  ? new OpenAI({ apiKey: env.openaiApiKey, timeout: 8_000, maxRetries: 0 })
   : null;
+
+// Log the first failure per stage so a misconfigured key/model is diagnosable, without
+// spamming a line per request once something is persistently broken.
+const warned = new Set<string>();
+function warnOnce(stage: string, e: unknown): void {
+  if (warned.has(stage)) return;
+  warned.add(stage);
+  console.warn(`[ai] ${stage} failed; falling back to rule-based logic. ${e instanceof Error ? e.message : String(e)}`);
+}
 
 const METRIC_ENUM = ["revenue", "profit", "quantity", "orders"] as const;
 
@@ -48,9 +60,12 @@ function schemaSummary(s: SchemaMap): { text: string; dimensions: string[] } {
   const dims = (["customer_name", "product_name", "region", "state", "city", "category", "department", "plan", "medicine_name"] as const)
     .filter((d) => s[d]);
   const cols = Object.entries(s).map(([semantic, col]) => `- ${semantic} (column "${col}")`).join("\n");
+  // "none" is a sentinel for an empty list, never an offerable dimension — build the
+  // list first so a date-only schema reads "date", not "none, date".
+  const groupable = [...dims, ...(s.date ? ["date"] : [])];
   return {
     dimensions: dims,
-    text: `The dataset has these business columns:\n${cols}\n\nAvailable grouping dimensions: ${dims.join(", ") || "none"}${s.date ? ", date" : ""}.`,
+    text: `The dataset has these business columns:\n${cols}\n\nAvailable grouping dimensions: ${groupable.join(", ") || "none"}.`,
   };
 }
 
@@ -90,7 +105,8 @@ export async function llmParseIntent(question: string, schema: SchemaMap): Promi
       limit: e.limit,
       visualization: "none", // runIntent sets the real visualization deterministically
     };
-  } catch {
+  } catch (e) {
+    warnOnce("question understanding", e);
     return null; // any failure => caller falls back to the rule-based parser
   }
 }
@@ -162,7 +178,8 @@ export async function llmAnalyzeSchema(
         .map((c) => ({ name: c.name, semantic: c.semantic as Semantic })),
       industry: PACK_KEYS.includes(a.industry) ? a.industry : "generic",
     };
-  } catch {
+  } catch (e) {
+    warnOnce("schema detection", e);
     return null; // any failure => caller keeps the regex-detected schema
   }
 }
