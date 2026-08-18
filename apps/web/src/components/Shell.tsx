@@ -2,6 +2,7 @@ import { type ReactNode, useState, useRef, useEffect, useCallback } from "react"
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Database,
   BarChart3,
   PieChart,
@@ -38,6 +39,7 @@ const NAV_SECTIONS = [
     label: "Main",
     items: [
       { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { to: "/builder", label: "Builder", icon: LayoutGrid },
       { to: "/data", label: "Data", icon: Database },
       { to: "/analytics", label: "Analytics", icon: BarChart3 },
       {

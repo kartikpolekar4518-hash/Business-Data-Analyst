@@ -42,7 +42,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 4 | Charts & viz | 🟡 | **Phase 3** added combo, waterfall, funnel, scatter/bubble, radar, gauge, treemap, heatmap (+ a `/charts` catalog). ~14 types now. Gaps remaining: bullet, sunburst, sankey, box/violin, candlestick, pareto, cohort, geo/choropleth; interactions: crosshair, zoom, drill-down, export, fullscreen |
 | 5 | **Tables** | 🟡→✅ | **This batch: reusable `DataTable`** (sort/search/paginate/select/sticky). Gaps remaining: virtualization, reorder/resize columns, grouped rows/subtotals, inline editing, cell mini-charts |
 | 6 | Filters & data controls | 🟡→✅ | **Phase 2:** multi-select combobox, relative-date presets, filter chips + active-filter counter, saved views. Gaps remaining: numeric-range/slider, boolean/tag filters |
-| 7 | Dashboard components | 🟡 | KPI row, chart/table cards ✅. Gaps: configurable widgets (drag/resize/duplicate), insight/goal/recommendation cards, widget settings panel |
+| 7 | Dashboard components | 🟡→✅ | **Phase 5:** configurable widget grid (drag-reorder, resize, duplicate, remove, fullscreen, add-from-palette, persisted) + goal card + a `/builder` page. Gaps remaining: pixel-precise resize, cross-device layout sync |
 | 8 | AI components | 🟡→✅ | **Phase 4:** reusable AI insight card, AI summary + data-source citation, confidence meter, "Explain this metric" / "Why did this change?", suggested-prompt + follow-up chips, reasoning/thinking indicator. Gaps remaining: dedicated anomaly/forecast-explanation cards, NL command bar |
 | 9 | Forecasting | 🟡 | Forecast chart + confidence band + accuracy ✅. Gaps: scenario selector (best/base/worst), what-if, scenario comparison, risk indicator |
 | 10 | Alerts & monitoring | 🟡 | Alert list/banner/notification bell ✅. Gaps: alert rule builder, frequency/recipient selectors, alert history |
@@ -81,8 +81,9 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
   card, AI summary + citation, confidence meter, "Explain this metric", suggested
   prompts + follow-ups, thinking indicator — all presentation over the existing
   deterministic outputs. See "Shipped in Phase 4" below.
-- **Phase 5 — Dashboard widget system.** Configurable widgets (drag/resize/
-  duplicate/settings), insight/goal/recommendation/forecast cards, bento layout.
+- **Phase 5 — Dashboard widget system  ← shipped.** Configurable widget grid
+  (drag-reorder, resize, duplicate, remove, fullscreen, add-from-palette,
+  persisted) + goal card + a `/builder` page. See "Shipped in Phase 5" below.
 - **Phase 6 — Reports & collaboration.** Report builder + templates + scheduling;
   then sharing, comments, activity feed, version history.
 
@@ -153,6 +154,21 @@ living documentation. Code-split, so it adds nothing to the initial bundle.
 
 Wired via `apps/web/src/App.tsx` (route) and `Shell.tsx` (nav). Web typecheck and
 `npm run build` both pass.
+
+## Shipped in this batch (Phase 5)
+
+**New components** — `apps/web/src/components/widgets.tsx`:
+- `WidgetGrid` — a configurable bento grid: drag to reorder (native DnD), cycle
+  size (sm/md/lg column span), duplicate, remove, fullscreen, and add from a
+  palette. Layout persists per user in `localStorage`; "Reset layout" restores
+  the default. Bodies come from a `renderBody(item)` prop, so any content fits.
+- `GoalCard` — progress toward a target with a completion state.
+
+**Page** — `apps/web/src/pages/DashboardBuilder.tsx` at `/builder` (sidebar:
+*Main*): composes widgets from the real overview + insights data (metric, goal,
+executive insight, trend, composition, ranking). Code-split.
+
+Wired via `App.tsx` (route) and `Shell.tsx` (nav). Web typecheck + build pass.
 
 ## Shipped in this batch (Phase 4)
 
