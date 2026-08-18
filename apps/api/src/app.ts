@@ -25,6 +25,28 @@ import { PLANS } from "./billing/plans.js";
 // mount it. The server lifecycle (listen + graceful shutdown) lives in index.ts.
 export const app = express();
 app.disable("x-powered-by");
+
+// Security response headers. Hand-rolled (like the rate limiters and SSRF guard)
+// so we add no dependency. HSTS is prod-only — sending it over plain http on a
+// real domain would wrongly pin the browser to https. The CSP is scoped for a
+// same-origin Vite SPA + JSON API; widen the *-src lists if the web app ever
+// loads assets from another origin.
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  res.setHeader("Cross-Origin-Opener-Policy", "same-origin");
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
+      "script-src 'self'; connect-src 'self'; font-src 'self' data:; object-src 'none'; " +
+      "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+  );
+  if (env.isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  next();
+});
+
 app.use(cors({ origin: env.appUrl.split(",") }));
 app.use(express.json({ limit: "2mb" }));
 
