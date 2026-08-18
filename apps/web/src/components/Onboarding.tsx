@@ -32,7 +32,7 @@ export function EmptyWorkspace({
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
           <BrainCircuit className="h-6 w-6 text-white" />
         </div>
-        <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white">Welcome to DecisionIQ</h1>
+        <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white">Welcome to NoPS</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
           {canUpload
             ? "Add your business data to generate dashboards, forecasts and reports automatically. No spreadsheet skills required."
@@ -118,7 +118,7 @@ export function GettingStartedChecklist({
       <CardBody>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Get the most out of DecisionIQ</h3>
+            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Get the most out of NoPS</h3>
             <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{done} of {steps.length} done</p>
           </div>
           <button
@@ -181,7 +181,7 @@ export function WelcomeTour({ open, onClose }: { open: boolean; onClose: () => v
   const s = TOUR[step];
 
   return (
-    <Modal open={open} onClose={onClose} title="Welcome to DecisionIQ">
+    <Modal open={open} onClose={onClose} title="Welcome to NoPS">
       <div className="text-center">
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow-sm">
           <s.icon className="h-5 w-5" />

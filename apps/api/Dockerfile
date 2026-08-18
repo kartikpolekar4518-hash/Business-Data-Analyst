@@ -1,4 +1,4 @@
-# DecisionIQ all-in-one image: API + built web UI served on one port.
+# NoPS all-in-one image: API + built web UI served on one port.
 FROM node:22-alpine
 WORKDIR /app
 

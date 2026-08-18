@@ -14,7 +14,7 @@ import {
   AnimatedNumber, Reveal, Stagger, StaggerItem, staggerItem, DUR, EASE, SPRING,
 } from "../lib/motion";
 
-const APP_NAME = import.meta.env.VITE_APP_NAME || "DecisionIQ";
+const APP_NAME = import.meta.env.VITE_APP_NAME || "NoPS";
 
 const FEATURES = [
   { icon: BarChart3, title: "Automatic dashboards", body: "KPIs, trends and rankings generated from your columns — adapting to your industry, never hardcoded." },
@@ -92,7 +92,7 @@ function PreviewMock() {
         <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
-        <span className="ml-2">DecisionIQ · Dashboard</span>
+        <span className="ml-2">NoPS · Dashboard</span>
       </div>
 
       <div className="grid grid-cols-3 gap-2">

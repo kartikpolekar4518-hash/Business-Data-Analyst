@@ -28,7 +28,7 @@ export const PLANS: Plan[] = [
     key: "free",
     name: "Free",
     priceMonthly: 0,
-    tagline: "Try DecisionIQ on a real dataset.",
+    tagline: "Try NoPS on a real dataset.",
     limits: { datasets: 2, seats: 2, reportsPerMonth: 3 },
     features: [
       "Automatic dashboards",
