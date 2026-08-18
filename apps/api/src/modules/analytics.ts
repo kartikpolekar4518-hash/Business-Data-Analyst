@@ -11,16 +11,22 @@ import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industr
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
 
-// Validate filter parameters
+// Validate filter parameters. Dimension filters accept a single value or, via
+// repeated query params (?region=A&region=B), an array — OR-matched downstream.
+const dim = z.union([z.string(), z.array(z.string())]).optional();
+// Accept a plain date (YYYY-MM-DD, as sent by <input type="date"> and the
+// relative-date presets) or a full ISO datetime. `.datetime()` alone rejected
+// date-only strings, which silently dropped every date-filtered query.
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:\d{2})?)?$/).optional();
 const filterSchema = z.object({
-  dateFrom: z.string().datetime().optional(),
-  dateTo: z.string().datetime().optional(),
-  region: z.string().optional(),
-  state: z.string().optional(),
-  category: z.string().optional(),
-  department: z.string().optional(),
-  product: z.string().optional(),
-  customer: z.string().optional(),
+  dateFrom: isoDate,
+  dateTo: isoDate,
+  region: dim,
+  state: dim,
+  category: dim,
+  department: dim,
+  product: dim,
+  customer: dim,
 });
 
 function filtersFrom(query: any): A.Filters {

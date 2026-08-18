@@ -4,8 +4,9 @@ import { Download } from "lucide-react";
 import { api } from "../lib/api";
 import { num } from "../lib/utils";
 import { kpiIcon } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Select, Button, Spinner, EmptyState, Label } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Label } from "../components/ui";
 import { DataTable, type Column } from "../components/DataTable";
+import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, type Chip } from "../components/filters";
 import { TrendChart, BarRankChart } from "../components/charts";
 import { KpiCard } from "../components/Kpi";
 import { BarChart3 } from "lucide-react";
@@ -28,12 +29,36 @@ export default function Analytics() {
   const ov = useQuery({ queryKey: ["analytics", qs], queryFn: () => api.get<OverviewResponse>(`/analytics/overview${qs ? `?${qs}` : ""}`), retry: false });
   const table = useQuery({ queryKey: ["analyticsTable", qs], queryFn: () => api.get<{ columns: string[]; rows: Record<string, unknown>[]; total: number }>(`/analytics/table${qs ? `?${qs}` : ""}`), retry: false });
 
-  const setFilter = (key: string, value: string) => {
+  // Single-valued fields (dates).
+  const setField = (key: string, value: string) => {
     const next = new URLSearchParams(params);
     value ? next.set(key, value) : next.delete(key);
     setParams(next, { replace: true });
   };
+  // Multi-valued dimensions — repeated params (?region=A&region=B), OR-matched server-side.
+  const setMulti = (key: string, values: string[]) => {
+    const next = new URLSearchParams(params);
+    next.delete(key);
+    values.forEach((v) => next.append(key, v));
+    setParams(next, { replace: true });
+  };
+  const removeOne = (key: string, value: string) => setMulti(key, params.getAll(key).filter((v) => v !== value));
+  const setDates = (from?: string, to?: string) => {
+    const next = new URLSearchParams(params);
+    from ? next.set("dateFrom", from) : next.delete("dateFrom");
+    to ? next.set("dateTo", to) : next.delete("dateTo");
+    setParams(next, { replace: true });
+  };
   const clear = () => setParams(new URLSearchParams(), { replace: true });
+
+  const chips: Chip[] = [];
+  if (query.dateFrom || query.dateTo)
+    chips.push({ id: "date", label: <><span className="text-slate-400">Date:</span> {query.dateFrom || "…"} → {query.dateTo || "…"}</>, onRemove: () => setDates(undefined, undefined) });
+  FILTERS.forEach((f) =>
+    params.getAll(f.key).forEach((v) =>
+      chips.push({ id: `${f.key}:${v}`, label: <><span className="text-slate-400">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.key, v) }),
+    ),
+  );
 
   function exportCsv() {
     if (!table.data) return;
@@ -54,29 +79,32 @@ export default function Analytics() {
       </div>
 
       {/* Filters */}
-      <Card><CardBody>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
+      <Card><CardBody className="space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <RelativeDateSelect onSelect={(r) => setDates(r.from, r.to)} />
           <div>
             <Label htmlFor="f-from">From</Label>
-            <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setFilter("dateFrom", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+            <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setField("dateFrom", e.target.value)}
+              className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
           </div>
           <div>
             <Label htmlFor="f-to">To</Label>
-            <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setFilter("dateTo", e.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm outline-none focus:border-brand-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+            <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setField("dateTo", e.target.value)}
+              className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
           </div>
+          <div className="ml-auto">
+            <SavedViews storageKey="diq_saved_views_analytics" currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           {FILTERS.map((f) => (
             <div key={f.key}>
               <Label>{f.label}</Label>
-              <Select value={query[f.key] ?? ""} onChange={(e) => setFilter(f.key, e.target.value)}>
-                <option value="">All</option>
-                {(opts[f.key] ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
-              </Select>
+              <MultiSelect label={f.label} options={opts[f.key] ?? []} selected={params.getAll(f.key)} onChange={(vals) => setMulti(f.key, vals)} placeholder="All" />
             </div>
           ))}
-          <div className="flex items-end"><Button variant="ghost" onClick={clear} disabled={!qs}>Clear</Button></div>
         </div>
+        <FilterChips chips={chips} onClearAll={clear} />
       </CardBody></Card>
 
       {/* KPIs (driven by the industry pack) */}

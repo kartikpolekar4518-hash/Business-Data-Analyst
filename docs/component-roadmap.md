@@ -41,7 +41,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 3 | KPI / metric | 🟡 | Card + trend + sparkline ✅. Gaps: target/progress/benchmark/status/confidence/anomaly/AI-explanation variants, drill-down |
 | 4 | Charts & viz | 🟡 | 6 of ~40 types. Gaps: combo, waterfall, funnel, gauge, bullet, heatmap, treemap, sunburst, sankey, radar, box/violin, candlestick, pareto, cohort, geo/choropleth; interactions: crosshair, zoom, series toggle, drill-down, export, fullscreen |
 | 5 | **Tables** | 🟡→✅ | **This batch: reusable `DataTable`** (sort/search/paginate/select/sticky). Gaps remaining: virtualization, reorder/resize columns, grouped rows/subtotals, inline editing, cell mini-charts |
-| 6 | Filters & data controls | 🟡 | URL-driven filters, date/select ✅. Gaps: filter chips, active-filter counter, saved filters/presets, relative-date, numeric-range/slider, multi-select combobox |
+| 6 | Filters & data controls | 🟡→✅ | **Phase 2:** multi-select combobox, relative-date presets, filter chips + active-filter counter, saved views. Gaps remaining: numeric-range/slider, boolean/tag filters |
 | 7 | Dashboard components | 🟡 | KPI row, chart/table cards ✅. Gaps: configurable widgets (drag/resize/duplicate), insight/goal/recommendation cards, widget settings panel |
 | 8 | AI components | 🟡 | NL query box + rule/GPT intent + insights ✅. Gaps: AI insight cards, "Explain this metric", "Why did this change?", anomaly/forecast explanations, suggested prompts, confidence/citation UI, reasoning indicator |
 | 9 | Forecasting | 🟡 | Forecast chart + confidence band + accuracy ✅. Gaps: scenario selector (best/base/worst), what-if, scenario comparison, risk indicator |
@@ -69,9 +69,9 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 
 - **Phase 1 — Table system + form/overlay primitives  ← this batch.** Unblocks the
   most downstream components. See "Shipped in this batch" below.
-- **Phase 2 — Filters & saved views.** Filter chips, active-filter counter,
-  multi-select combobox, relative-date + numeric-range, saved filters/presets.
-  Extends the existing URL-driven filter model in `Analytics.tsx`.
+- **Phase 2 — Filters & saved views  ← shipped.** Multi-select combobox,
+  relative-date presets, filter chips + active-filter counter, saved views.
+  See "Shipped in Phase 2" below.
 - **Phase 3 — Chart library expansion.** Add combo, waterfall, funnel, gauge,
   heatmap, scatter/bubble, treemap, and a geo/choropleth on top of the existing
   Recharts setup in `charts.tsx`; add shared interactions (series toggle, zoom,
@@ -111,3 +111,28 @@ rather than built speculatively up front.
   sort, search, and pagination for free.
 
 All web types pass `npm run typecheck --workspace apps/web`.
+
+## Shipped in this batch (Phase 2)
+
+**New components** — `apps/web/src/components/filters.tsx`:
+- `MultiSelect` — searchable checklist combobox (select several values per dimension)
+- `RelativeDateSelect` — presets (Today, Last 7/30/90 days, This month/quarter/year, …)
+- `FilterChips` — active filters as removable chips + an active-filter counter
+- `SavedViews` — name and persist the current filter query to `localStorage`, re-apply later
+
+**Backend — multi-value filters (backward compatible):**
+- `apps/api/src/engine/analytics.ts`: `Filters` dimensions accept `string | string[]`;
+  `applyFilters` OR-matches a set, case-insensitively. Single values unchanged.
+- `apps/api/src/modules/analytics.ts`: dimension params accept repeated query params
+  (`?region=A&region=B`). Also fixed date validation — `.datetime()` rejected the
+  `YYYY-MM-DD` strings the date inputs send, silently dropping every date-filtered
+  query; it now accepts date-or-datetime.
+- `apps/api/src/engine/selfcheck.ts`: regression asserts for single- and multi-value
+  dimension filters.
+
+**Integration** — `apps/web/src/pages/Analytics.tsx`:
+- Single-selects replaced with `MultiSelect`; added the quick-range picker, saved
+  views, and a live filter-chip row. Filters remain URL-driven (shareable links),
+  now via repeated params for multi-value dimensions.
+
+API suite green (`npm test` in `apps/api`); web + api typecheck clean.
