@@ -24,7 +24,6 @@ const ALLOWED_MIME_TYPES = [
   "text/csv",
   "text/plain",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", // xlsx
-  "application/vnd.ms-excel", // xls
 ];
 
 const upload = multer({
@@ -50,7 +49,7 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
   const { originalname, size, buffer } = req.file;
 
   let parsed;
-  try { parsed = parseFile({ buffer, fileName: originalname }); }
+  try { parsed = await parseFile({ buffer, fileName: originalname }); }
   catch (e) { throw new HttpError(400, e instanceof Error ? e.message : "Could not parse file"); }
   if (!parsed.rows.length) throw new HttpError(400, "The file has no data rows");
 
@@ -58,9 +57,9 @@ uploadsRouter.post("/", uploadLimiter, requireRole("ADMIN", "MANAGER"), upload.s
   let fileExt = "csv";
   if (originalname.includes(".")) {
     fileExt = originalname.split(".").pop()!.toLowerCase();
-    if (!["csv", "xlsx", "xls"].includes(fileExt)) {
+    if (!["csv", "xlsx"].includes(fileExt)) {
       console.warn(`[upload] Invalid file extension: ${fileExt}`);
-      throw new HttpError(400, `Invalid file extension '.${fileExt}'. Upload CSV or Excel files only.`);
+      throw new HttpError(400, `Invalid file extension '.${fileExt}'. Upload a CSV or .xlsx file.`);
     }
   }
 

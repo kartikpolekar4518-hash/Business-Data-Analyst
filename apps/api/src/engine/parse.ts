@@ -1,5 +1,5 @@
 import Papa from "papaparse";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 export type Row = Record<string, unknown>;
 
@@ -8,16 +8,22 @@ export interface ParsedFile {
   columns: string[];
 }
 
-// Parse an uploaded CSV/XLSX/XLS buffer into rows of plain objects.
-export function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): ParsedFile {
+// Parse an uploaded CSV/XLSX buffer into rows of plain objects. Async because the
+// XLSX parser (exceljs) reads asynchronously. Legacy binary .xls is intentionally
+// not supported: the only npm parser that reads it (SheetJS xlsx) is unmaintained
+// with known prototype-pollution/ReDoS advisories, so we standardize on .xlsx/.csv.
+export async function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): Promise<ParsedFile> {
   const MAX_BUFFER = 50 * 1024 * 1024; // 50MB hard limit
   if (buffer.length > MAX_BUFFER) {
     throw new Error(`File exceeds maximum size of 50MB (got ${(buffer.length / 1024 / 1024).toFixed(1)}MB)`);
   }
   const lower = fileName.toLowerCase();
   if (lower.endsWith(".csv") || lower.endsWith(".txt")) return parseCsv(buffer);
-  if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return parseXlsx(buffer);
-  throw new Error("Unsupported file type. Upload a .csv, .xlsx or .xls file.");
+  if (lower.endsWith(".xlsx")) return parseXlsx(buffer);
+  if (lower.endsWith(".xls")) {
+    throw new Error("Legacy .xls files aren't supported. Re-save as .xlsx or export to .csv and upload that.");
+  }
+  throw new Error("Unsupported file type. Upload a .csv or .xlsx file.");
 }
 
 function parseCsv(buffer: Buffer): ParsedFile {
@@ -40,16 +46,53 @@ function parseCsv(buffer: Buffer): ParsedFile {
   }
 }
 
-function parseXlsx(buffer: Buffer): ParsedFile {
+// Reduce an exceljs cell value (which may be a Date, or a {formula,result} /
+// {text,hyperlink} / {richText} / {error} object) to a plain scalar, matching the
+// flat string/number/Date shape the rest of the engine expects.
+function cellValue(v: ExcelJS.CellValue): unknown {
+  if (v == null) return "";
+  if (v instanceof Date) return v;
+  if (typeof v === "object") {
+    const o = v as unknown as Record<string, unknown>;
+    if ("result" in o) return o.result ?? "";                                    // formula
+    if ("text" in o) return o.text ?? "";                                        // hyperlink
+    if ("richText" in o) return (o.richText as { text: string }[]).map((t) => t.text).join(""); // rich text
+    if ("error" in o) return "";                                                 // error cell
+    return "";
+  }
+  return v;
+}
+
+async function parseXlsx(buffer: Buffer): Promise<ParsedFile> {
   try {
-    const wb = XLSX.read(buffer, { type: "buffer", cellDates: true });
-    const sheet = wb.Sheets[wb.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json<Row>(sheet, { defval: "", raw: false });
-    // Normalize null values to empty string to match CSV behavior
-    const normalized = rows.map(r => Object.fromEntries(
-      Object.entries(r).map(([k, v]) => [k, v === null ? "" : v])
-    ));
-    return { rows: normalized, columns: inferColumns(normalized) };
+    const wb = new ExcelJS.Workbook();
+    // exceljs accepts a Buffer at runtime; the cast bridges the @types/node 22
+    // generic-Buffer vs exceljs-typing mismatch (both resolve to a Buffer here).
+    await wb.xlsx.load(buffer as unknown as ArrayBuffer);
+    const ws = wb.worksheets[0];
+    if (!ws) throw new Error("The workbook has no sheets.");
+
+    // Header row is the first row; guard against the prototype-pollution class by
+    // never letting a header become a magic key.
+    const headers: string[] = [];
+    ws.getRow(1).eachCell({ includeEmpty: true }, (cell, col) => {
+      let name = String(cellValue(cell.value)).trim();
+      if (name === "__proto__" || name === "constructor" || name === "prototype") name = `col_${col}`;
+      headers[col - 1] = name;
+    });
+
+    const rows: Row[] = [];
+    ws.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return; // header
+      const obj: Row = Object.create(null);
+      for (let c = 0; c < headers.length; c++) {
+        const key = headers[c];
+        if (!key) continue;
+        obj[key] = cellValue(row.getCell(c + 1).value);
+      }
+      if (Object.values(obj).some((v) => v !== "" && v != null)) rows.push({ ...obj });
+    });
+    return { rows, columns: headers.filter(Boolean) };
   } catch (e) {
     throw new Error(`Failed to parse Excel file: ${e instanceof Error ? e.message : String(e)}`);
   }

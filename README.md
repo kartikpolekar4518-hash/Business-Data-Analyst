@@ -29,7 +29,7 @@ role-based, works out of the box with sample retail data.
 ## Features
 
 - **Auth & organizations** — signup / login / logout, forgot + reset password, JWT, role-based access (ADMIN / MANAGER / VIEWER), full tenant isolation by `organizationId`.
-- **Data upload** — drag & drop CSV/XLSX/XLS, parsed, profiled, and quality-checked on ingest.
+- **Data upload** — drag & drop CSV/XLSX, parsed, profiled, and quality-checked on ingest.
 - **Data-quality engine** — detects missing values, duplicates, empty columns, numeric-in-text, statistical outliers, whitespace, inconsistent case/dates, suspicious column names. Accept/reject cleaning suggestions; the **original file is never modified**.
 - **Schema detection** — rule-based mapping of columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory, …).
 - **Auto dashboards** — KPIs (revenue, profit, margin, orders, customers) with period-over-period comparison, plus revenue/profit trends and product/customer/region/category rankings. Generated dynamically from the detected schema — never hardcoded to one dataset.
@@ -69,7 +69,7 @@ apps/
 ## Tech stack
 
 **Frontend:** React, TypeScript, Vite, Tailwind, Recharts, React Router, TanStack Query, lucide-react.
-**Backend:** Node, Express, TypeScript, Zod, JWT, bcrypt, multer, papaparse, xlsx, pdfkit.
+**Backend:** Node, Express, TypeScript, Zod, JWT, bcrypt, multer, papaparse, exceljs, pdfkit.
 **Database:** PostgreSQL + Prisma.
 
 ## Prerequisites

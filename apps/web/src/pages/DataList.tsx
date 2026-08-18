@@ -15,7 +15,7 @@ const CONNECTORS: { type: ConnectorType; label: string }[] = [
   { type: "GOOGLE_SHEETS", label: "Google Sheets" },
 ];
 const CONNECTOR_LABEL: Record<ConnectorType, string> = Object.fromEntries(CONNECTORS.map((c) => [c.type, c.label])) as Record<ConnectorType, string>;
-const ALLOWED_EXT = ["csv", "xlsx", "xls"];
+const ALLOWED_EXT = ["csv", "xlsx"];
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // keep in sync with the API's MAX_FILE_SIZE default
 
 export default function DataList() {
@@ -55,7 +55,7 @@ export default function DataList() {
   async function upload(file: File) {
     // Validate client-side before the round-trip so mistakes fail instantly.
     const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "";
-    if (!ALLOWED_EXT.includes(ext)) { toast(`Unsupported file type “.${ext || "?"}”. Upload a CSV, XLSX or XLS file.`, "error"); return; }
+    if (!ALLOWED_EXT.includes(ext)) { toast(`Unsupported file type “.${ext || "?"}”. Upload a CSV or XLSX file.`, "error"); return; }
     if (file.size > MAX_FILE_BYTES) { toast(`That file is ${bytes(file.size)} — the limit is 15 MB.`, "error"); return; }
 
     setUploading(true);
@@ -93,8 +93,8 @@ export default function DataList() {
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
           {uploading ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" /> : <UploadCloud className="h-8 w-8 text-slate-400" />}
           <p className="mt-3 font-medium">{uploading ? "Analyzing your data…" : "Drag & drop a file, or click to browse"}</p>
-          <p className="mt-1 text-sm text-slate-500">CSV, XLSX or XLS · up to 15 MB</p>
-          <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
+          <p className="mt-1 text-sm text-slate-500">CSV or XLSX · up to 15 MB</p>
+          <input ref={inputRef} type="file" accept=".csv,.xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
         </div>
       )}
 
