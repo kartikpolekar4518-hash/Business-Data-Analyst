@@ -39,7 +39,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 1 | App shell & layout | 🟡 | Shell/sidebar/header/breadcrumb ✅. Gaps: command palette, global search, resizable/split grid, right inspector, fullscreen mode |
 | 2 | Navigation | 🟡 | Sidebar nav, tabs, breadcrumb ✅. Gaps: segmented control, pagination (now ✅), stepper, saved-views selector |
 | 3 | KPI / metric | 🟡 | Card + trend + sparkline ✅. Gaps: target/progress/benchmark/status/confidence/anomaly/AI-explanation variants, drill-down |
-| 4 | Charts & viz | 🟡 | 6 of ~40 types. Gaps: combo, waterfall, funnel, gauge, bullet, heatmap, treemap, sunburst, sankey, radar, box/violin, candlestick, pareto, cohort, geo/choropleth; interactions: crosshair, zoom, series toggle, drill-down, export, fullscreen |
+| 4 | Charts & viz | 🟡 | **Phase 3** added combo, waterfall, funnel, scatter/bubble, radar, gauge, treemap, heatmap (+ a `/charts` catalog). ~14 types now. Gaps remaining: bullet, sunburst, sankey, box/violin, candlestick, pareto, cohort, geo/choropleth; interactions: crosshair, zoom, drill-down, export, fullscreen |
 | 5 | **Tables** | 🟡→✅ | **This batch: reusable `DataTable`** (sort/search/paginate/select/sticky). Gaps remaining: virtualization, reorder/resize columns, grouped rows/subtotals, inline editing, cell mini-charts |
 | 6 | Filters & data controls | 🟡→✅ | **Phase 2:** multi-select combobox, relative-date presets, filter chips + active-filter counter, saved views. Gaps remaining: numeric-range/slider, boolean/tag filters |
 | 7 | Dashboard components | 🟡 | KPI row, chart/table cards ✅. Gaps: configurable widgets (drag/resize/duplicate), insight/goal/recommendation cards, widget settings panel |
@@ -72,10 +72,11 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 - **Phase 2 — Filters & saved views  ← shipped.** Multi-select combobox,
   relative-date presets, filter chips + active-filter counter, saved views.
   See "Shipped in Phase 2" below.
-- **Phase 3 — Chart library expansion.** Add combo, waterfall, funnel, gauge,
-  heatmap, scatter/bubble, treemap, and a geo/choropleth on top of the existing
-  Recharts setup in `charts.tsx`; add shared interactions (series toggle, zoom,
-  export, fullscreen).
+- **Phase 3 — Chart library expansion  ← shipped.** Combo, waterfall, funnel,
+  scatter/bubble, radar, gauge, treemap, heatmap on top of the existing Recharts
+  setup, plus a `/charts` catalog page. See "Shipped in Phase 3" below. Deferred:
+  geo/choropleth (needs map topology + projection) and the interaction wrappers
+  (zoom, export, fullscreen) — pulled in when a page first needs them.
 - **Phase 4 — AI / DecisionIQ differentiators.** AI insight cards, "Explain this
   metric", "Why did this change?", anomaly/forecast explanations, suggested
   prompts, confidence + data-source citation UI. Backs onto the deterministic
@@ -136,3 +137,19 @@ All web types pass `npm run typecheck --workspace apps/web`.
   now via repeated params for multi-value dimensions.
 
 API suite green (`npm test` in `apps/api`); web + api typecheck clean.
+
+## Shipped in this batch (Phase 3)
+
+**New chart types** — `apps/web/src/components/charts.tsx` (all Recharts- or
+SVG-native, no new dependencies; each reuses the shared `CHART`/`SERIES` palette,
+`useAxis` theming, and `useSeriesAnimation` motion, and works light + dark):
+- `ComboChart` (bar + line, dual axis), `WaterfallChart` (signed running total),
+  `FunnelStages`, `ScatterBubbleChart` (z → bubble size), `RadarProfile`,
+  `GaugeChart` (half-dial vs. max), `TreemapChart`, `Heatmap` (matrix intensity).
+
+**Catalog page** — `apps/web/src/pages/ChartLibrary.tsx` at `/charts` (linked in
+the sidebar under *Analytics*): renders every chart type with sample data as
+living documentation. Code-split, so it adds nothing to the initial bundle.
+
+Wired via `apps/web/src/App.tsx` (route) and `Shell.tsx` (nav). Web typecheck and
+`npm run build` both pass.

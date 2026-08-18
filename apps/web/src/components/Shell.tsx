@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Database,
   BarChart3,
+  PieChart,
   MessagesSquare,
   TrendingUp,
   FileText,
@@ -51,6 +52,7 @@ const NAV_SECTIONS = [
     label: "Analytics",
     items: [
       { to: "/forecasts", label: "Forecasts", icon: TrendingUp },
+      { to: "/charts", label: "Chart library", icon: PieChart },
       { to: "/reports", label: "Reports", icon: FileText },
       { to: "/alerts", label: "Alerts", icon: Bell },
     ],
