@@ -28,6 +28,7 @@ import { KpiCard } from "../components/Kpi";
 import { EmptyWorkspace, GettingStartedChecklist, WelcomeTour, type ChecklistStep } from "../components/Onboarding";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
 import { AISummary, AICitation, AIInsightCard } from "../components/ai";
+import { DriverBreakdown, AnomalyPanel } from "../components/analytics";
 import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
 
 const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
@@ -312,6 +313,14 @@ export default function Dashboard() {
           </CardBody>
         </Card>
       </div>
+
+      {/* ─── Driver breakdown + anomaly detection ─── */}
+      {data && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <DriverBreakdown datasetId={data.datasetId} />
+          <AnomalyPanel datasetId={data.datasetId} />
+        </div>
+      )}
 
       {/* ─── AI Recommendations + Activity Feeds ─── */}
       <div className="grid gap-6 lg:grid-cols-3">
