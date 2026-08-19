@@ -16,6 +16,7 @@ import { aiRouter } from "./modules/ai.js";
 import { forecastingRouter } from "./modules/forecasting.js";
 import { reportsRouter } from "./modules/reports.js";
 import { alertsRouter } from "./modules/alerts.js";
+import { schedulesRouter } from "./modules/schedules.js";
 import { billingRouter } from "./modules/billing.js";
 import { settingsRouter } from "./modules/settings.js";
 import { INDUSTRIES } from "./engine/industries.js";
@@ -79,6 +80,7 @@ app.use("/api/ai", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: tru
 app.use("/api/forecasts", forecastingRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/alerts", alertsRouter);
+app.use("/api/schedules", schedulesRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/billing", billingRouter);
 

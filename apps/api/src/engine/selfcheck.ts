@@ -7,6 +7,10 @@ import * as A from "./analytics.js";
 import { answer, ruleParse, runIntent, type Intent } from "./intent.js";
 import { forecast } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
+import { detectAnomalies } from "./anomaly.js";
+import { analyzeDrivers } from "./drivers.js";
+import { analyzeCorrelations } from "./correlate.js";
+import { segmentEntities } from "./segment.js";
 import { getPack, suggestIndustry } from "./industries.js";
 import { composeReport } from "./report.js";
 
@@ -101,6 +105,21 @@ assert(fc.points.every((p) => p.lower <= p.value && p.value <= p.upper), "value 
 // 7. Insights separate observation from recommendation.
 const { recommendations, alerts } = deriveInsights(rows, map);
 assert(Array.isArray(recommendations) && Array.isArray(alerts), "insights return arrays");
+
+// 7a. Predictive/advanced-analytics modules (anomaly, drivers, correlation, segments)
+// run through the same schema and reconcile with the deterministic core.
+// Drivers: contributions sum EXACTLY to the overall revenue change.
+const drv = analyzeDrivers(rows, map, "revenue", "product_name");
+const drvSum = drv.drivers.reduce((a, d) => a + d.contribution, 0);
+assert(drv.reconciled && Math.abs(drvSum - drv.totalChange) < 0.01, `driver contributions reconcile to the total change (${drvSum} vs ${drv.totalChange})`);
+// Anomaly detection is safe on short/edge series and never throws.
+assert(Array.isArray(detectAnomalies([{ period: "2024-01", value: 10 }], "Revenue").anomalies), "anomaly detection handles a single point");
+// Correlation excludes non-numeric columns and reports association only.
+const corr = analyzeCorrelations(rows);
+assert(!corr.columns.includes("customer_name"), "correlation skips text columns");
+assert(/does not mean one causes/.test(corr.caveat), "correlation carries a non-causal caveat");
+// Segmentation is deterministic on the same input.
+assert(JSON.stringify(segmentEntities(rows, map)) === JSON.stringify(segmentEntities(rows, map)), "segmentation is deterministic");
 
 // 8. Industry packs adapt vocabulary + KPIs per business type.
 // Retail regression: the pack reproduces the classic 5 KPIs and the same revenue.

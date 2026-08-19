@@ -15,7 +15,8 @@ reportsRouter.use(requireAuth);
 
 // Build the full executive report structure from the deterministic engine,
 // tailored to the org's industry pack (KPIs, section titles, and wording).
-async function buildReport(organizationId: string, datasetId?: string) {
+// Exported so the scheduler can regenerate reports on a cadence.
+export async function buildReport(organizationId: string, datasetId?: string) {
   const { dataset, rows, schema } = await loadDataset(organizationId, datasetId);
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
   const content = composeReport(getPack(org?.industry), rows, schema);
@@ -57,15 +58,24 @@ reportsRouter.get("/:id", wrap(async (req, res) => {
 reportsRouter.get("/:id/pdf", wrap(async (req, res) => {
   const report = await prisma.report.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
   if (!report) throw new HttpError(404, "Report not found");
-  const c = report.content as any;
-
+  const pdf = await renderReportPdf(report);
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `attachment; filename="${report.title.replace(/[^\w -]/g, "")}.pdf"`);
+  res.send(pdf);
+}));
 
-  const doc = new PDFDocument({ margin: 50, size: "A4" });
-  doc.pipe(res);
+// Render a stored report to a PDF Buffer. Shared by the download route and the
+// scheduler's email attachments so both produce byte-identical documents.
+export function renderReportPdf(report: { title: string; createdAt: Date | string; content: unknown }): Promise<Buffer> {
+  const c = report.content as any;
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: "A4" });
+    const chunks: Buffer[] = [];
+    doc.on("data", (ch: Buffer) => chunks.push(ch));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
 
-  doc.fontSize(22).fillColor("#111827").text(report.title);
+    doc.fontSize(22).fillColor("#111827").text(report.title);
   doc.moveDown(0.3);
   doc.fontSize(9).fillColor("#6b7280").text(`Generated ${new Date(report.createdAt).toLocaleString()}  ·  NoPS`);
   doc.moveDown(1);
@@ -111,8 +121,9 @@ reportsRouter.get("/:id/pdf", wrap(async (req, res) => {
     doc.moveDown(0.5);
   }
 
-  doc.end();
-}));
+    doc.end();
+  });
+}
 
 function section(doc: PDFKit.PDFDocument, title: string) {
   doc.moveDown(0.4).fontSize(14).fillColor("#111827").text(title);

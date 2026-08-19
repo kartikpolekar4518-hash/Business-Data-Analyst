@@ -38,6 +38,20 @@ enum ConnectorType {
   GOOGLE_SHEETS
 }
 
+enum ScheduleFrequency {
+  HOURLY
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum Comparator {
+  LT
+  LTE
+  GT
+  GTE
+}
+
 model User {
   id           String               @id @default(uuid())
   email        String               @unique
@@ -68,6 +82,8 @@ model Organization {
   apiKeys     ApiKey[]
   connections Connection[]
   activity    ActivityLog[]
+  scheduledReports ScheduledReport[]
+  alertRules  AlertRule[]
 }
 
 model OrganizationMember {
@@ -121,6 +137,7 @@ model Dataset {
   reports        Report[]
   forecasts      Forecast[]
   conversations  AIConversation[]
+  scheduledReports ScheduledReport[]
 
   @@index([organizationId])
   @@index([connectionId])
@@ -256,4 +273,50 @@ model ActivityLog {
   organizationId String
 
   @@index([organizationId])
+}
+
+// A report the scheduler regenerates on a cadence (and optionally emails). The
+// deterministic engine builds the content each run, so figures stay reproducible.
+model ScheduledReport {
+  id             String            @id @default(uuid())
+  title          String?
+  frequency      ScheduleFrequency @default(WEEKLY)
+  enabled        Boolean           @default(true)
+  recipients     String[]          @default([]) // email addresses; empty = generate only, no send
+  lastRunAt      DateTime?
+  lastRunStatus  String?           // "ok" | "error" | "skipped"
+  lastError      String?
+  nextRunAt      DateTime
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  dataset        Dataset?          @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  datasetId      String?
+
+  @@index([organizationId])
+  @@index([enabled, nextRunAt])
+}
+
+// A user-defined threshold rule the scheduler evaluates against the deterministic
+// engine; when the metric crosses the threshold it writes an Alert row.
+model AlertRule {
+  id              String            @id @default(uuid())
+  name            String
+  metric          String            // "revenue" | "profit" | "margin" | "orders" | "customers"
+  comparator      Comparator
+  threshold       Float
+  frequency       ScheduleFrequency @default(DAILY)
+  enabled         Boolean           @default(true)
+  lastRunAt       DateTime?
+  lastTriggeredAt DateTime?
+  lastError       String?
+  nextRunAt       DateTime
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  organization    Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId  String
+
+  @@index([organizationId])
+  @@index([enabled, nextRunAt])
 }

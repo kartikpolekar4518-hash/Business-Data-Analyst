@@ -9,6 +9,7 @@ import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Label } from "
 import { DataTable, type Column } from "../components/DataTable";
 import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, type Chip } from "../components/filters";
 import { TrendChart, BarRankChart } from "../components/charts";
+import { DriverBreakdown, SegmentTiers, CorrelationList } from "../components/analytics";
 import { KpiCard } from "../components/Kpi";
 import { BarChart3 } from "lucide-react";
 import type { OverviewResponse } from "../lib/types";
@@ -134,6 +135,15 @@ export default function Analytics() {
         <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
         <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
       </div>
+
+      {/* Advanced analytics: drivers, segments, correlations */}
+      {ov.data && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DriverBreakdown datasetId={ov.data.datasetId} />
+          <SegmentTiers datasetId={ov.data.datasetId} />
+          <CorrelationList datasetId={ov.data.datasetId} className="lg:col-span-2" />
+        </div>
+      )}
 
       {/* Data table */}
       <DataTable
