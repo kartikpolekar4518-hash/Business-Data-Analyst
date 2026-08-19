@@ -2,6 +2,8 @@ import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
 import { forecast } from "./forecast.js";
+import { detectAnomalies } from "./anomaly.js";
+import { analyzeDrivers } from "./drivers.js";
 
 export interface Recommendation {
   title: string;
@@ -90,6 +92,40 @@ export function deriveInsights(rows: Row[], s: SchemaMap) {
     const next = fc.points[0];
     if (next && next.value < revSeries[revSeries.length - 1].value * 0.9) {
       alerts.push({ type: "forecast_risk", severity: "MEDIUM", metric: "revenue", currentValue: next.value, threshold: revSeries[revSeries.length - 1].value, description: `Forecast projects revenue of ${money(next.value)} next period, below the latest ${money(revSeries[revSeries.length - 1].value)}.` });
+    }
+  }
+
+  // Unusual periods in the revenue trend (deterministic anomaly detection).
+  const anomalyRes = detectAnomalies(revSeries.map((p) => ({ period: p.period, value: p.value })), "Revenue");
+  const sigAnoms = anomalyRes.anomalies.filter((a) => a.severity !== "LOW");
+  if (sigAnoms.length) {
+    const top = sigAnoms[sigAnoms.length - 1]; // most recent significant (series is period-ordered)
+    alerts.push({ type: "revenue_anomaly", severity: top.severity, metric: "revenue", currentValue: top.value, threshold: top.expected, description: top.reason });
+    recs.push({
+      title: `Unusual revenue in ${top.period}`,
+      observation: top.reason,
+      explanation: "An anomaly is a period far outside the recent trend — it can be genuine (a promotion, a one-off large order) or a data error. This is a flag, not a diagnosis.",
+      action: "Confirm the figure for this period is correct, then investigate the cause before acting on it.",
+      impact: top.severity === "HIGH" ? "HIGH" : "MEDIUM", confidence: 0.65,
+    });
+  }
+
+  // What's driving the period-over-period revenue change (contributions reconcile to it).
+  if (ov.growth !== null && Math.abs(ov.growth) >= 5) {
+    const dr = analyzeDrivers(rows, s, "revenue");
+    if (dr.drivers.length) {
+      const top = dr.drivers.slice(0, 3);
+      const movers = top.map((d) => `${d.label} ${d.direction === "up" ? "+" : "−"}${money(Math.abs(d.contribution))}`).join(", ");
+      const dimName = (dr.dimension ?? "segment").replace("_name", "");
+      recs.push({
+        title: `What's driving the ${ov.growth >= 0 ? "growth" : "decline"}`,
+        observation: `Revenue moved ${ov.growth}% (${money(dr.totalPrevious)} → ${money(dr.totalCurrent)}). Biggest movers by ${dimName}: ${movers}.`,
+        explanation: `Each ${dimName}'s contribution is its current minus prior period; together they add up to the total change, so this is an exact decomposition — not an estimate.`,
+        action: top[0].shareOfChange !== null
+          ? `Focus on ${top[0].label} — it accounts for ${top[0].shareOfChange}% of the net change.`
+          : `Focus on ${top[0].label}, the largest single mover.`,
+        impact: "MEDIUM", confidence: 0.7,
+      });
     }
   }
 
