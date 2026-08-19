@@ -28,6 +28,13 @@ export const env = {
   allowPrivateConnectorHosts: process.env.ALLOW_PRIVATE_CONNECTOR_HOSTS === "true",
   // Hard cap on rows pulled per connector sync, to bound memory/JSON storage.
   maxSyncRows: Number(process.env.MAX_SYNC_ROWS ?? 100_000),
+  // Email delivery for scheduled reports (optional). SMTP_URL like
+  // "smtp://user:pass@host:587". Unset = reports are generated and stored but not
+  // emailed — same opt-in pattern as OPENAI_API_KEY / STRIPE_SECRET_KEY.
+  smtpUrl: process.env.SMTP_URL ?? "",
+  reportFrom: process.env.REPORT_FROM ?? "NoPS Reports <reports@nops.local>",
+  // Scheduler tick interval (ms). Lower in tests/dev if needed; default 60s.
+  schedulerIntervalMs: Number(process.env.SCHEDULER_INTERVAL_MS ?? 60_000),
 };
 
 // Fail fast: never sign tokens with a secret that is published in this repo.
