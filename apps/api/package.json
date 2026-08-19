@@ -21,6 +21,7 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@e965/xlsx": "^0.20.3",
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -34,7 +35,6 @@
     "papaparse": "^5.4.1",
     "pdfkit": "^0.15.1",
     "pg": "^8.13.1",
-    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
