@@ -26,6 +26,7 @@ const dbSchema = z.object({
   password: z.string().min(1),
   table: z.string().min(1),
   ssl: z.boolean().optional(),
+  allowInsecureTls: z.boolean().optional(), // opt out of TLS cert verification for self-signed/internal DBs
 });
 const sheetSchema = z.object({ name: z.string().min(1), sheetUrl: z.string().url() });
 

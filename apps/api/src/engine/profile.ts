@@ -1,5 +1,5 @@
 import type { Row } from "./parse.js";
-import { quartiles } from "./statistics.js";
+import { quartiles } from "./quantiles.js";
 
 export type ColumnType = "number" | "date" | "currency" | "boolean" | "category" | "text" | "empty";
 
