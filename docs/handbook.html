@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NoPS — Product Handbook</title>
+<style>
+  :root{
+    --ink:#0f172a; --ink-soft:#334155; --muted:#64748b; --faint:#94a3b8;
+    --line:#e2e8f0; --line-soft:#eef2f7;
+    --brand:#4f46e5; --brand-soft:#eef2ff; --brand-ink:#3730a3;
+    --accent:#0ea5e9; --good:#059669; --good-soft:#ecfdf5;
+    --warn:#b45309; --warn-soft:#fffbeb; --bad:#dc2626; --bad-soft:#fef2f2;
+    --paper:#ffffff; --wash:#f8fafc;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink); line-height:1.55; font-size:11pt; margin:0; background:var(--paper);
+  }
+  h1,h2,h3,h4{line-height:1.2; color:var(--ink); margin:0 0 .4em;}
+  h2{font-size:20pt; letter-spacing:-.01em; padding-bottom:.25em; border-bottom:3px solid var(--brand); margin-top:0;}
+  h3{font-size:14pt; color:var(--brand-ink); margin-top:1.4em;}
+  h4{font-size:11.5pt; color:var(--ink-soft); margin-top:1.1em;}
+  p{margin:.5em 0;}
+  a{color:var(--brand); text-decoration:none;}
+  code{font-family:"SF Mono",ui-monospace,"Cascadia Code",Menlo,Consolas,monospace; font-size:.86em; background:var(--wash); border:1px solid var(--line); border-radius:4px; padding:.05em .35em;}
+  pre{background:#0f172a; color:#e2e8f0; border-radius:8px; padding:14px 16px; overflow:auto; font-size:8.6pt; line-height:1.45;}
+  pre code{background:none; border:none; color:inherit; padding:0;}
+  ul,ol{margin:.5em 0 .7em; padding-left:1.25em;}
+  li{margin:.28em 0;}
+  strong{color:var(--ink);}
+  small{color:var(--muted);}
+
+  .page{padding:34px 40px; page-break-after:always;}
+  .page:last-child{page-break-after:auto;}
+  section{page-break-before:always;}
+
+  /* Cover */
+  .cover{
+    display:flex; flex-direction:column; justify-content:center; min-height:88vh;
+    background:linear-gradient(160deg,#312e81 0%,#4f46e5 45%,#0ea5e9 120%);
+    color:#fff; -webkit-print-color-adjust:exact; padding:60px 54px; border-radius:0;
+  }
+  .cover .eyebrow{text-transform:uppercase; letter-spacing:.28em; font-size:10pt; opacity:.85; margin-bottom:24px;}
+  .cover h1{color:#fff; font-size:52pt; letter-spacing:-.02em; line-height:1.02; margin:0;}
+  .cover .sub{font-size:16pt; font-weight:400; opacity:.95; margin-top:18px; max-width:30em;}
+  .cover .tag{display:inline-block; margin-top:34px; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); padding:8px 16px; border-radius:999px; font-size:10.5pt;}
+  .cover .meta{margin-top:auto; padding-top:40px; font-size:10pt; opacity:.9; border-top:1px solid rgba(255,255,255,.25);}
+  .cover .meta b{font-weight:600;}
+
+  /* callouts */
+  .call{border-radius:10px; padding:14px 18px; margin:16px 0; border:1px solid var(--line); background:var(--wash);}
+  .call.brand{background:var(--brand-soft); border-color:#c7d2fe;}
+  .call.good{background:var(--good-soft); border-color:#a7f3d0;}
+  .call.warn{background:var(--warn-soft); border-color:#fde68a;}
+  .call.bad{background:var(--bad-soft); border-color:#fecaca;}
+  .call .lbl{font-size:8.5pt; text-transform:uppercase; letter-spacing:.12em; font-weight:700; color:var(--muted); margin-bottom:4px;}
+  .call.brand .lbl{color:var(--brand-ink);} .call.good .lbl{color:var(--good);}
+  .call.warn .lbl{color:var(--warn);} .call.bad .lbl{color:var(--bad);}
+
+  /* tables */
+  table{width:100%; border-collapse:collapse; margin:12px 0; font-size:9.5pt;}
+  th,td{text-align:left; padding:7px 10px; border-bottom:1px solid var(--line); vertical-align:top;}
+  th{background:var(--wash); font-size:8.5pt; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); border-bottom:2px solid var(--line);}
+  tr{page-break-inside:avoid;}
+  td code{white-space:nowrap;}
+
+  /* status pills */
+  .pill{display:inline-block; font-size:8pt; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap;}
+  .pill.done{background:var(--good-soft); color:var(--good);}
+  .pill.part{background:var(--warn-soft); color:var(--warn);}
+  .pill.gap{background:#f1f5f9; color:var(--muted);}
+  .pill.plan{background:var(--brand-soft); color:var(--brand-ink);}
+
+  /* TOC */
+  .toc{columns:2; column-gap:44px; font-size:10.5pt;}
+  .toc .row{break-inside:avoid; margin:.35em 0; display:flex; justify-content:space-between; border-bottom:1px dotted var(--line); padding-bottom:.25em;}
+  .toc .n{color:var(--brand); font-weight:700; width:2em;}
+  .toc .t{flex:1; padding-left:.4em; color:var(--ink-soft);}
+
+  /* stat grid */
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:18px 0;}
+  .stat{border:1px solid var(--line); border-radius:10px; padding:12px 14px; background:var(--wash);}
+  .stat .big{font-size:20pt; font-weight:800; color:var(--brand-ink); line-height:1;}
+  .stat .lbl{font-size:8.5pt; color:var(--muted); margin-top:5px; text-transform:uppercase; letter-spacing:.05em;}
+
+  .lede{font-size:12.5pt; color:var(--ink-soft); line-height:1.5;}
+  .kicker{text-transform:uppercase; letter-spacing:.18em; font-size:9pt; color:var(--brand); font-weight:700; margin-bottom:6px;}
+  .divider{height:1px; background:var(--line); margin:20px 0;}
+  .two{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  .fn{color:var(--faint); font-size:8pt;}
+
+  /* timeline */
+  .tl{position:relative; margin:14px 0 0; padding-left:20px; border-left:2px solid var(--line);}
+  .tl .ev{position:relative; margin:0 0 14px; break-inside:avoid;}
+  .tl .ev::before{content:""; position:absolute; left:-26px; top:3px; width:10px; height:10px; border-radius:50%; background:var(--brand); border:2px solid #fff; box-shadow:0 0 0 1px var(--brand);}
+  .tl .date{font-size:8.5pt; font-weight:700; color:var(--brand); letter-spacing:.03em;}
+  .tl .ev h4{margin:2px 0 2px;}
+  .tl .ev p{margin:0; font-size:9.7pt; color:var(--ink-soft);}
+  .foot{font-size:8pt; color:var(--faint); text-align:center; margin-top:26px; padding-top:10px; border-top:1px solid var(--line);}
+  @page{margin:0;}
+</style>
+</head>
+<body>
+
+<!-- ============ COVER ============ -->
+<div class="page cover">
+  <div class="eyebrow">Product Handbook · v1.0</div>
+  <h1>NoPS</h1>
+  <div class="sub">The deterministic decision-intelligence platform. Upload a spreadsheet, get board-ready dashboards, forecasts, alerts and answers — every number reproducible and auditable.</div>
+  <div class="tag">Formerly “DecisionIQ” · A single, honest source of truth for a project that grew fast</div>
+  <div class="meta">
+    Prepared 19 August 2026 &nbsp;·&nbsp; Repository <b>kartikpolekar4518-hash/Business-Data-Analyst</b><br>
+    84 commits · 22 merged pull requests · ~12,000 lines of code · From first commit (10 Jul 2026) to today
+  </div>
+</div>
+
+<!-- ============ TOC ============ -->
+<div class="page">
+  <div class="kicker">Contents</div>
+  <h2 style="border:none">What’s in this handbook</h2>
+  <p class="lede">Read the first three sections for the plain-English version of “what the hell is actually happening.” Everything after is progressively more technical — dip in as deep as you need.</p>
+  <div class="toc" style="margin-top:22px">
+    <div class="row"><span class="n">1</span><span class="t">The 60-second version</span></div>
+    <div class="row"><span class="n">2</span><span class="t">What NoPS is (plain English)</span></div>
+    <div class="row"><span class="n">3</span><span class="t">The one big idea: “deterministic”</span></div>
+    <div class="row"><span class="n">4</span><span class="t">What it actually does — feature tour</span></div>
+    <div class="row"><span class="n">5</span><span class="t">Who it’s for & how it makes money</span></div>
+    <div class="row"><span class="n">6</span><span class="t">The story so far — full timeline</span></div>
+    <div class="row"><span class="n">7</span><span class="t">Current status — what’s real today</span></div>
+    <div class="row"><span class="n">8</span><span class="t">How it’s built — architecture</span></div>
+    <div class="row"><span class="n">9</span><span class="t">The engine (the crown jewels)</span></div>
+    <div class="row"><span class="n">10</span><span class="t">The technology stack</span></div>
+    <div class="row"><span class="n">11</span><span class="t">The database (what’s stored)</span></div>
+    <div class="row"><span class="n">12</span><span class="t">Security & privacy</span></div>
+    <div class="row"><span class="n">13</span><span class="t">Testing & quality</span></div>
+    <div class="row"><span class="n">14</span><span class="t">The big future bet — generative design</span></div>
+    <div class="row"><span class="n">15</span><span class="t">Roadmap — what’s next</span></div>
+    <div class="row"><span class="n">16</span><span class="t">Every file, explained (useful vs not)</span></div>
+    <div class="row"><span class="n">17</span><span class="t">How to run it yourself</span></div>
+    <div class="row"><span class="n">18</span><span class="t">Honest assessment & risks</span></div>
+    <div class="row"><span class="n">19</span><span class="t">Glossary for non-technical readers</span></div>
+  </div>
+
+  <div class="stats" style="margin-top:30px">
+    <div class="stat"><div class="big">84</div><div class="lbl">Commits</div></div>
+    <div class="stat"><div class="big">22</div><div class="lbl">Merged PRs</div></div>
+    <div class="stat"><div class="big">~12k</div><div class="lbl">Lines of code</div></div>
+    <div class="stat"><div class="big">16</div><div class="lbl">Test suites</div></div>
+  </div>
+  <div class="call brand">
+    <div class="lbl">How to read the status labels</div>
+    <span class="pill done">BUILT</span> shipped and working &nbsp;
+    <span class="pill part">PARTIAL</span> exists, needs extending &nbsp;
+    <span class="pill gap">GAP</span> not started &nbsp;
+    <span class="pill plan">PLANNED</span> designed, not built
+  </div>
+</div>
+
+<!-- ============ 1. 60 SECOND ============ -->
+<section class="page">
+  <div class="kicker">Section 1</div>
+  <h2>The 60-second version</h2>
+  <p class="lede">If you read nothing else, read this.</p>
+
+  <div class="call brand">
+    <div class="lbl">In one sentence</div>
+    <p style="margin:0; font-size:12pt"><strong>NoPS is a web app where a business person uploads a spreadsheet of their sales/operations data and instantly gets a professional analytics dashboard, forecasts, automatic alerts, plain-English answers to questions, and a downloadable PDF report — without hiring a data analyst.</strong></p>
+  </div>
+
+  <h3>The five things that matter</h3>
+  <ol>
+    <li><strong>It’s a real, working product</strong>, not a prototype. You can run it today with one command and log in with a demo account. It has real users’ concerns baked in: accounts, teams, billing tiers, security.</li>
+    <li><strong>Its whole selling point is trust.</strong> Every number it shows is calculated by plain, readable code that gives the same answer every time — never guessed by an AI. That’s the meaning of the word “deterministic” you’ll see everywhere. It’s aimed at people who can’t afford a chatbot to make up a figure (finance, regulated industries).</li>
+    <li><strong>AI is used carefully and optionally.</strong> The only place AI appears is to <em>understand your typed question</em> (“which products are declining?”) and translate it into an instruction. The actual math is still done by the trustworthy code. And your data rows are <em>never</em> sent to any AI — only the question text and column names.</li>
+    <li><strong>It has been renamed once.</strong> It started life as <strong>“DecisionIQ”</strong> and was renamed to <strong>“NoPS”</strong> in August 2026. Same product, newer name. You’ll still find “DecisionIQ” in older commit history.</li>
+    <li><strong>There’s a much bigger vision written down but not yet built:</strong> a “generative design system” that would auto-design a <em>uniquely styled</em> dashboard for each business (a restaurant vs. a fintech get different looks), while keeping the number-crunching identical and trustworthy. Today the dashboard adapts its <em>content</em> per industry, but not yet its <em>visual design</em>.</li>
+  </ol>
+
+  <h3>Where it is right now</h3>
+  <p>A feature-complete MVP (minimum viable product) with an unusually strong engineering foundation for its age: multi-tenant accounts, role-based permissions, a tested deterministic analytics engine, forecasting with scenarios, anomaly and driver detection, scheduled reports, alert rules, data-source connectors, billing tiers, and automated security scanning. The next frontier is the generative design vision (Section 14) and turning billing from a surface into real Stripe charges.</p>
+</section>
+
+<!-- ============ 2. WHAT IT IS ============ -->
+<section class="page">
+  <div class="kicker">Section 2</div>
+  <h2>What NoPS is, in plain English</h2>
+
+  <p class="lede">Imagine you run a business — a shop, a pharmacy, a small software company. You have a spreadsheet of every sale. It has the answers you need buried in it, but pulling them out means either learning to build charts yourself or paying an analyst.</p>
+
+  <p><strong>NoPS is the analyst.</strong> You drag your spreadsheet onto the page, and within moments it:</p>
+  <ul>
+    <li>figures out what each column <em>means</em> (which one is revenue, which is the date, which is the customer, the region, the product…) — on its own;</li>
+    <li>checks the data for problems (missing values, duplicates, typos, outliers) and offers to clean them — <em>without ever changing your original file</em>;</li>
+    <li>builds a dashboard: the key numbers (revenue, profit, margin, orders, customers), how they changed vs. the previous period, trend lines, and rankings (top products, top customers, best regions);</li>
+    <li>lets you ask questions in normal English and answers them;</li>
+    <li>predicts where things are heading (forecasts);</li>
+    <li>flags anything alarming automatically (a revenue drop, a looming stockout);</li>
+    <li>and exports a clean PDF report you could hand to a board or a bank.</li>
+  </ul>
+
+  <div class="call good">
+    <div class="lbl">The promise on the tin</div>
+    <p style="margin:0">“Upload business data → get automated dashboards, forecasts, alerts, a natural-language query interface, and board-ready PDF reports. Multi-tenant, role-based, works out of the box with sample retail data.” — that is the literal opening of the project’s README, and it’s accurate.</p>
+  </div>
+
+  <h3>What makes it different from “just use Excel” or “just ask ChatGPT”</h3>
+  <table>
+    <tr><th>Approach</th><th>The catch NoPS avoids</th></tr>
+    <tr><td>Excel / Google Sheets</td><td>You still have to build every chart, formula and pivot yourself, and redo it each month.</td></tr>
+    <tr><td>Ask an AI chatbot to analyse the file</td><td>The AI can silently <em>invent</em> a number that looks plausible but is wrong — unacceptable for money or compliance. NoPS never lets AI produce a figure.</td></tr>
+    <tr><td>Hire a BI tool (Tableau, Power BI)</td><td>Powerful but heavy: you configure everything, it assumes you already know what you want. NoPS auto-generates the first useful view from the raw file.</td></tr>
+  </table>
+
+  <p>So the identity is: <strong>the speed and automation of an AI tool, with the trustworthiness of a spreadsheet formula you can audit line by line.</strong></p>
+</section>
+
+<!-- ============ 3. DETERMINISTIC ============ -->
+<section class="page">
+  <div class="kicker">Section 3</div>
+  <h2>The one big idea: “deterministic”</h2>
+  <p class="lede">This word appears everywhere in the codebase. It is the product’s entire personality. Here’s what it means and why it was chosen.</p>
+
+  <h3>The plain meaning</h3>
+  <p><strong>Deterministic</strong> = same input always produces the same output, forever, and you can read exactly how. The opposite is an AI language model, which can give slightly different (or wrong) answers to the same question and can’t show its arithmetic.</p>
+
+  <div class="call brand">
+    <div class="lbl">The line the whole product rests on</div>
+    <p style="margin:0; font-size:11.5pt">“Every number is deterministic and reproducible. Schema detection, data profiling, forecasting, KPIs, and recommendations are all real code you can read, unit test, audit, and run offline — <strong>no model produces a figure.</strong> Given a question’s intent, the same dataset yields the same answer a million times.”</p>
+  </div>
+
+  <h3>Why this is a genuinely smart bet</h3>
+  <div class="two">
+    <div>
+      <h4>For the customer</h4>
+      <ul>
+        <li><strong>Auditable</strong> — every figure has a code path you can step through. Regulator- and finance-friendly.</li>
+        <li><strong>Reproducible</strong> — the same report next quarter is computed the same way.</li>
+        <li><strong>Private</strong> — your data rows never leave your servers.</li>
+        <li><strong>Fast</strong> — sub-100ms answers; no round-trip to a big AI model.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>For the business (economics)</h4>
+      <ul>
+        <li><strong>Free at rest</strong> — the engine has no per-question AI bill, no rate limits, no vendor invoice.</li>
+        <li>The <em>only</em> part that could ever cost per-use is the optional question-understanding AI, and it’s off unless a key is set.</li>
+        <li>That means margins don’t erode as usage grows — the classic problem with AI-wrapper products.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>So where <em>is</em> the AI, exactly?</h3>
+  <p>In precisely one place: the natural-language chat box. When you type “top 10 customers,” the system needs to turn that English into a structured instruction. If an <code>OPENAI_API_KEY</code> is configured, it asks GPT to do that translation. If no key is set, a rule-based parser (regex and keywords) does it instead — fully offline. <strong>Either way, the actual answer is computed by the deterministic engine, and the AI only ever sees your question text and your column names — never your data.</strong></p>
+
+  <div class="call good">
+    <div class="lbl">The mental model to keep</div>
+    <p style="margin:0">AI is the <em>translator at the front desk</em>. The deterministic engine is the <em>accountant in the back room</em>. The translator never touches the ledger.</p>
+  </div>
+</section>
+
+<!-- ============ 4. FEATURE TOUR ============ -->
+<section class="page">
+  <div class="kicker">Section 4</div>
+  <h2>What it actually does — the full feature tour</h2>
+  <p class="lede">Everything the app ships today, grouped by what you’d see as a user. Every item here is built and working.</p>
+
+  <table>
+    <tr><th style="width:22%">Area</th><th>What you get</th><th style="width:12%">Status</th></tr>
+    <tr><td><strong>Accounts & teams</strong></td><td>Sign up / log in / log out, forgot + reset password, secure tokens (JWT). Three roles — <strong>Admin</strong> (everything), <strong>Manager</strong> (uploads, analytics, reports, forecasts, chat), <strong>Viewer</strong> (read-only). Full “multi-tenant” isolation: every organisation’s data is walled off by an organisation ID.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Data upload</strong></td><td>Drag & drop CSV / XLSX / XLS. On arrival the file is parsed, profiled and quality-checked.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Data-quality engine</strong></td><td>Detects missing values, duplicates, empty columns, numbers-stored-as-text, statistical outliers, stray whitespace, inconsistent case/dates, suspicious column names. You accept or reject each cleaning suggestion — <strong>the original file is never modified.</strong></td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Schema detection</strong></td><td>Automatically maps columns to business meaning: revenue, cost, profit, customer, product, region, date, inventory, and more.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Auto dashboards</strong></td><td>KPIs (revenue, profit, margin, orders, customers) with period-over-period comparison, revenue/profit trends, and rankings by product/customer/region/category. Generated from the detected schema — never hardcoded to one dataset.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Analytics & filtering</strong></td><td>Filter by date range, region, state, category, department, product, customer. Filters live in the URL so a view is shareable. Sortable/searchable data table + CSV export.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Natural-language queries</strong></td><td>Ask in plain English (“which month had the highest sales”, “which products are declining”). Mapped to a structured intent (by GPT if a key is set, else by rules), then executed through a controlled analytics layer. The model never runs code or sees your rows.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Forecasting</strong></td><td>Trend forecast with a 95% confidence band that widens with the horizon. Recently upgraded with <strong>seasonal model selection</strong> and best/base/worst <strong>scenarios</strong>.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Anomaly & driver analysis</strong></td><td>Deterministically flags unusual points and explains <em>what drove</em> a change (which product/region moved the number, with an “other” remainder so the parts reconcile).</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Correlation & segmentation</strong></td><td>Finds relationships between metrics and splits customers into value tiers.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Insights & alerts</strong></td><td>Recommendations that carefully separate <em>observed data</em> → <em>possible cause</em> → <em>recommendation</em>. Automatic alerts for revenue drops, profit decline, inventory shortage, forecast risk, unusual performance.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Scheduled reports & alert rules</strong></td><td>A background scheduler regenerates reports on a cadence (hourly/daily/weekly/monthly) and optionally emails them; user-defined threshold rules raise alerts when a metric crosses a line.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Executive reports</strong></td><td>Structured report + server-side <strong>PDF export</strong>.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Data-source connectors</strong></td><td>Pull data from Postgres, MySQL, SQL Server or Google Sheets. Credentials stored encrypted (AES-GCM); an SSRF guard blocks connectors from reaching private hosts by default.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Settings</strong></td><td>Company profile, user management, API-key vault (stored hashed, never returned), dark/light theme.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Billing tiers</strong></td><td>Free / Pro ($49) / Business ($199) plans with enforced limits on datasets, seats and reports. Pricing page + usage limits are live; real Stripe charging is stubbed for wiring.</td><td><span class="pill part">PARTIAL</span></td></tr>
+    <tr><td><strong>Widget builder</strong></td><td>A configurable “bento” dashboard (<code>/builder</code>): drag to reorder, resize, duplicate, remove, fullscreen, add from a palette; layout persists per user.</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td><strong>Chart library</strong></td><td>~14 chart types (combo, waterfall, funnel, scatter/bubble, radar, gauge, treemap, heatmap, donut, trend…) with a living catalog page at <code>/charts</code>.</td><td><span class="pill done">BUILT</span></td></tr>
+  </table>
+</section>
+
+<!-- ============ 5. WHO FOR / MONEY ============ -->
+<section class="page">
+  <div class="kicker">Section 5</div>
+  <h2>Who it’s for & how it makes money</h2>
+
+  <h3>The intended customer</h3>
+  <p>Small-to-mid businesses and teams that have data but no dedicated analyst, and — crucially — that <strong>care whether the numbers are right and defensible.</strong> The deterministic positioning specifically targets finance, regulated industries, and anyone who has to justify a figure to a board, an auditor, or a regulator. The seeded demo is a retail shop, but the app ships with <strong>industry packs</strong> that reshape the dashboard per business type.</p>
+
+  <h3>Industry packs (how one app fits many businesses)</h3>
+  <p>An “industry pack” is <em>data, not new code</em>. Each pack declares the extra vocabulary to recognise, which KPIs matter and how to compute them, and how to label the dashboard. Adding a new industry means adding one entry. Packs shipped today:</p>
+  <table>
+    <tr><th>Pack</th><th>Tuned for</th><th>Distinctive KPIs</th></tr>
+    <tr><td><strong>Retail / Sales</strong> (default)</td><td>Shops, e-commerce, general sales</td><td>Revenue, Profit, Orders, Customers, Margin</td></tr>
+    <tr><td><strong>Pharmacy</strong></td><td>Dispensaries, pharmacies</td><td>Prescriptions, Revenue, Patients…</td></tr>
+    <tr><td><strong>SaaS</strong></td><td>Subscription software</td><td>Subscription/recurring-revenue oriented</td></tr>
+    <tr><td><strong>Generic</strong></td><td>Anything unrecognised</td><td>Safe defaults from detected columns</td></tr>
+  </table>
+  <p class="fn">The app can even auto-suggest the right pack by looking for distinctive “signal” columns in your data. Sample datasets ship for pharmacy and SaaS (plus a generated retail set) so you can see each pack in action.</p>
+
+  <h3>The pricing model</h3>
+  <table>
+    <tr><th>Plan</th><th>Price</th><th>Datasets</th><th>Seats</th><th>Reports / month</th></tr>
+    <tr><td><strong>Free</strong></td><td>$0</td><td>2</td><td>2</td><td>3</td></tr>
+    <tr><td><strong>Pro</strong></td><td>$49 / mo</td><td>25</td><td>10</td><td>100</td></tr>
+    <tr><td><strong>Business</strong></td><td>$199 / mo</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td></tr>
+  </table>
+  <div class="call warn">
+    <div class="lbl">Honest status on billing</div>
+    <p style="margin:0">The <em>plans, limits and pricing page are real and enforced</em> — the app will stop a Free org at 2 datasets. The <em>actual credit-card charging</em> via Stripe is scaffolded (there are <code>stripeCustomerId</code> / <code>stripeSubscriptionId</code> fields and placeholders for price IDs) but not yet wired to live payments. This is the main gap between “usable app” and “can take money.”</p>
+  </div>
+</section>
+
+<!-- ============ 6. TIMELINE ============ -->
+<section class="page">
+  <div class="kicker">Section 6</div>
+  <h2>The story so far — from commit #1 to today</h2>
+  <p class="lede">84 commits over ~6 weeks tell a clear arc: build an MVP → harden it → make it a real product (money, marketing, teams) → deepen the analytics → design the ambitious future. Here are the milestones.</p>
+
+  <div class="tl">
+    <div class="ev"><div class="date">10 JUL 2026</div><h4>Day zero</h4><p>Initial commit. An empty canvas with a project description.</p></div>
+    <div class="ev"><div class="date">18 JUL 2026</div><h4>The MVP lands — “DecisionIQ”</h4><p>“Build DecisionIQ MVP: AI decision-intelligence platform.” The whole first version arrives at once, then is quickly made to serve its own web UI so the entire thing starts with one Docker command.</p></div>
+    <div class="ev"><div class="date">19 JUL 2026</div><h4>The first hardening wave</h4><p>Ten code-review fixes (security, permissions, correctness), then a three-part audit (backend, frontend, UX/accessibility). Bugs fixed with dark-mode surfaces, stale reports, and an AI answer that was “confidently wrong.” The project’s own <code>CLAUDE.md</code> guardrails are added.</p></div>
+    <div class="ev"><div class="date">20 JUL 2026</div><h4>Doubling down on determinism</h4><p>A pure-TypeScript <strong>Statistical Engine</strong> is added (zero dependencies). The product is explicitly repositioned as “a deterministic platform,” and unused LLM plumbing is dropped. Parsing, validation, race conditions and performance are all tightened.</p></div>
+    <div class="ev"><div class="date">25 JUL 2026</div><h4>From tool to product</h4><p>A premium dark-first redesign, then a burst of product-maturity work: <strong>industry packs</strong> (adapt per business), guided onboarding for new workspaces, <strong>monetization</strong> (plans, usage limits, billing surface), a public marketing landing page, and persistent chat history + a fixed invite flow.</p></div>
+    <div class="ev"><div class="date">26 JUL 2026</div><h4>Connectors & polish</h4><p>A collapsible full-screen sidebar; data-source connectors made functional (pull from real databases).</p></div>
+    <div class="ev"><div class="date">4 AUG 2026</div><h4>Motion system</h4><p>A framer-motion animation system across the web app — the “premium feel” layer.</p></div>
+    <div class="ev"><div class="date">18 AUG 2026</div><h4>Optional AI + a test push + the component build-out</h4><p>Optional AI question-understanding is added (translate-only, GPT). A big test-coverage effort adds unit + DB-integration tests and CI. Then a five-phase UI component build-out: DataTable, filter system, 8 new chart types, AI presentation components, and the widget/bento system. Finally, the product is <strong>renamed from DecisionIQ to NoPS</strong>, and the generative-design architecture doc is written.</p></div>
+    <div class="ev"><div class="date">18–19 AUG 2026</div><h4>Security hardening</h4><p>HTTP security headers, dependency-vulnerability patches, guarded file parsing, automated scanning (Dependabot), and a swap from the vulnerable <code>xlsx</code> to <code>@e965/xlsx</code>. Connectors hardened; tenant isolation proven with tests; dead code dropped.</p></div>
+    <div class="ev"><div class="date">19 AUG 2026</div><h4>The analytics deepening (most recent work)</h4><p>Deterministic <strong>anomaly detection</strong> and <strong>driver analysis</strong>; <strong>correlation</strong> and value-tier <strong>segmentation</strong>; forecasting upgraded with <strong>seasonal models + scenarios</strong>; all surfaced in the UI and via new API endpoints. Plus <strong>scheduling</strong>: scheduled reports and user-defined alert rules, with an automation UI and integration tests hardening the scheduler.</p></div>
+    <div class="ev"><div class="date">20 AUG 2026</div><h4>Today</h4><p>Latest merge (PR #41). The codebase is at its most capable — and this handbook is being written from it.</p></div>
+  </div>
+</section>
+
+<!-- ============ 7. CURRENT STATUS ============ -->
+<section class="page">
+  <div class="kicker">Section 7</div>
+  <h2>Current status — what’s real today</h2>
+  <p class="lede">A candid map of what works, what’s half-done, and what’s only designed. This is the “what the hell is actually happening” table.</p>
+
+  <h3>Solid and shipping</h3>
+  <table>
+    <tr><th>Capability</th><th>State</th></tr>
+    <tr><td>Auth, roles, multi-tenant isolation (proven with tests)</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Upload → parse → profile → quality-check → schema-detect pipeline</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Auto dashboard with period-over-period KPIs, trends, rankings</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Deterministic analytics engine (KPIs, series, group-by, filters)</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Natural-language query (rules + optional GPT translation)</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Forecasting w/ seasonal selection + scenarios + confidence band</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Anomaly detection, driver analysis, correlation, segmentation</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Insights, automatic alerts, scheduled reports, alert rules</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>PDF report export (server-side)</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Data-source connectors (Postgres/MySQL/SQL Server/Sheets), encrypted creds</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Industry packs (retail / pharmacy / saas / generic) + auto-suggest</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Component system: ~14 charts, DataTable, filters, widgets, AI cards</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>Security headers, dependency scanning, guarded parsing</td><td><span class="pill done">BUILT</span></td></tr>
+    <tr><td>CI running tests + typecheck on every push/PR</td><td><span class="pill done">BUILT</span></td></tr>
+  </table>
+
+  <h3>Half-built / needs finishing</h3>
+  <table>
+    <tr><th>Capability</th><th>What’s missing</th><th>State</th></tr>
+    <tr><td>Billing</td><td>Plans & limits enforced; live Stripe charging not wired</td><td><span class="pill part">PARTIAL</span></td></tr>
+    <tr><td>Empty / error states</td><td>Primitives exist; per-context copy & typed variants to fill in</td><td><span class="pill part">PARTIAL</span></td></tr>
+    <tr><td>Data prep UI</td><td>Quality panel exists; column mapper, transforms, formula builder to add</td><td><span class="pill part">PARTIAL</span></td></tr>
+    <tr><td>Reports</td><td>Generate + PDF + scheduling done; report builder & templates to add</td><td><span class="pill part">PARTIAL</span></td></tr>
+  </table>
+
+  <h3>Designed but not built</h3>
+  <table>
+    <tr><th>Capability</th><th>State</th></tr>
+    <tr><td><strong>Generative dashboard design system</strong> (the big vision — Section 14)</td><td><span class="pill plan">PLANNED</span></td></tr>
+    <tr><td>Collaboration (share dialog, comments, mentions, activity feed, version history)</td><td><span class="pill gap">GAP</span></td></tr>
+    <tr><td>Advanced chart interactions (zoom, crosshair, drill-down, geo/choropleth)</td><td><span class="pill gap">GAP</span></td></tr>
+    <tr><td>Command palette / global search / saved-views selector</td><td><span class="pill gap">GAP</span></td></tr>
+  </table>
+</section>
+
+<!-- ============ 8. ARCHITECTURE ============ -->
+<section class="page">
+  <div class="kicker">Section 8</div>
+  <h2>How it’s built — the architecture</h2>
+  <p class="lede">For the technically curious. Even if you’re not, the shape here is simple and worth seeing once.</p>
+
+  <p>The project is a <strong>monorepo</strong> — one repository holding two applications that share tooling:</p>
+  <pre><code>apps/
+  api/                    ← the "back end": Express + TypeScript REST API
+    prisma/               schema, migrations, seed, sample-data generator
+    src/
+      engine/             THE DETERMINISTIC CORE — pure, testable functions
+      auth/               JWT, requireAuth, requireRole
+      modules/            one router per domain (uploads, datasets, analytics, ai, …)
+      ai/                 optional GPT question-understanding (translate-only)
+      billing/            plan definitions & limit checks
+      scheduler.ts        background jobs: scheduled reports + alert rules
+  web/                    ← the "front end": React + Vite + TypeScript + Tailwind
+    src/{components,pages,lib}
+docs/                     architecture + roadmap docs (and this handbook)
+docker-compose.yml        one-command startup (Postgres + API + web)</code></pre>
+
+  <div class="two">
+    <div>
+      <h3>The back end (<code>apps/api</code>)</h3>
+      <p>A REST API in Node/Express/TypeScript. Its job: handle accounts and permissions, receive uploads, store data, and — above all — run the <strong>engine</strong>. Data lives in PostgreSQL, accessed through Prisma (a type-safe database toolkit). Uploaded rows are stored as JSON on the dataset record rather than in a per-cell table — a deliberate, simple choice that’s correct up to ~100k-row files.</p>
+    </div>
+    <div>
+      <h3>The front end (<code>apps/web</code>)</h3>
+      <p>A single-page React app built with Vite. Tailwind for styling, Recharts for charts, TanStack Query for data-fetching, React Router for pages, framer-motion for the animation polish. Dark-mode-first. In production, the API even serves the built web files, so the whole product runs on one port.</p>
+    </div>
+  </div>
+
+  <h3>The request flow, end to end</h3>
+  <pre><code>Upload a file
+   → parse (CSV/XLSX → rows)
+   → profile (stats + data-quality issues)
+   → detect schema (which column means what)
+   → store as a Dataset
+Open the dashboard
+   → engine computes KPIs, trends, rankings for the detected industry pack
+   → forecast / insights / anomalies / drivers derived on demand
+   → React renders it
+Ask a question
+   → (optional GPT) translate English → structured intent
+   → validate intent against a closed vocabulary
+   → deterministic analytics computes the answer
+   → render as table / chart / metric</code></pre>
+
+  <div class="call brand">
+    <div class="lbl">The design philosophy, stated</div>
+    <p style="margin:0">“One deterministic implementation, no provider abstraction. Predictability <em>is</em> the product.” The team intentionally avoided speculative abstractions and kept the codebase lean.</p>
+  </div>
+</section>
+
+<!-- ============ 9. ENGINE ============ -->
+<section class="page">
+  <div class="kicker">Section 9</div>
+  <h2>The engine — the crown jewels</h2>
+  <p class="lede">Everything valuable about NoPS lives in <code>apps/api/src/engine/</code>: ~2,400 lines of pure TypeScript with no I/O, no randomness, no external calls. Each file is one responsibility, and every bug ever fixed here got a permanent test (“regression assert”) so it can’t come back.</p>
+
+  <table>
+    <tr><th>File</th><th>What it does</th></tr>
+    <tr><td><code>parse.ts</code></td><td>Turns a raw CSV/XLSX file into typed rows. Handles buffer validation, column inference, XLSX normalisation.</td></tr>
+    <tr><td><code>profile.ts</code></td><td>Profiles each column and finds data-quality issues (missing values, outliers, duplicates, type mismatches).</td></tr>
+    <tr><td><code>schema.ts</code></td><td>The “brain” that maps columns to business meaning (revenue, date, region, customer…). Also does row cleaning.</td></tr>
+    <tr><td><code>analytics.ts</code></td><td>The controlled query layer: KPI computation, time series, group-by aggregations, multi-value filters. Everything the dashboard and chat ultimately call.</td></tr>
+    <tr><td><code>intent.ts</code></td><td>Natural-language query → structured intent → answer. The closed-vocabulary safety net that keeps NL queries honest.</td></tr>
+    <tr><td><code>forecast.ts</code></td><td>Forecasting: seasonal model selection, trend, best/base/worst scenarios, and a residual-based 95% confidence band that widens with horizon.</td></tr>
+    <tr><td><code>anomaly.ts</code></td><td>Deterministic anomaly detection — flags unusual data points.</td></tr>
+    <tr><td><code>drivers.ts</code></td><td>Driver analysis — explains <em>what</em> moved a metric (which product/region), with an “other” remainder so the shown movers reconcile.</td></tr>
+    <tr><td><code>correlate.ts</code></td><td>Finds correlations between metrics.</td></tr>
+    <tr><td><code>segment.ts</code></td><td>Value-tier customer segmentation.</td></tr>
+    <tr><td><code>insights.ts</code></td><td>Turns all of the above into recommendations + alert seeds, carefully separating observation / cause / recommendation.</td></tr>
+    <tr><td><code>industries.ts</code></td><td>Industry packs — the single place a business type is defined (vocabulary, KPIs, labels).</td></tr>
+    <tr><td><code>connectors.ts</code></td><td>Pulls snapshots from external databases/sheets through a shared ingest pipeline.</td></tr>
+    <tr><td><code>ingest.ts</code></td><td>The shared path that takes any incoming rows and turns them into a profiled, schema-detected dataset.</td></tr>
+    <tr><td><code>crypto.ts</code></td><td>AES-GCM encryption for saved connector credentials.</td></tr>
+    <tr><td><code>quantiles.ts</code></td><td>Numerical primitives (quantiles, distribution math).</td></tr>
+    <tr><td><code>report.ts</code></td><td>Builds the structured executive report the PDF exporter renders.</td></tr>
+    <tr><td><code>selfcheck.ts</code></td><td>A runnable assert-based regression suite for the whole engine — the safety net.</td></tr>
+  </table>
+
+  <div class="call good">
+    <div class="lbl">Why this structure is the product’s moat</div>
+    <p style="margin:0">Because these are <em>pure</em> functions (no database, no network, no clock, no randomness), they are trivially testable and provably repeatable — which is exactly what lets NoPS make its “every number is auditable” promise truthfully. Extending the product means adding one branch to one of these files plus one test. That’s a rare, healthy shape for a codebase this young.</p>
+  </div>
+</section>
+
+<!-- ============ 10. STACK ============ -->
+<section class="page">
+  <div class="kicker">Section 10</div>
+  <h2>The technology stack</h2>
+  <p class="lede">What it’s made of, and why each piece is there. All mainstream, well-supported, boring-in-a-good-way choices.</p>
+
+  <h3>Front end (<code>apps/web</code>)</h3>
+  <table>
+    <tr><th>Tech</th><th>Role</th></tr>
+    <tr><td>React 18 + TypeScript</td><td>The UI framework and type safety.</td></tr>
+    <tr><td>Vite 6</td><td>Fast build tool / dev server.</td></tr>
+    <tr><td>Tailwind CSS 3</td><td>Styling via utility classes; design tokens for the dark-first theme.</td></tr>
+    <tr><td>Recharts 2</td><td>The charts (all ~14 types).</td></tr>
+    <tr><td>TanStack Query 5</td><td>Data fetching, caching, loading states.</td></tr>
+    <tr><td>React Router 7</td><td>Page navigation.</td></tr>
+    <tr><td>framer-motion 12</td><td>Animations (the “premium feel”).</td></tr>
+    <tr><td>lucide-react</td><td>Icon set.</td></tr>
+  </table>
+
+  <h3>Back end (<code>apps/api</code>)</h3>
+  <table>
+    <tr><th>Tech</th><th>Role</th></tr>
+    <tr><td>Node + Express 4 + TypeScript</td><td>The REST API server.</td></tr>
+    <tr><td>Zod</td><td>Validates every incoming request against a schema.</td></tr>
+    <tr><td>JWT + bcryptjs</td><td>Login tokens and password hashing.</td></tr>
+    <tr><td>Prisma 5 + PostgreSQL</td><td>Type-safe database access + the database itself.</td></tr>
+    <tr><td>multer + papaparse + @e965/xlsx</td><td>File uploads and CSV/XLSX parsing (the <code>@e965</code> fork replaced <code>xlsx</code> to fix security advisories).</td></tr>
+    <tr><td>pdfkit</td><td>Server-side PDF report generation.</td></tr>
+    <tr><td>pg / mysql2 / mssql</td><td>Drivers for the data-source connectors.</td></tr>
+    <tr><td>nodemailer</td><td>Emailing scheduled reports.</td></tr>
+    <tr><td>openai</td><td>The optional question-understanding call (only if a key is set).</td></tr>
+    <tr><td>express-rate-limit</td><td>Throttling to prevent abuse.</td></tr>
+  </table>
+
+  <h3>Tooling & ops</h3>
+  <table>
+    <tr><th>Tech</th><th>Role</th></tr>
+    <tr><td>Docker Compose</td><td>One-command startup: Postgres + migrations + seed + API + web.</td></tr>
+    <tr><td>GitHub Actions (<code>ci.yml</code>)</td><td>Runs tests + typecheck on every push and PR.</td></tr>
+    <tr><td>Dependabot</td><td>Automated dependency-vulnerability alerts/updates.</td></tr>
+    <tr><td>Node’s built-in test runner via <code>tsx</code></td><td>Tests with no extra framework — lean by design.</td></tr>
+    <tr><td>Replit config</td><td>Cloud dev convenience.</td></tr>
+  </table>
+</section>
+
+<!-- ============ 11. DATABASE ============ -->
+<section class="page">
+  <div class="kicker">Section 11</div>
+  <h2>The database — what’s stored</h2>
+  <p class="lede">PostgreSQL, modelled with Prisma. Every table uses UUID IDs, has created/updated timestamps, is scoped to an organisation, is indexed, and cascades deletes correctly. Here’s the whole data model in plain terms.</p>
+
+  <table>
+    <tr><th>Table</th><th>Holds</th></tr>
+    <tr><td><code>User</code></td><td>People: email, name, hashed password.</td></tr>
+    <tr><td><code>Organization</code></td><td>A workspace/tenant: name, industry pack, plan tier, plan status, Stripe IDs.</td></tr>
+    <tr><td><code>OrganizationMember</code></td><td>Links a user to an org with a role (Admin / Manager / Viewer).</td></tr>
+    <tr><td><code>PasswordResetToken</code></td><td>One-time tokens for the forgot-password flow.</td></tr>
+    <tr><td><code>Dataset</code></td><td>An uploaded/connected dataset: file info, row & column counts, quality score, detected columns, schema map, profiling stats, the original rows, and cleaned rows (JSON).</td></tr>
+    <tr><td><code>DataQualityIssue</code></td><td>Each detected problem: type, affected rows, severity, recommendation, whether auto-fixable.</td></tr>
+    <tr><td><code>Report</code></td><td>A generated report’s structured content.</td></tr>
+    <tr><td><code>Forecast</code></td><td>A saved forecast: metric, horizon, method, history, and points (with lower/upper bands).</td></tr>
+    <tr><td><code>Alert</code></td><td>A raised alert: type, severity, metric, value vs threshold, read/unread.</td></tr>
+    <tr><td><code>AIConversation</code> / <code>AIMessage</code></td><td>Chat history. (Historical names — they store user messages and the <em>deterministic engine’s</em> structured responses. No AI-generated numbers are stored.)</td></tr>
+    <tr><td><code>ApiKey</code></td><td>The API-key vault: stored hashed, never returned; only the last four digits kept for display.</td></tr>
+    <tr><td><code>Connection</code></td><td>A saved data-source connector: type, non-secret config, AES-GCM-encrypted secret, last-sync status.</td></tr>
+    <tr><td><code>ActivityLog</code></td><td>Audit trail of actions per org.</td></tr>
+    <tr><td><code>ScheduledReport</code></td><td>A report the background scheduler regenerates on a cadence and optionally emails.</td></tr>
+    <tr><td><code>AlertRule</code></td><td>A user-defined threshold rule the scheduler evaluates (e.g. “alert if revenue &lt; X, daily”).</td></tr>
+  </table>
+
+  <p class="fn">Migrations are versioned in <code>apps/api/prisma/migrations/</code> — you can see the schema evolve: initial → connections → org industry → org plan → scheduling.</p>
+
+  <div class="call brand">
+    <div class="lbl">One design decision to know</div>
+    <p style="margin:0">Row data is stored as a JSON blob on the <code>Dataset</code> record, not spread across a per-cell table. That’s simpler and correct for MVP-scale files; the schema comments flag the move to a columnar warehouse if files ever exceed ~100k rows.</p>
+  </div>
+</section>
+
+<!-- ============ 12. SECURITY ============ -->
+<section class="page">
+  <div class="kicker">Section 12</div>
+  <h2>Security & privacy</h2>
+  <p class="lede">For a young product this area is unusually mature — multiple dedicated hardening passes are in the history, and the sensitive paths are individually tested.</p>
+
+  <table>
+    <tr><th>Concern</th><th>How it’s handled</th></tr>
+    <tr><td>Passwords</td><td>Hashed with bcrypt, never stored in plaintext.</td></tr>
+    <tr><td>Sessions</td><td>JWT tokens; the API refuses to boot in production with the default secret.</td></tr>
+    <tr><td>Tenant isolation</td><td>Every query is scoped by <code>organizationId</code>; isolation is <em>proven with integration tests</em>, not just asserted.</td></tr>
+    <tr><td>Role enforcement</td><td>A <code>requireRole</code> gate on the routes; unit-tested.</td></tr>
+    <tr><td>Connector credentials</td><td>Encrypted at rest with AES-GCM; round-trip + tamper-detection tested.</td></tr>
+    <tr><td>SSRF (connectors reaching internal hosts)</td><td>A host guard blocks private/loopback targets by default (opt-in via env var for local demos); tested.</td></tr>
+    <tr><td>SQL safety</td><td>SQL-identifier quoting for connector table names; tested.</td></tr>
+    <tr><td>API keys</td><td>Stored hashed, never returned to the client; only last-four shown.</td></tr>
+    <tr><td>HTTP headers</td><td>Security response headers added to the API.</td></tr>
+    <tr><td>Upload safety</td><td>File parsing is guarded; max file size enforced (default 15 MB).</td></tr>
+    <tr><td>Dependencies</td><td>Dependabot scanning; the vulnerable <code>xlsx</code> package was swapped for the maintained <code>@e965/xlsx</code> fork.</td></tr>
+    <tr><td>Rate limiting</td><td><code>express-rate-limit</code> throttles requests.</td></tr>
+    <tr><td>Data privacy vs AI</td><td>Only question text + column names are ever sent to OpenAI (and only if a key is set) — never data rows.</td></tr>
+  </table>
+
+  <div class="call good">
+    <div class="lbl">Bottom line</div>
+    <p style="margin:0">The security posture is a real asset. The main open item isn’t a hole so much as an unfinished feature: production secrets management and the live-payments path both need the usual pre-launch attention.</p>
+  </div>
+</section>
+
+<!-- ============ 13. TESTING ============ -->
+<section class="page">
+  <div class="kicker">Section 13</div>
+  <h2>Testing & quality</h2>
+  <p class="lede">The testing culture here is a strong signal about the project’s health. It runs on every push and PR through GitHub Actions, with no heavyweight framework — just Node’s built-in test runner driven by <code>tsx</code>.</p>
+
+  <h3>Two layers of tests</h3>
+  <div class="two">
+    <div>
+      <h4>Engine regression suite</h4>
+      <p><code>selfcheck.ts</code> — assert-based checks covering profiling, schema detection, KPI period-over-period math, row cleaning, NL intent routing, forecasting, and insight derivation. The stated rule: <strong>every bug fixed gets a new assert</strong>, so regressions can’t silently return.</p>
+    </div>
+    <div>
+      <h4>Unit & integration tests (<code>*.test.ts</code> / <code>*.itest.ts</code>)</h4>
+      <p>Cover the security-critical paths <em>around</em> the pure engine: credential encryption, the SSRF guard, SQL quoting, the role gate, error-handler status mapping, the AI layer’s no-key privacy fallback, the billing/plan-limit money path, and DB-backed auth/RBAC/scheduler tests.</p>
+    </div>
+  </div>
+
+  <h3>The 16 test suites in the repo</h3>
+  <table>
+    <tr><th>Engine</th><th>Around the engine</th></tr>
+    <tr><td><code>analytics.test.ts</code>, <code>anomaly.test.ts</code>, <code>correlate.test.ts</code>, <code>drivers.test.ts</code>, <code>forecast.test.ts</code>, <code>parse.test.ts</code>, <code>segment.test.ts</code>, <code>crypto.test.ts</code>, <code>connectors.test.ts</code></td>
+    <td><code>auth/middleware.test.ts</code>, <code>billing/plans.test.ts</code>, <code>ai/provider.test.ts</code>, <code>errors.test.ts</code>, <code>scheduler.test.ts</code>, <code>app.itest.ts</code>, <code>schedules.itest.ts</code></td></tr>
+  </table>
+
+  <pre><code># run everything
+npm test
+# engine regression suite standalone
+npx tsx apps/api/src/engine/selfcheck.ts
+# on every push/PR: tests + typecheck via .github/workflows/ci.yml</code></pre>
+
+  <div class="call brand">
+    <div class="lbl">What this tells you</div>
+    <p style="margin:0">A project that tests its money path, its tenant isolation, and its privacy fallback — not just its happy path — is being built by someone thinking about production, not just a demo. That’s the single most reassuring thing in the repo.</p>
+  </div>
+</section>
+
+<!-- ============ 14. GENERATIVE VISION ============ -->
+<section class="page">
+  <div class="kicker">Section 14</div>
+  <h2>The big future bet — a generative design system</h2>
+  <p class="lede">There is a detailed 470-line architecture document (<code>docs/generative-design-architecture.md</code>) describing where the product wants to go next. It’s the most ambitious idea in the project. Here’s the whole thing in plain terms.</p>
+
+  <h3>The problem it solves</h3>
+  <p>Today, every business gets the <em>same-shaped</em> dashboard in the <em>same blue</em> — a fixed layout (KPI row → trend → donut → ranking) merely re-labelled per industry. A restaurant, a fintech and a logistics firm all get one skeleton. It’s a strong baseline, but it’s a template, not a design.</p>
+
+  <h3>The vision</h3>
+  <div class="call brand">
+    <div class="lbl">The north star</div>
+    <p style="margin:0">“NoPS is not a database of dashboards. It is a generative design system capable of composing <strong>millions of valid business-intelligence experiences</strong> from a constrained set of reusable primitives.” An “AI Design Director” decides <em>what deserves attention and how to present it</em>; deterministic systems still decide <em>what the numbers actually are.</em></p>
+  </div>
+
+  <h3>How it would work (without breaking the trust promise)</h3>
+  <p>The key insight is a strict split, enforced by a data contract:</p>
+  <ul>
+    <li><strong>The AI proposes presentation only.</strong> It emits a <code>DashboardSpec</code> — a strict, versioned, JSON-schema-validated description of which components, layout, style and colours to use. It draws only from a <em>closed vocabulary</em> (it can’t name a component or metric that doesn’t exist).</li>
+    <li><strong>The spec must never contain a number.</strong> It carries only <em>references</em> (<code>metricId</code>, <code>seriesId</code>, <code>rankingId</code>). A deterministic renderer resolves those against the real engine outputs at render time. The AI literally cannot fabricate a figure.</li>
+    <li><strong>Two gates.</strong> A <em>Spec Validation Gate</em> (is it well-formed?) and a <em>Quality Engine</em> (is the resulting design actually good — hierarchy, readability, accessibility, density?). A design only ships if it clears both.</li>
+    <li><strong>“Generate another design” is first-class.</strong> A <code>DesignSeed</code> controls deterministic variation, so the same data can wear “minimal + spacious,” “premium + editorial,” “dense + executive,” or “dark + futuristic” — same numbers, different identity.</li>
+    <li><strong>A Color Intelligence Engine</strong> builds accessible, industry-aware palettes (finance navy/gold, food warm terracotta…) — never “a random bright colour per card.”</li>
+  </ul>
+
+  <h3>The rollout plan (phased, additive — not a rewrite)</h3>
+  <table>
+    <tr><th>Phase</th><th>What ships</th></tr>
+    <tr><td>A</td><td>The <code>DashboardSpec</code> + schema + component registry + a renderer that reproduces <em>today’s</em> dashboard purely from a spec. Proves the boundary. (No AI yet.)</td></tr>
+    <tr><td>B</td><td>Color Intelligence + style families (runtime tokens, light/dark, accessibility gates).</td></tr>
+    <tr><td>C</td><td>The AI Design Director emits specs; add <code>DesignSeed</code> + “generate another design.”</td></tr>
+    <tr><td>D</td><td>The Quality Engine + scoring + repair/regenerate loop; v2 becomes default per-dataset with the pack dashboard as fallback.</td></tr>
+    <tr><td>E</td><td>(Future) a learning loop that ranks designs from real usage signals.</td></tr>
+  </table>
+
+  <div class="call warn">
+    <div class="lbl">Reality check</div>
+    <p style="margin:0">This is <strong>designed, not built.</strong> It is the single most valuable and most risky piece of future work — valuable because “a dashboard that looks bespoke per business, with numbers you can still audit” is a genuinely differentiated product; risky because the Quality Engine (teaching software to judge “is this design good?”) is hard. The doc is refreshingly honest about the risks: regenerate-loop guards, quality-scoring performance, spec/renderer versioning.</p>
+  </div>
+</section>
+
+<!-- ============ 15. ROADMAP ============ -->
+<section class="page">
+  <div class="kicker">Section 15</div>
+  <h2>Roadmap — what’s next</h2>
+  <p class="lede">Pulling together the two roadmap sources (the component roadmap and the generative-design phases) plus the obvious product gaps, here is a sensible ordering by leverage.</p>
+
+  <h3>Near-term (finish what’s started)</h3>
+  <ol>
+    <li><strong>Wire real Stripe billing.</strong> The plans, limits and pricing page exist; connecting live checkout turns the app from “usable” to “revenue-capable.” Highest business leverage.</li>
+    <li><strong>Report builder + templates.</strong> Generation, PDF and scheduling are done; a builder and templates make reports self-serve.</li>
+    <li><strong>Fill in empty/error-state polish and data-prep UI</strong> (column mapper, transforms, formula builder) — the rough edges a paying user hits.</li>
+  </ol>
+
+  <h3>Medium-term (the differentiator)</h3>
+  <ol>
+    <li><strong>Generative design Phase A–B</strong> — the <code>DashboardSpec</code> + renderer + color intelligence. Even without the AI Director, per-industry <em>visual</em> identity would be a visible leap.</li>
+    <li><strong>Chart interactions</strong> — zoom, drill-down, crosshair, export, and geo/choropleth maps.</li>
+    <li><strong>Collaboration</strong> — sharing, comments, activity feed, version history (currently the biggest untouched category).</li>
+  </ol>
+
+  <h3>Longer-term (the vision)</h3>
+  <ol>
+    <li><strong>Generative design Phase C–E</strong> — the AI Design Director, the Quality Engine gate, and eventually a usage-driven learning loop.</li>
+    <li><strong>Scale the data layer</strong> — move from JSON-on-row storage to a columnar warehouse when file sizes demand it.</li>
+    <li><strong>More industry packs</strong> — each is just one data entry, so breadth is cheap.</li>
+  </ol>
+
+  <div class="call good">
+    <div class="lbl">The one-line strategic read</div>
+    <p style="margin:0">The foundation is done and unusually solid. The next dollar is best spent on <strong>(a) turning on billing</strong> and <strong>(b) starting the generative-design layer</strong> — the first unlocks revenue, the second unlocks a moat that competitors can’t easily copy without also solving the “trustworthy numbers” problem NoPS already solved.</p>
+  </div>
+</section>
+
+<!-- ============ 16. FILE INVENTORY ============ -->
+<section class="page">
+  <div class="kicker">Section 16</div>
+  <h2>Every file, explained — useful vs. not</h2>
+  <p class="lede">You asked to know “whatever the files are there, useful/unuseful.” The honest answer: this repo is <strong>remarkably free of dead weight</strong> — multiple commits explicitly removed audit docs and dead code. Almost everything here is load-bearing. Below is the guided tour.</p>
+
+  <h3>Root — the control panel</h3>
+  <table>
+    <tr><th>File</th><th>Purpose</th><th>Useful?</th></tr>
+    <tr><td><code>README.md</code></td><td>The canonical, accurate product & setup doc.</td><td>Essential</td></tr>
+    <tr><td><code>package.json</code> / <code>package-lock.json</code></td><td>Monorepo scripts and locked dependencies.</td><td>Essential</td></tr>
+    <tr><td><code>docker-compose.yml</code></td><td>One-command startup (Postgres + API + web).</td><td>Essential</td></tr>
+    <tr><td><code>.env.example</code></td><td>Template for all configuration/secrets.</td><td>Essential</td></tr>
+    <tr><td><code>CLAUDE.md</code></td><td>Repo working agreement (code style, plan-before-coding).</td><td>Useful (process)</td></tr>
+    <tr><td><code>.replit</code></td><td>Replit cloud-dev convenience.</td><td>Optional</td></tr>
+    <tr><td><code>.github/</code></td><td>CI workflow + Dependabot config.</td><td>Essential (ops)</td></tr>
+  </table>
+
+  <h3><code>apps/api</code> — the back end</h3>
+  <table>
+    <tr><th>Path</th><th>Purpose</th></tr>
+    <tr><td><code>src/engine/*</code></td><td>The deterministic core (Section 9). The most valuable code in the repo.</td></tr>
+    <tr><td><code>src/modules/*</code></td><td>14 route files, one per domain: uploads, datasets, analytics, ai, forecasting, alerts, reports, schedules, connections, billing, organizations, settings, users, context.</td></tr>
+    <tr><td><code>src/auth/*</code></td><td>JWT middleware + auth routes (+ tests).</td></tr>
+    <tr><td><code>src/ai/provider.ts</code></td><td>The optional GPT question-understanding call (+ privacy-fallback test).</td></tr>
+    <tr><td><code>src/billing/plans.ts</code></td><td>Single source of truth for pricing/limits (+ test).</td></tr>
+    <tr><td><code>src/scheduler.ts</code></td><td>Background jobs for scheduled reports + alert rules (+ tests).</td></tr>
+    <tr><td><code>src/mailer.ts</code></td><td>Sends scheduled-report emails.</td></tr>
+    <tr><td><code>src/app.ts</code> / <code>index.ts</code> / <code>env.ts</code> / <code>errors.ts</code> / <code>prisma.ts</code></td><td>App wiring, entry point, env validation, error handling, DB client.</td></tr>
+    <tr><td><code>prisma/*</code></td><td>Schema, 5 migrations, seed script, sample-data generator.</td></tr>
+    <tr><td><code>src/sample/*</code></td><td>Sample datasets (pharmacy, SaaS CSVs) + generator so packs can be demoed.</td></tr>
+    <tr><td><code>Dockerfile</code></td><td>Builds the API container.</td></tr>
+  </table>
+
+  <h3><code>apps/web</code> — the front end</h3>
+  <table>
+    <tr><th>Path</th><th>Purpose</th></tr>
+    <tr><td><code>src/pages/*</code> (14)</td><td>Landing, Auth, Dashboard, DashboardBuilder, Analytics, DataList, DatasetDetail, AiChat, Forecasts, Alerts, Reports, ChartLibrary, Settings, Profile.</td></tr>
+    <tr><td><code>src/components/*</code></td><td>The UI system: charts, DataTable, filters, widgets, ai cards, Kpi, Shell, primitives, forms, navigation, feedback, schedules, analytics, onboarding, pricing, error boundary.</td></tr>
+    <tr><td><code>src/lib/*</code></td><td>Shared logic: api client, auth, theme, motion, kpi helpers, industries, types, utils.</td></tr>
+    <tr><td><code>tailwind.config.js</code> / <code>index.css</code></td><td>Design tokens + base styles.</td></tr>
+    <tr><td>Vite / TS / PostCSS configs</td><td>Build configuration.</td></tr>
+  </table>
+
+  <h3><code>docs/</code></h3>
+  <table>
+    <tr><th>File</th><th>Purpose</th><th>Useful?</th></tr>
+    <tr><td><code>generative-design-architecture.md</code></td><td>The big future vision (Section 14).</td><td>High (direction-setting)</td></tr>
+    <tr><td><code>component-roadmap.md</code></td><td>Honest inventory of built vs. remaining UI work.</td><td>High (planning)</td></tr>
+    <tr><td><code>handbook.html</code> / <code>handbook.pdf</code></td><td>This handbook.</td><td>You’re reading it</td></tr>
+  </table>
+
+  <div class="call good">
+    <div class="lbl">The “unuseful files” verdict</div>
+    <p style="margin:0">There essentially aren’t any. The only <em>optional</em> items are <code>.replit</code> (cloud-dev convenience) and the sample CSVs (demo data you could delete in production). Everything else is doing a job. Past clutter (one-off audit/plan docs, a dead statistics library, dead UI controls, a CodeQL workflow that didn’t apply) was <em>deliberately removed</em> along the way — which is itself a good sign.</p>
+  </div>
+</section>
+
+<!-- ============ 17. RUN IT ============ -->
+<section class="page">
+  <div class="kicker">Section 17</div>
+  <h2>How to run it yourself</h2>
+  <p class="lede">Two ways. The first needs nothing but Docker and is genuinely one command.</p>
+
+  <h3>Option A — Docker (easiest)</h3>
+  <pre><code>git clone https://github.com/kartikpolekar4518-hash/Business-Data-Analyst.git
+cd Business-Data-Analyst
+docker compose up --build</code></pre>
+  <p>Wait for <code>NoPS API listening on :4000</code>, then open <strong>http://localhost:4000</strong>. Database, migrations, demo data, API and web UI all start automatically.</p>
+
+  <h3>Option B — local development</h3>
+  <pre><code>docker compose up -d db            # Postgres only
+cp .env.example apps/api/.env       # set at least JWT_SECRET
+npm run setup                       # install + prisma generate + migrate + seed
+npm run dev                         # api → :4000, web → :5173</code></pre>
+
+  <h3>Demo logins (workspace: “Acme Retail (Demo)”, password <code>password123</code>)</h3>
+  <table>
+    <tr><th>Role</th><th>Email</th><th>Can do</th></tr>
+    <tr><td>Admin</td><td><code>admin@nops.dev</code></td><td>Everything: users, settings, API keys, uploads, reports, chat.</td></tr>
+    <tr><td>Manager</td><td><code>manager@nops.dev</code></td><td>Uploads, analytics, chat, reports, forecasts.</td></tr>
+    <tr><td>Viewer</td><td><code>viewer@nops.dev</code></td><td>View dashboards, reports, analytics.</td></tr>
+  </table>
+  <p class="fn">The seed loads a realistic ~1,800-row retail dataset (18 months, 4 regions, 14 products) and writes it to a CSV so you can re-upload it through the UI.</p>
+
+  <h3>Key configuration knobs (<code>.env</code>)</h3>
+  <table>
+    <tr><th>Variable</th><th>What it controls</th></tr>
+    <tr><td><code>DATABASE_URL</code></td><td>Postgres connection string.</td></tr>
+    <tr><td><code>JWT_SECRET</code></td><td>Signs login tokens (required in production).</td></tr>
+    <tr><td><code>OPENAI_API_KEY</code></td><td>Optional. Set it to enable GPT question-understanding; leave blank for fully offline rule-based parsing.</td></tr>
+    <tr><td><code>CONNECTOR_ENCRYPTION_KEY</code></td><td>Encrypts saved connector credentials (required in production).</td></tr>
+    <tr><td><code>MAX_FILE_SIZE</code> / <code>MAX_SYNC_ROWS</code></td><td>Upload and connector-sync size caps.</td></tr>
+  </table>
+</section>
+
+<!-- ============ 18. ASSESSMENT ============ -->
+<section class="page">
+  <div class="kicker">Section 18</div>
+  <h2>Honest assessment & risks</h2>
+  <p class="lede">The part you actually need if you’re deciding what to do next. Straight talk, grounded in what’s in the repo.</p>
+
+  <div class="two">
+    <div>
+      <h3 style="color:var(--good)">Genuine strengths</h3>
+      <ul>
+        <li><strong>A real product, not a demo.</strong> Accounts, teams, permissions, billing tiers, connectors, scheduling — the boring-but-essential scaffolding of a SaaS is present.</li>
+        <li><strong>A defensible, coherent thesis.</strong> “Auditable numbers + optional AI convenience” is a real wedge into finance/regulated markets that pure AI tools can’t claim.</li>
+        <li><strong>Unusually clean engineering.</strong> Pure engine, strong tests (including money path, tenant isolation, privacy fallback), CI, security hardening, and active removal of dead code.</li>
+        <li><strong>Extensible by design.</strong> New industry, insight, chart or intent = one small, tested addition.</li>
+        <li><strong>A clear, ambitious, written-down future</strong> that preserves the core promise.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color:var(--bad)">Real risks & gaps</h3>
+      <ul>
+        <li><strong>No live revenue path yet.</strong> Billing is enforced but not charged. Nothing makes money until Stripe is wired.</li>
+        <li><strong>Scale ceiling.</strong> JSON-on-row storage is fine now, hard-capped later. Known and documented, but real.</li>
+        <li><strong>The differentiator is unbuilt.</strong> The generative-design vision is the moat, and it’s the hardest, least-started work — especially the Quality Engine.</li>
+        <li><strong>No collaboration features.</strong> Sharing/comments/versioning is entirely absent — a common expectation for BI tools.</li>
+        <li><strong>Single-author, AI-assisted history.</strong> Fast progress, but bus-factor and long-term maintenance are worth planning for.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="call brand">
+    <div class="lbl">The verdict in one paragraph</div>
+    <p style="margin:0">NoPS is a well-engineered, feature-complete MVP with a sharp, defensible identity (trustworthy, deterministic analytics with optional AI convenience) and a genuinely ambitious roadmap (per-business generative design). The foundation is done and clean. The two things standing between it and being a real business are turning on payments and starting to build the visual-design differentiator. For a project barely six weeks old, that is an excellent place to be.</p>
+  </div>
+</section>
+
+<!-- ============ 19. GLOSSARY ============ -->
+<section class="page">
+  <div class="kicker">Section 19</div>
+  <h2>Glossary for non-technical readers</h2>
+  <p class="lede">Every jargon word in this handbook, in plain English.</p>
+
+  <table>
+    <tr><th>Term</th><th>Plain meaning</th></tr>
+    <tr><td><strong>Deterministic</strong></td><td>Same input always gives the same answer, and you can read exactly how. The opposite of an AI that can guess differently each time.</td></tr>
+    <tr><td><strong>The engine</strong></td><td>The trustworthy back-room code that does all the actual math.</td></tr>
+    <tr><td><strong>MVP</strong></td><td>Minimum Viable Product — the smallest version that’s genuinely useful.</td></tr>
+    <tr><td><strong>Multi-tenant</strong></td><td>One app safely serving many separate companies, each seeing only their own data.</td></tr>
+    <tr><td><strong>KPI</strong></td><td>Key Performance Indicator — a headline number like revenue or profit.</td></tr>
+    <tr><td><strong>Schema detection</strong></td><td>The app figuring out what each column in your spreadsheet means.</td></tr>
+    <tr><td><strong>Profiling</strong></td><td>Automatically summarising and quality-checking a dataset.</td></tr>
+    <tr><td><strong>Forecast / confidence band</strong></td><td>A prediction of future values, plus a shaded range showing how uncertain it is.</td></tr>
+    <tr><td><strong>Anomaly</strong></td><td>An unusual data point that stands out from the pattern.</td></tr>
+    <tr><td><strong>Driver analysis</strong></td><td>Explaining <em>what</em> caused a number to move (which product, region, etc.).</td></tr>
+    <tr><td><strong>Industry pack</strong></td><td>A small settings bundle that tailors the dashboard to a business type.</td></tr>
+    <tr><td><strong>Connector</strong></td><td>A live link to a database or Google Sheet so data flows in automatically.</td></tr>
+    <tr><td><strong>API</strong></td><td>The back-end service the app talks to; also how other software could plug in.</td></tr>
+    <tr><td><strong>Front end / back end</strong></td><td>Front end = what you see in the browser. Back end = the server doing the work.</td></tr>
+    <tr><td><strong>Repository / monorepo</strong></td><td>The folder holding all the code. “Mono” = both apps live in one repo.</td></tr>
+    <tr><td><strong>Commit / PR</strong></td><td>A commit is one saved change; a pull request (PR) is a reviewed batch of changes merged in.</td></tr>
+    <tr><td><strong>CI</strong></td><td>Continuous Integration — a robot that runs all the tests automatically on every change.</td></tr>
+    <tr><td><strong>JWT / bcrypt / AES-GCM</strong></td><td>Standard security tools: login tokens, password scrambling, and credential encryption.</td></tr>
+    <tr><td><strong>SSRF</strong></td><td>A type of attack where a server is tricked into calling internal systems; NoPS guards against it.</td></tr>
+    <tr><td><strong>Stripe</strong></td><td>The payments service that would handle credit-card charging.</td></tr>
+    <tr><td><strong>DashboardSpec / Design Director</strong></td><td>Future concepts: a strict recipe for a dashboard, and the AI that proposes it (without ever inventing numbers).</td></tr>
+  </table>
+
+  <div class="foot">
+    NoPS Product Handbook · Generated 19 Aug 2026 from repository <code>kartikpolekar4518-hash/Business-Data-Analyst</code> at the tip of <code>main</code> (84 commits).<br>
+    Every claim in this document is grounded in the repository’s code, docs, and commit history as of the date above.
+  </div>
+</section>
+
+</body>
+</html>
