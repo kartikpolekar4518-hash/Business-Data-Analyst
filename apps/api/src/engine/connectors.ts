@@ -10,7 +10,9 @@ import { parseFile, type ParsedFile, type Row } from "./parse.js";
 
 export type ConnectorType = "POSTGRES" | "MYSQL" | "SQLSERVER" | "GOOGLE_SHEETS";
 
-export interface DbConfig { host: string; port?: number; database: string; user: string; table: string; ssl?: boolean; }
+// `allowInsecureTls` opts out of certificate verification for self-signed /
+// internal databases. Off by default: an SSL connection verifies the server cert.
+export interface DbConfig { host: string; port?: number; database: string; user: string; table: string; ssl?: boolean; allowInsecureTls?: boolean; }
 export interface SheetConfig { sheetUrl: string; }
 
 const QUERY_TIMEOUT_MS = 15_000;
@@ -70,7 +72,7 @@ async function fetchPostgres(cfg: DbConfig, password: string): Promise<ParsedFil
   const { default: pg } = await import("pg");
   const client = new pg.Client({
     host: cfg.host, port: cfg.port ?? 5432, database: cfg.database, user: cfg.user, password,
-    ssl: cfg.ssl ? { rejectUnauthorized: false } : undefined,
+    ssl: cfg.ssl ? { rejectUnauthorized: !cfg.allowInsecureTls } : undefined,
     connectionTimeoutMillis: QUERY_TIMEOUT_MS, statement_timeout: QUERY_TIMEOUT_MS,
   });
   await client.connect();
@@ -85,7 +87,7 @@ async function fetchMysql(cfg: DbConfig, password: string): Promise<ParsedFile> 
   const mysql = await import("mysql2/promise");
   const conn = await mysql.createConnection({
     host: cfg.host, port: cfg.port ?? 3306, database: cfg.database, user: cfg.user, password,
-    ssl: cfg.ssl ? { rejectUnauthorized: false } : undefined,
+    ssl: cfg.ssl ? { rejectUnauthorized: !cfg.allowInsecureTls } : undefined,
     connectTimeout: QUERY_TIMEOUT_MS,
   });
   try {
@@ -100,7 +102,7 @@ async function fetchSqlServer(cfg: DbConfig, password: string): Promise<ParsedFi
   const { default: sql } = await import("mssql");
   const pool = await sql.connect({
     server: cfg.host, port: cfg.port ?? 1433, database: cfg.database, user: cfg.user, password,
-    options: { encrypt: cfg.ssl !== false, trustServerCertificate: true },
+    options: { encrypt: cfg.ssl !== false, trustServerCertificate: !!cfg.allowInsecureTls },
     connectionTimeout: QUERY_TIMEOUT_MS, requestTimeout: QUERY_TIMEOUT_MS,
   });
   try {
@@ -108,6 +110,34 @@ async function fetchSqlServer(cfg: DbConfig, password: string): Promise<ParsedFi
     const r = result.recordset as Row[];
     return { rows: r, columns: columnsOf(r) };
   } finally { await pool.close(); }
+}
+
+// The CSV export legitimately 307s from docs.google.com to a googleusercontent.com
+// host, so we can't forbid redirects — but we follow them by hand and refuse any
+// hop that leaves Google, so a tampered/hijacked redirect can't turn this into SSRF.
+function isGoogleHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return h === "docs.google.com" || h === "googleusercontent.com" || h.endsWith(".googleusercontent.com");
+}
+
+async function fetchGoogleFollowingRedirects(startUrl: string, maxHops = 3): Promise<Response> {
+  let url = startUrl;
+  for (let hop = 0; ; hop++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), QUERY_TIMEOUT_MS);
+    let res: Response;
+    try { res = await fetch(url, { signal: ctrl.signal, redirect: "manual" }); }
+    finally { clearTimeout(timer); }
+    if (res.status < 300 || res.status >= 400) return res;
+    const location = res.headers.get("location");
+    if (!location) return res;
+    if (hop >= maxHops) throw new Error("Redirect limit reached fetching the sheet.");
+    const next = new URL(location, url);
+    if (next.protocol !== "https:" || !isGoogleHost(next.hostname)) {
+      throw new Error("Redirect to a non-Google host was blocked.");
+    }
+    url = next.toString();
+  }
 }
 
 // Google Sheets: no OAuth. Turn a shared-link URL into its CSV export endpoint and
@@ -121,12 +151,9 @@ async function fetchGoogleSheet(cfg: SheetConfig): Promise<ParsedFile> {
   const gid = url.hash.match(/gid=(\d+)/)?.[1] ?? url.searchParams.get("gid") ?? "0";
   const exportUrl = `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`;
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), QUERY_TIMEOUT_MS);
   let res: Response;
-  try { res = await fetch(exportUrl, { signal: ctrl.signal, redirect: "follow" }); }
-  catch { throw new Error("Could not reach Google Sheets. Check the link is shared publicly."); }
-  finally { clearTimeout(timer); }
+  try { res = await fetchGoogleFollowingRedirects(exportUrl); }
+  catch (e) { throw new Error(e instanceof Error && e.message.startsWith("Redirect") ? e.message : "Could not reach Google Sheets. Check the link is shared publicly."); }
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status}. Make sure the sheet is shared "anyone with the link".`);
   const csv = Buffer.from(await res.arrayBuffer());
   if (csv.subarray(0, 15).toString("utf8").includes("<!DOCTYPE html")) {

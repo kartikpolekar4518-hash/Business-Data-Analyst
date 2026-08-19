@@ -83,6 +83,52 @@ test("RBAC: a VIEWER is forbidden from an ADMIN/MANAGER-only route (403)", async
   assert.equal(okAsAdmin.status, 201, "ADMIN can load the sample dataset");
 });
 
+test("auth: a valid token whose membership was removed is rejected 401", async () => {
+  const admin = await signup("revoke");
+  const orgId = admin.body.organization.id;
+  const token = `Bearer ${admin.body.token}`;
+
+  // Token still verifies, but the membership row is the source of truth.
+  assert.equal((await request(app).get("/api/uploads").set("Authorization", token)).status, 200);
+  await prisma.organizationMember.deleteMany({ where: { organizationId: orgId } });
+  const after = await request(app).get("/api/uploads").set("Authorization", token);
+  assert.equal(after.status, 401, "removed membership takes effect on an unexpired token");
+});
+
+test("auth: role comes from the DB membership, not the JWT claim", async () => {
+  const admin = await signup("dbrole");
+  const orgId = admin.body.organization.id;
+  const viewer = await prisma.user.create({ data: { email: email("dbrole-v"), name: "Viewer", passwordHash: "x" } });
+  await prisma.organizationMember.create({ data: { userId: viewer.id, organizationId: orgId, role: "VIEWER" } });
+
+  // Forge a token claiming ADMIN for a member the DB says is only a VIEWER.
+  const forged = signToken({ userId: viewer.id, organizationId: orgId, role: "ADMIN" });
+  const res = await request(app).post("/api/uploads/sample").set("Authorization", `Bearer ${forged}`);
+  assert.equal(res.status, 403, "the DB role (VIEWER) governs, so the ADMIN-only route is forbidden");
+});
+
+test("tenant isolation: org B cannot read or delete org A's dataset", async () => {
+  const orgA = await signup("iso-a");
+  const orgB = await signup("iso-b");
+  const authA = `Bearer ${orgA.body.token}`;
+  const authB = `Bearer ${orgB.body.token}`;
+
+  const created = await request(app).post("/api/uploads/sample").set("Authorization", authA);
+  assert.equal(created.status, 201);
+  const id = created.body.dataset.id;
+
+  // Org A owns it — the positive control that the route works at all.
+  assert.equal((await request(app).get(`/api/datasets/${id}`).set("Authorization", authA)).status, 200);
+
+  // Org B holds a valid token but a different org: every path must 404 on the foreign id.
+  assert.equal((await request(app).get(`/api/datasets/${id}`).set("Authorization", authB)).status, 404, "read is org-scoped");
+  assert.equal((await request(app).get(`/api/datasets/${id}/preview`).set("Authorization", authB)).status, 404, "preview is org-scoped");
+  assert.equal((await request(app).delete(`/api/uploads/${id}`).set("Authorization", authB)).status, 404, "delete is org-scoped");
+
+  // The failed cross-tenant delete must not have touched org A's dataset.
+  assert.equal((await request(app).get(`/api/datasets/${id}`).set("Authorization", authA)).status, 200, "org A's dataset survives org B's delete attempt");
+});
+
 test("plan limits: the Free plan blocks the 3rd dataset with 402", async () => {
   const admin = await signup("limit");
   const token = `Bearer ${admin.body.token}`;
