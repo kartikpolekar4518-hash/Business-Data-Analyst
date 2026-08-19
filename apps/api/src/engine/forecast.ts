@@ -1,12 +1,21 @@
-// Forecasting service abstraction. MVP uses linear regression on the trend plus
-// a residual-based confidence band. Swap `forecast` for an ML/Python service later
-// without touching callers.
+// Deterministic forecasting. Fits the trend, and — when there is enough history —
+// an additive seasonal model, picking whichever backtests better on held-out
+// periods. A residual-based 95% confidence band brackets the central projection,
+// and best/base/worst scenarios fan out from the trend's slope uncertainty. Pure:
+// same history always yields the same forecast.
 
 export interface HistoryPoint { period: string; value: number; }
-export interface ForecastPoint { period: string; value: number; lower: number; upper: number; }
+export interface ForecastPoint {
+  period: string;
+  value: number;   // central (base) projection
+  lower: number;   // 95% confidence band
+  upper: number;
+  best: number;    // optimistic scenario (steeper sustained trend)
+  worst: number;   // pessimistic scenario (flatter/declining sustained trend)
+}
 
 export interface ForecastResult {
-  method: string;
+  method: string;  // "flat" | "linear_regression" | "seasonal_additive"
   history: HistoryPoint[];
   points: ForecastPoint[];
 }
@@ -38,29 +47,126 @@ export function linearFit(ys: number[]): LinearFit {
   return { a, b, std };
 }
 
+const SEASON = 12;        // monthly data -> yearly season
+const Z95 = 1.96;
+
+function monthOf(period: string): number | null {
+  const m = /^\d{4}-(\d{2})$/.exec(period);
+  return m ? Number(m[1]) - 1 : null;
+}
+
+// Centered additive seasonal indices (one per month), or null if the periods aren't
+// month-shaped or there isn't at least one point per season slot on average.
+function seasonalIndices(values: number[], periods: string[]): number[] | null {
+  const months = periods.map(monthOf);
+  if (months.some((m) => m === null)) return null;
+  const { a, b } = linearFit(values);
+  const sum = new Array(SEASON).fill(0), cnt = new Array(SEASON).fill(0);
+  for (let i = 0; i < values.length; i++) {
+    const m = months[i]!;
+    sum[m] += values[i] - (a + b * i); cnt[m]++;
+  }
+  if (cnt.some((c) => c === 0)) return null; // an uncovered month makes the index unreliable
+  const idx = sum.map((s, m) => s / cnt[m]);
+  const mean = idx.reduce((x, y) => x + y, 0) / SEASON;
+  return idx.map((v) => v - mean); // center so the seasonal part nets to zero
+}
+
+interface Model {
+  method: string;
+  fitted: number[];                                  // in-sample fit, for residual std
+  at: (x: number, month: number | null) => number;   // central value at future index x
+}
+
+function linearModel(values: number[]): Model {
+  const { a, b } = linearFit(values);
+  return { method: "linear_regression", fitted: values.map((_, i) => a + b * i), at: (x) => a + b * x };
+}
+
+function seasonalModel(values: number[], periods: string[]): Model | null {
+  const idx = seasonalIndices(values, periods);
+  if (!idx) return null;
+  const { a, b } = linearFit(values);
+  const fitted = values.map((_, i) => a + b * i + idx[monthOf(periods[i])!]);
+  return { method: "seasonal_additive", fitted, at: (x, month) => a + b * x + (month === null ? 0 : idx[month]) };
+}
+
+function residStd(values: number[], fitted: number[]): number {
+  const n = values.length;
+  const ss = values.reduce((s, y, i) => s + (y - fitted[i]) ** 2, 0);
+  return Math.sqrt(ss / n);
+}
+
+function slopeStdErr(values: number[], std: number): number {
+  const n = values.length;
+  const meanX = (n - 1) / 2;
+  let sxx = 0;
+  for (let i = 0; i < n; i++) sxx += (i - meanX) ** 2;
+  return sxx > 0 ? std / Math.sqrt(sxx) : 0;
+}
+
+// Mean absolute error of a model trained on all-but-last-`h` points, scored on the
+// held-out tail. Used to choose seasonal vs linear honestly rather than by assumption.
+function backtestMae(build: (v: number[], p: string[]) => Model | null, values: number[], periods: string[], h: number): number | null {
+  const cut = values.length - h;
+  if (cut < 2) return null;
+  const model = build(values.slice(0, cut), periods.slice(0, cut));
+  if (!model) return null;
+  let err = 0;
+  for (let i = cut; i < values.length; i++) err += Math.abs(values[i] - model.at(i, monthOf(periods[i])));
+  return err / h;
+}
+
 export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
   const n = history.length;
   if (n < 2) {
     const base = history[0]?.value ?? 0;
     let last = history[0]?.period ?? "2024-01";
     const points: ForecastPoint[] = [];
-    for (let i = 0; i < horizon; i++) { last = nextPeriod(last); points.push({ period: last, value: base, lower: base * 0.8, upper: base * 1.2 }); }
+    for (let i = 0; i < horizon; i++) {
+      last = nextPeriod(last);
+      points.push({ period: last, value: base, lower: base * 0.8, upper: base * 1.2, best: base, worst: base });
+    }
     return { method: "flat", history, points };
   }
 
-  // Linear regression + residual std-dev for the confidence band.
-  const { a, b, std } = linearFit(history.map((h) => h.value));
+  const values = history.map((h) => h.value);
+  const periods = history.map((h) => h.period);
 
-  let last = history[n - 1].period;
+  // Model selection: prefer seasonal only when there are ≥2 full seasons AND it
+  // backtests at least as well as the linear trend. Otherwise stay linear.
+  let model = linearModel(values);
+  const seasonal = n >= 2 * SEASON ? seasonalModel(values, periods) : null;
+  if (seasonal) {
+    const h = Math.min(SEASON, Math.max(1, Math.floor(n / 4)));
+    const linMae = backtestMae((v) => linearModel(v), values, periods, h);
+    const seaMae = backtestMae((v, p) => seasonalModel(v, p), values, periods, h);
+    // Only switch to seasonal when it materially beats the trend (≥10% lower error),
+    // so a near-linear series with negligible seasonality stays labelled linear.
+    if (linMae !== null && seaMae !== null && seaMae < linMae * 0.9) model = seasonal;
+  }
+
+  const std = residStd(values, model.fitted);
+  const seB = slopeStdErr(values, std); // slope uncertainty drives the scenario fan-out
+
+  let last = periods[n - 1];
   const points: ForecastPoint[] = [];
   for (let i = 1; i <= horizon; i++) {
     const x = n - 1 + i;
-    const value = Math.max(0, a + b * x);
-    const band = 1.96 * std * Math.sqrt(1 + i / n); // widens with horizon
     last = nextPeriod(last);
-    points.push({ period: last, value: round(value), lower: round(Math.max(0, value - band)), upper: round(value + band) });
+    const month = monthOf(last);
+    const value = Math.max(0, model.at(x, month));
+    const band = Z95 * std * Math.sqrt(1 + i / n);        // noise band, widens with horizon
+    // Scenarios: sustained steeper / flatter slope, so they fan out over the horizon.
+    const best = Math.max(0, value + seB * x);
+    const worst = Math.max(0, value - seB * x);
+    points.push({
+      period: last, value: round(value),
+      lower: round(Math.max(0, value - band)), upper: round(value + band),
+      best: round(Math.max(best, value)), worst: round(Math.min(worst, value)),
+    });
   }
-  return { method: "linear_regression", history, points };
+  return { method: model.method, history, points };
 }
 
 function round(n: number): number { return Math.round(n * 100) / 100; }
