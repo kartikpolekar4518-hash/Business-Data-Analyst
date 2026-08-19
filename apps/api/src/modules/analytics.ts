@@ -7,6 +7,11 @@ import { loadDataset } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
 import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industries.js";
+import { analyzeDrivers, type DriverMetric } from "../engine/drivers.js";
+import { detectAnomalies } from "../engine/anomaly.js";
+import { analyzeCorrelations } from "../engine/correlate.js";
+import { segmentEntities, type SegmentEntity } from "../engine/segment.js";
+import type { Semantic } from "../engine/schema.js";
 
 export const analyticsRouter = Router();
 analyticsRouter.use(requireAuth);
@@ -122,6 +127,39 @@ analyticsRouter.get("/products", groupByDimension("product_name", 20));
 analyticsRouter.get("/customers", groupByDimension("customer_name", 20));
 
 analyticsRouter.get("/regions", groupByDimension("region", 20));
+
+// Driver / contribution breakdown: which dimension members moved the metric, and by
+// how much. Contributions reconcile to the period-over-period change shown in KPIs.
+analyticsRouter.get("/drivers", wrap(async (req, res) => {
+  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const metric: DriverMetric = req.query.metric === "profit" ? "profit" : "revenue";
+  const dimension = typeof req.query.dimension === "string" ? (req.query.dimension as Semantic) : undefined;
+  res.json(analyzeDrivers(rows, schema, metric, dimension, filtersFrom(req.query)));
+}));
+
+// Anomalies in a metric's time series (deterministic, robust to single outliers).
+analyticsRouter.get("/anomalies", wrap(async (req, res) => {
+  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const metric = (["revenue", "profit", "orders"] as const).find((m) => m === req.query.metric) ?? "revenue";
+  const series = A.timeSeries(rows, schema, metric, filtersFrom(req.query));
+  res.json(detectAnomalies(series, metric.charAt(0).toUpperCase() + metric.slice(1)));
+}));
+
+// Value-tier segmentation of customers or products.
+analyticsRouter.get("/segments", wrap(async (req, res) => {
+  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const entity = (["customer_name", "product_name"] as const).find((e) => e === req.query.entity) as SegmentEntity | undefined;
+  res.json(segmentEntities(rows, schema, entity));
+}));
+
+// Correlations across the dataset's numeric columns (association only, never causal).
+analyticsRouter.get("/correlations", wrap(async (req, res) => {
+  const { dataset, rows } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
+  const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
+  const numeric = cols.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name);
+  res.json(analyzeCorrelations(rows, numeric.length ? numeric : undefined));
+}));
 
 // Flat rows for the analytics data table + CSV export on the client (with pagination).
 analyticsRouter.get("/table", wrap(async (req, res) => {
