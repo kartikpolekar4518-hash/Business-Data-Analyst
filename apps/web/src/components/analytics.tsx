@@ -10,7 +10,7 @@ import { Card, CardHeader, CardBody, Spinner, ErrorState, Badge } from "./ui";
 
 // ─── shared response shapes (mirror the engine modules) ───
 interface DriverContribution { label: string; current: number; previous: number; contribution: number; shareOfChange: number | null; direction: "up" | "down" | "flat"; explanation: string; }
-interface DriverResult { metric: string; dimension: string | null; totalPrevious: number; totalCurrent: number; totalChange: number; totalChangePct: number | null; drivers: DriverContribution[]; reconciled: boolean; }
+interface DriverResult { metric: string; dimension: string | null; totalPrevious: number; totalCurrent: number; totalChange: number; totalChangePct: number | null; drivers: DriverContribution[]; otherCount: number; otherContribution: number; reconciled: boolean; }
 interface AnomalyPoint { period: string; value: number; expected: number; lower: number; upper: number; deviation: number; direction: "spike" | "drop"; severity: "LOW" | "MEDIUM" | "HIGH"; method: string; reason: string; }
 interface AnomalyResult { method: string; metric: string; anomalies: AnomalyPoint[]; }
 interface Segment { key: "high" | "mid" | "low"; label: string; count: number; members: string[]; totalRevenue: number; avgRevenue: number; shareOfRevenue: number; rule: string; }
@@ -72,6 +72,12 @@ export function DriverBreakdown({ datasetId, metric = "revenue", className }: { 
                     </div>
                   );
                 })}
+                {data.otherCount > 0 && (
+                  <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm text-slate-500 dark:border-white/[0.06]">
+                    <span>Other ({data.otherCount})</span>
+                    <span className="shrink-0 font-medium">{data.otherContribution >= 0 ? "+" : "−"}{money(Math.abs(data.otherContribution))}</span>
+                  </div>
+                )}
               </div>
             );
           })()}

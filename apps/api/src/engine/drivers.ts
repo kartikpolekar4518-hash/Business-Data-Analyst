@@ -27,8 +27,10 @@ export interface DriverResult {
   totalCurrent: number;
   totalChange: number;
   totalChangePct: number | null;
-  drivers: DriverContribution[];
-  reconciled: boolean;             // true when Σ contributions == totalChange (to cents)
+  drivers: DriverContribution[];   // top movers by absolute impact (truncated to `limit`)
+  otherCount: number;              // members beyond the top movers
+  otherContribution: number;       // their summed contribution, so shown + other == totalChange
+  reconciled: boolean;             // true when Σ (all) contributions == totalChange (to cents)
 }
 
 function round(n: number): number { return Math.round(n * 100) / 100; }
@@ -52,7 +54,7 @@ export function analyzeDrivers(
 
   if (!dim) return {
     metric, dimension: null, totalPrevious: 0, totalCurrent: 0, totalChange: 0,
-    totalChangePct: null, drivers: [], reconciled: true,
+    totalChangePct: null, drivers: [], otherCount: 0, otherContribution: 0, reconciled: true,
   };
 
   // Grouped metric totals per member, current vs previous. A big limit so every
@@ -85,11 +87,15 @@ export function analyzeDrivers(
   const sumAll = round(all.reduce((a, d) => a + d.contribution, 0));
   const reconciled = Math.abs(sumAll - totalChange) < 0.01;
 
-  // Rank by absolute impact; keep the biggest movers.
+  // Rank by absolute impact; keep the biggest movers and roll the rest into "other"
+  // so the displayed drivers plus the remainder still sum to the total change.
   all.sort((a, b) => Math.abs(b.contribution) - Math.abs(a.contribution));
+  const top = all.slice(0, limit);
+  const rest = all.slice(limit);
+  const otherContribution = round(rest.reduce((a, d) => a + d.contribution, 0));
 
   return {
     metric, dimension: dim, totalPrevious, totalCurrent, totalChange, totalChangePct,
-    drivers: all.slice(0, limit), reconciled,
+    drivers: top, otherCount: rest.length, otherContribution, reconciled,
   };
 }

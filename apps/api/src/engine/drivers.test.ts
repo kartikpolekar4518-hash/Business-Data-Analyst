@@ -52,6 +52,14 @@ test("still reconciles when attributed by a different dimension", () => {
   assert.ok(Math.abs(sum - r.totalChange) < 0.01);
 });
 
+test("truncated drivers plus the 'other' remainder still sum to the total change", () => {
+  const r = analyzeDrivers(rows, schema, "revenue", "product_name", {}, 1);
+  assert.equal(r.drivers.length, 1);
+  assert.ok(r.otherCount >= 1, "the second product falls into other");
+  const shown = r.drivers.reduce((a, d) => a + d.contribution, 0);
+  assert.ok(Math.abs(shown + r.otherContribution - r.totalChange) < 0.01, "shown + other == totalChange");
+});
+
 test("no dimension -> empty but reconciled result, never throws", () => {
   const r = analyzeDrivers(rows, { date: "date", revenue: "revenue" }, "revenue");
   assert.equal(r.dimension, null);
