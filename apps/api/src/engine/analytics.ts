@@ -183,4 +183,4 @@ export function fmtMoney(n: unknown): string {
   return "$" + Math.round(num(n)).toLocaleString("en-US");
 }
 
-export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters };
+export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters, splitPeriods };

@@ -20,6 +20,24 @@ function nextPeriod(last: string): string {
   return `${year}-${String(month).padStart(2, "0")}`;
 }
 
+// Ordinary-least-squares line `value = a + b*x` over `ys` at x = 0..n-1, plus the
+// residual population std-dev. Shared by the forecaster and the anomaly detector so
+// both measure "expected value" and "normal variation" identically.
+export interface LinearFit { a: number; b: number; std: number; }
+export function linearFit(ys: number[]): LinearFit {
+  const n = ys.length;
+  if (n === 0) return { a: 0, b: 0, std: 0 };
+  const meanX = (n - 1) / 2;
+  const meanY = ys.reduce((s, y) => s + y, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) { num += (i - meanX) * (ys[i] - meanY); den += (i - meanX) ** 2; }
+  const b = den === 0 ? 0 : num / den;
+  const a = meanY - b * meanX;
+  const resid = ys.map((y, i) => y - (a + b * i));
+  const std = Math.sqrt(resid.reduce((s, r) => s + r * r, 0) / n);
+  return { a, b, std };
+}
+
 export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
   const n = history.length;
   if (n < 2) {
@@ -30,19 +48,8 @@ export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
     return { method: "flat", history, points };
   }
 
-  // Linear regression: value = a + b*x
-  const xs = history.map((_, i) => i);
-  const ys = history.map((h) => h.value);
-  const meanX = xs.reduce((a, b) => a + b, 0) / n;
-  const meanY = ys.reduce((a, b) => a + b, 0) / n;
-  let num = 0, den = 0;
-  for (let i = 0; i < n; i++) { num += (xs[i] - meanX) * (ys[i] - meanY); den += (xs[i] - meanX) ** 2; }
-  const b = den === 0 ? 0 : num / den;
-  const a = meanY - b * meanX;
-
-  // Residual std-dev for the confidence band.
-  const resid = ys.map((y, i) => y - (a + b * i));
-  const std = Math.sqrt(resid.reduce((s, r) => s + r * r, 0) / n);
+  // Linear regression + residual std-dev for the confidence band.
+  const { a, b, std } = linearFit(history.map((h) => h.value));
 
   let last = history[n - 1].period;
   const points: ForecastPoint[] = [];
