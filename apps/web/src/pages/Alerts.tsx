@@ -3,10 +3,11 @@ import { Bell, AlertTriangle, TrendingDown, Package, Check } from "lucide-react"
 import { api } from "../lib/api";
 import { Card, CardBody, Badge, Button, Spinner, EmptyState } from "../components/ui";
 import { AnomalyPanel } from "../components/analytics";
+import { AlertRulesSection } from "../components/schedules";
 import { timeAgo } from "../lib/utils";
 import type { Alert } from "../lib/types";
 
-const ICONS: Record<string, any> = { revenue_drop: TrendingDown, profit_decline: TrendingDown, inventory_shortage: Package, sales_spike: AlertTriangle, forecast_risk: AlertTriangle, unusual_performance: AlertTriangle, revenue_anomaly: AlertTriangle };
+const ICONS: Record<string, any> = { revenue_drop: TrendingDown, profit_decline: TrendingDown, inventory_shortage: Package, sales_spike: AlertTriangle, forecast_risk: AlertTriangle, unusual_performance: AlertTriangle, revenue_anomaly: AlertTriangle, custom_alert: Bell };
 
 export default function Alerts() {
   const qc = useQueryClient();
@@ -19,6 +20,8 @@ export default function Alerts() {
       <div><h1 className="text-2xl font-bold">Alerts</h1><p className="text-sm text-slate-500">Automatically flagged risks and anomalies from your data.</p></div>
 
       <AnomalyPanel />
+
+      <AlertRulesSection />
 
       {isLoading ? <Spinner /> : !data?.alerts.length ? <EmptyState icon={Bell} title="No alerts" description="We'll flag revenue drops, inventory shortages, and unusual performance here." /> : (
         <div className="space-y-2">

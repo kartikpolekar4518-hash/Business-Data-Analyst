@@ -4,6 +4,7 @@ import { FileText, Download, Plus, Eye } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Modal, Badge, useToast } from "../components/ui";
+import { ScheduledReportsSection } from "../components/schedules";
 import { money, num, timeAgo } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }
@@ -68,6 +69,9 @@ export default function Reports() {
           ))}
         </div></CardBody></Card>
       )}
+
+      {/* Scheduled reports (automation) */}
+      <ScheduledReportsSection />
 
       {/* Report viewer */}
       <Modal open={!!viewId} onClose={() => setViewId(undefined)} title={view.data?.report.title ?? "Report"}>
