@@ -1,22 +1,19 @@
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
-import type { IndustryPack } from "./industries.js";
+import type { PackMetric } from "./industries.js";
 
 // The controlled analytics query layer. Everything the "AI" and dashboards can
 // compute goes through these deterministic functions — no arbitrary SQL/code.
 
-// Dimension filters accept a single value or a set (OR-matched). A single string
-// stays valid, so existing callers are unaffected.
-type Dim = string | string[];
 export interface Filters {
   dateFrom?: string;
   dateTo?: string;
-  region?: Dim;
-  state?: Dim;
-  category?: Dim;
-  department?: Dim;
-  product?: Dim;
-  customer?: Dim;
+  region?: string;
+  state?: string;
+  category?: string;
+  department?: string;
+  product?: string;
+  customer?: string;
 }
 
 function num(v: unknown): number {
@@ -42,11 +39,9 @@ function rowProfit(r: Row, s: SchemaMap): number {
 }
 
 function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
-  // A date-only "YYYY-MM-DD" bound parses to midnight, so an inclusive dateTo must cover
-  // the whole end day. A full datetime already carries its own time, so use it as-is.
-  const dateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
+  // "YYYY-MM-DD" parses to midnight, so an inclusive dateTo must cover the whole end day.
   const from = f.dateFrom ? new Date(f.dateFrom) : null;
-  const to = f.dateTo ? new Date(new Date(f.dateTo).getTime() + (dateOnly(f.dateTo) ? 86_399_999 : 0)) : null;
+  const to = f.dateTo ? new Date(new Date(f.dateTo).getTime() + 86_399_999) : null;
   return rows.filter((r) => {
     if (s.date && (from || to)) {
       const d = parseDate(r[s.date]);
@@ -55,14 +50,7 @@ function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
         if (to && d > to) return false;
       }
     }
-    const eq = (sem: Semantic, val?: Dim) => {
-      // Empty/blank values mean "no filter" (a bare `?region=` shouldn't narrow to blank cells).
-      const vals = (val == null ? [] : Array.isArray(val) ? val : [val]).filter((v) => str(v) !== "");
-      if (vals.length === 0) return true;
-      if (!s[sem]) return false; // filtering on an absent column excludes everything (unchanged)
-      const cell = str(r[s[sem]!]).toLowerCase();
-      return vals.some((v) => cell === str(v).toLowerCase());
-    };
+    const eq = (sem: Semantic, val?: string) => !val || (s[sem] && str(r[s[sem]!]).toLowerCase() === val.toLowerCase());
     return eq("region", f.region) && eq("state", f.state) && eq("category", f.category) &&
       eq("department", f.department) && eq("product_name", f.product) && eq("customer_name", f.customer);
   });
@@ -118,27 +106,22 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
   };
 }
 
-// Config-driven KPIs. Each industry pack supplies KPI definitions; this evaluates
-// them against the same filtered/current/previous split the retail overview uses,
-// so pharmacy, SaaS, etc. get period-over-period change for free.
-export interface KpiResult {
-  key: string; label: string; icon: string;
-  format: "money" | "number" | "percent";
-  value: number; changePct: number | null; tooltip?: string;
-  spark?: number[];
+// Resolve a per-row value for a metric. Built-in string metrics map to the
+// existing helpers; a PackMetric uses its deterministic compute reducer.
+function metricValue(metric: string | PackMetric, r: Row, s: SchemaMap): number {
+  if (typeof metric === "object") return metric.compute([r], s);
+  switch (metric) {
+    case "revenue": return rowRevenue(r, s);
+    case "profit": return rowProfit(r, s);
+    case "quantity": return s.quantity ? num(r[s.quantity]) : 1;
+    case "orders": return 1;
+    default: return 0;
+  }
 }
 
-export function computeKpis(rows: Row[], s: SchemaMap, pack: IndustryPack, f: Filters = {}): KpiResult[] {
-  const filtered = applyFilters(rows, s, f);
-  const { current, previous } = splitPeriods(filtered, s);
-  return pack.kpis.map((def) => ({
-    key: def.key, label: def.label, icon: def.icon, format: def.format, tooltip: def.tooltip,
-    value: round(def.value(filtered, s)),
-    changePct: def.noChange ? null : pctChange(def.value(current, s), def.value(previous, s)),
-  }));
-}
+export type MetricRef = string | PackMetric;
 
-export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profit" | "orders", f: Filters = {}) {
+export function timeSeries(rows: Row[], s: SchemaMap, metric: MetricRef, f: Filters = {}) {
   const filtered = applyFilters(rows, s, f);
   if (!s.date) return [];
   const buckets = new Map<string, number>();
@@ -146,22 +129,22 @@ export function timeSeries(rows: Row[], s: SchemaMap, metric: "revenue" | "profi
     const d = parseDate(r[s.date!]);
     if (!d) continue;
     const key = monthKey(d);
-    const val = metric === "revenue" ? rowRevenue(r, s) : metric === "profit" ? rowProfit(r, s) : 1;
+    const val = metricValue(metric, r, s);
     buckets.set(key, (buckets.get(key) || 0) + val);
   }
   return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, value]) => ({ period, value: round(value) }));
 }
 
-// Generic group-by ranking. dimension is a semantic; metric is revenue/profit/quantity/orders.
-export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: "revenue" | "profit" | "quantity" | "orders", f: Filters = {}, limit = 10) {
+// Generic group-by ranking. dimension is a semantic; metric is a built-in string
+// or a PackMetric (so any pack-declared metric can be ranked by dimension).
+export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: MetricRef, f: Filters = {}, limit = 10) {
   const col = s[dimension];
   const filtered = applyFilters(rows, s, f);
   if (!col) return [];
   const buckets = new Map<string, number>();
   for (const r of filtered) {
     const key = str(r[col]) || "Unknown";
-    const val = metric === "revenue" ? rowRevenue(r, s) : metric === "profit" ? rowProfit(r, s)
-      : metric === "quantity" ? num(s.quantity ? r[s.quantity] : 1) : 1;
+    const val = metricValue(metric, r, s);
     buckets.set(key, (buckets.get(key) || 0) + val);
   }
   return [...buckets.entries()]
@@ -185,4 +168,4 @@ export function fmtMoney(n: unknown): string {
   return "$" + Math.round(num(n)).toLocaleString("en-US");
 }
 
-export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters, splitPeriods };
+export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters };

@@ -3,54 +3,53 @@ import bcrypt from "bcryptjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { generateRetailData, generatePharmacyData, generateSaasData, toCsv } from "../src/sample/generators.js";
+import { generateRetailData, generateSaasData, generatePharmacyData, generateServicesData, toCsv } from "../src/engine/sampleData.js";
 import { profileDataset } from "../src/engine/profile.js";
 import { detectSchema } from "../src/engine/schema.js";
-import { getPack } from "../src/engine/industries.js";
 import { deriveInsights } from "../src/engine/insights.js";
 
 const prisma = new PrismaClient();
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const sampleDir = join(__dirname, "..", "src", "sample");
 
-type Role = "ADMIN" | "MANAGER" | "VIEWER";
-interface Demo {
-  orgName: string;
-  industry: string;
-  users: { name: string; email: string; role: Role }[];
-  rows: Record<string, unknown>[];
-  datasetName: string;
-  fileName: string;
-}
+async function main() {
+  console.log("Seeding DecisionIQ demo data...");
 
-async function seedDemo(d: Demo) {
-  await prisma.organization.deleteMany({ where: { name: d.orgName } });
-  const org = await prisma.organization.create({ data: { name: d.orgName, industry: d.industry } });
+  // 1. Demo organization
+  await prisma.organization.deleteMany({ where: { name: "Acme Retail (Demo)" } });
+  const org = await prisma.organization.create({ data: { name: "Acme Retail (Demo)" } });
 
-  for (const u of d.users) {
+  // 2. Demo users with different roles
+  const users = [
+    { name: "Alex Admin", email: "admin@decisioniq.dev", password: "password123", role: "ADMIN" as const },
+    { name: "Morgan Manager", email: "manager@decisioniq.dev", password: "password123", role: "MANAGER" as const },
+    { name: "Vic Viewer", email: "viewer@decisioniq.dev", password: "password123", role: "VIEWER" as const },
+  ];
+  for (const u of users) {
     const user = await prisma.user.upsert({
       where: { email: u.email },
-      update: { passwordHash: await bcrypt.hash("password123", 10), name: u.name },
-      create: { email: u.email, name: u.name, passwordHash: await bcrypt.hash("password123", 10) },
+      update: { passwordHash: await bcrypt.hash(u.password, 10), name: u.name },
+      create: { email: u.email, name: u.name, passwordHash: await bcrypt.hash(u.password, 10) },
     });
     await prisma.organizationMember.create({ data: { userId: user.id, organizationId: org.id, role: u.role } });
   }
 
-  const columns = Object.keys(d.rows[0]);
+  // 3. Sample retail data -> also written to a CSV for re-upload via the UI
+  const rows = generateRetailData();
+  const columns = Object.keys(rows[0]);
+  const sampleDir = join(__dirname, "..", "src", "sample");
   mkdirSync(sampleDir, { recursive: true });
-  const csv = toCsv(d.rows);
-  writeFileSync(join(sampleDir, d.fileName), csv);
+  writeFileSync(join(sampleDir, "retail_sales.csv"), toCsv(rows));
 
-  // Same pipeline as an upload, using the org's industry vocabulary.
-  const profile = profileDataset(d.rows, columns);
-  const { map, columns: annotated } = detectSchema(profile.columns, getPack(d.industry).rules);
-  await prisma.dataset.create({
+  // 4. Create dataset + run profiling + schema detection (same pipeline as an upload)
+  const profile = profileDataset(rows, columns);
+  const { map, columns: annotated } = detectSchema(profile.columns);
+  const dataset = await prisma.dataset.create({
     data: {
       organizationId: org.id,
-      name: d.datasetName,
-      fileName: d.fileName,
+      name: "Retail Sales 2024–2025",
+      fileName: "retail_sales.csv",
       fileType: "csv",
-      fileSize: Buffer.byteLength(csv),
+      fileSize: Buffer.byteLength(toCsv(rows)),
       status: "PROFILED",
       rowCount: profile.rowCount,
       columnCount: profile.columnCount,
@@ -58,53 +57,22 @@ async function seedDemo(d: Demo) {
       columns: annotated as Record<string, unknown>,
       schemaMap: map as Record<string, unknown>,
       profile: profile as Record<string, unknown>,
-      rows: d.rows as Record<string, unknown>[],
+      rows: rows as Record<string, unknown>[],
       issues: { create: profile.issues.map((i) => ({ ...i })) },
     },
   });
 
-  const { alerts } = deriveInsights(d.rows, map);
+  // 5. Initial alerts from insights engine
+  const { alerts } = deriveInsights(rows, map);
   if (alerts.length) await prisma.alert.createMany({ data: alerts.map((a) => ({ ...a, organizationId: org.id })) });
-  await prisma.activityLog.create({ data: { organizationId: org.id, action: "seed.completed", detail: `${d.rows.length} rows` } });
 
-  console.log(`✓ ${d.orgName} [${d.industry}] — ${profile.rowCount} rows, quality ${profile.qualityScore}, ${alerts.length} alerts`);
-}
+  await prisma.activityLog.create({ data: { organizationId: org.id, action: "seed.completed", detail: `${rows.length} rows` } });
 
-async function main() {
-  console.log("Seeding NoPS demo data...");
-
-  await seedDemo({
-    orgName: "Acme Retail (Demo)",
-    industry: "retail",
-    users: [
-      { name: "Alex Admin", email: "admin@nops.dev", role: "ADMIN" },
-      { name: "Morgan Manager", email: "manager@nops.dev", role: "MANAGER" },
-      { name: "Vic Viewer", email: "viewer@nops.dev", role: "VIEWER" },
-    ],
-    rows: generateRetailData(),
-    datasetName: "Retail Sales 2024–2025",
-    fileName: "retail_sales.csv",
-  });
-
-  await seedDemo({
-    orgName: "MediCare Pharmacy (Demo)",
-    industry: "pharmacy",
-    users: [{ name: "Priya Pharma", email: "pharmacy@nops.dev", role: "ADMIN" }],
-    rows: generatePharmacyData(),
-    datasetName: "Pharmacy Sales 2024–2025",
-    fileName: "pharmacy_sales.csv",
-  });
-
-  await seedDemo({
-    orgName: "CloudFlow SaaS (Demo)",
-    industry: "saas",
-    users: [{ name: "Sam SaaS", email: "saas@nops.dev", role: "ADMIN" }],
-    rows: generateSaasData(),
-    datasetName: "Subscriptions 2024–2025",
-    fileName: "saas_subscriptions.csv",
-  });
-
-  console.log("✓ Logins (password: password123): admin@ / pharmacy@ / saas@nops.dev");
+  console.log(`✓ Org: ${org.name}`);
+  console.log(`✓ Users: ${users.map((u) => u.email).join(", ")} (password: password123)`);
+  console.log(`✓ Dataset: ${dataset.name} — ${profile.rowCount} rows, quality ${profile.qualityScore}`);
+  console.log(`✓ Alerts: ${alerts.length}`);
+  console.log(`✓ Sample CSV: apps/api/src/sample/retail_sales.csv`);
 }
 
 main().catch((e) => { console.error(e); process.exit(1); }).finally(() => prisma.$disconnect());

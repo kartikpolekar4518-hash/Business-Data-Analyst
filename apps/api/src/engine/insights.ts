@@ -2,8 +2,8 @@ import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
 import { forecast } from "./forecast.js";
-import { detectAnomalies } from "./anomaly.js";
-import { analyzeDrivers } from "./drivers.js";
+import { detectPack, packMetric, type IndustryPack } from "./industries.js";
+import { investigate } from "./investigate.js";
 
 export interface Recommendation {
   title: string;
@@ -24,26 +24,73 @@ export interface AlertSeed {
 }
 
 // Derive alerts + recommendations from the data. Separates observation from hypothesis.
-export function deriveInsights(rows: Row[], s: SchemaMap) {
+export function deriveInsights(rows: Row[], s: SchemaMap, packId?: string) {
+  const pack = detectPack(s, [], packId ?? "");
   const ov = A.overview(rows, s);
-  const revSeries = A.timeSeries(rows, s, "revenue");
   const recs: Recommendation[] = [];
   const alerts: AlertSeed[] = [];
 
-  // Revenue trend alert
-  if (ov.growth !== null) {
-    if (ov.growth <= -5) {
-      alerts.push({ type: "revenue_drop", severity: ov.growth <= -15 ? "HIGH" : "MEDIUM", metric: "revenue", currentValue: ov.revenue.value, threshold: ov.revenue.previous, description: `Revenue fell ${Math.abs(ov.growth)}% versus the prior period.` });
-      recs.push({
-        title: "Revenue is declining",
-        observation: `Revenue changed ${ov.growth}% period-over-period (${money(ov.revenue.previous)} → ${money(ov.revenue.value)}).`,
-        explanation: "Possible causes include seasonality, reduced marketing, inventory shortages, or weakening demand in specific regions/products. These are hypotheses, not confirmed causes.",
-        action: "Review declining products and regions below, check inventory levels, and compare marketing spend across the two periods.",
-        impact: "HIGH", confidence: 0.7,
-      });
-    } else if (ov.growth >= 15) {
-      alerts.push({ type: "sales_spike", severity: "LOW", metric: "revenue", currentValue: ov.revenue.value, threshold: ov.revenue.previous, description: `Revenue grew ${ov.growth}% versus the prior period.` });
+  // Iterate the pack's key metrics (not just revenue) so SaaS/pharmacy/service
+  // analytics produce alerts on their own metrics (MRR drop, churn, expiry risk…).
+  for (const metricId of pack.keyMetrics) {
+    const metric = packMetric(pack, metricId);
+    if (!metric) continue;
+
+    // Build a period-over-period series for this metric and check the last change.
+    const series = A.timeSeries(rows, s, metric);
+    if (series.length >= 2) {
+      const prev = series[series.length - 2].value;
+      const cur = series[series.length - 1].value;
+      if (prev > 0) {
+        const changePct = Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10;
+        const thresh = pack.thresholds?.[metricId] ?? -10; // negative threshold => drop alert
+        if (changePct <= thresh) {
+          const severity = changePct <= thresh * 2 ? "HIGH" : "MEDIUM";
+          alerts.push({
+            type: `${metricId}_drop`,
+            severity,
+            metric: metricId,
+            currentValue: cur,
+            threshold: prev,
+            description: `${metric.label} fell ${Math.abs(changePct)}% in the latest period.`,
+          });
+          recs.push({
+            title: `${metric.label} is declining`,
+            observation: `${metric.label} changed ${changePct}% period-over-period (${money(prev)} → ${money(cur)}).`,
+            explanation: "Possible causes include demand shifts, pricing, inventory, or segment weakness. These are hypotheses, not confirmed causes.",
+            action: `Investigate the largest ${metric.label.toLowerCase()} contributors by the pack's key dimensions (see the 'why' investigation).`,
+            impact: severity === "HIGH" ? "HIGH" : "MEDIUM",
+            confidence: 0.7,
+          });
+        } else if (changePct >= 15) {
+          alerts.push({ type: `${metricId}_spike`, severity: "LOW", metric: metricId, currentValue: cur, threshold: prev, description: `${metric.label} grew ${changePct}% in the latest period.` });
+        }
+      }
     }
+  }
+
+  // Root-cause investigation surfaced as a recommendation when a key metric drops.
+  const droppedMetric = pack.keyMetrics
+    .map((id) => ({ id, metric: packMetric(pack, id) }))
+    .find(({ id, metric }) => {
+      if (!metric) return false;
+      const series = A.timeSeries(rows, s, metric);
+      if (series.length < 2) return false;
+      const prev = series[series.length - 2].value;
+      const cur = series[series.length - 1].value;
+      if (prev <= 0) return false;
+      const changePct = Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10;
+      return changePct <= (pack.thresholds?.[id] ?? -10);
+    });
+  if (droppedMetric?.metric) {
+    const inv = investigate(rows, s, droppedMetric.id, pack.id);
+    recs.push({
+      title: `Why is ${droppedMetric.metric.label} changing?`,
+      observation: inv.narrative,
+      explanation: "This is an evidence-backed investigation: driver concentration, price/volume/mix decomposition, correlated factors, and anomalous periods. Correlation is association, not cause.",
+      action: "Review the cited dimensions and factors above; validate with a controlled experiment before acting.",
+      impact: "HIGH", confidence: 0.65,
+    });
   }
 
   // Profit margin alert
@@ -86,46 +133,16 @@ export function deriveInsights(rows: Row[], s: SchemaMap) {
     }
   }
 
-  // Forecast risk
-  if (revSeries.length >= 3) {
-    const fc = forecast(revSeries.map((p) => ({ period: p.period, value: p.value })), 1);
-    const next = fc.points[0];
-    if (next && next.value < revSeries[revSeries.length - 1].value * 0.9) {
-      alerts.push({ type: "forecast_risk", severity: "MEDIUM", metric: "revenue", currentValue: next.value, threshold: revSeries[revSeries.length - 1].value, description: `Forecast projects revenue of ${money(next.value)} next period, below the latest ${money(revSeries[revSeries.length - 1].value)}.` });
-    }
-  }
-
-  // Unusual periods in the revenue trend (deterministic anomaly detection).
-  const anomalyRes = detectAnomalies(revSeries.map((p) => ({ period: p.period, value: p.value })), "Revenue");
-  const sigAnoms = anomalyRes.anomalies.filter((a) => a.severity !== "LOW");
-  if (sigAnoms.length) {
-    const top = sigAnoms[sigAnoms.length - 1]; // most recent significant (series is period-ordered)
-    alerts.push({ type: "revenue_anomaly", severity: top.severity, metric: "revenue", currentValue: top.value, threshold: top.expected, description: top.reason });
-    recs.push({
-      title: `Unusual revenue in ${top.period}`,
-      observation: top.reason,
-      explanation: "An anomaly is a period far outside the recent trend — it can be genuine (a promotion, a one-off large order) or a data error. This is a flag, not a diagnosis.",
-      action: "Confirm the figure for this period is correct, then investigate the cause before acting on it.",
-      impact: top.severity === "HIGH" ? "HIGH" : "MEDIUM", confidence: 0.65,
-    });
-  }
-
-  // What's driving the period-over-period revenue change (contributions reconcile to it).
-  if (ov.growth !== null && Math.abs(ov.growth) >= 5) {
-    const dr = analyzeDrivers(rows, s, "revenue");
-    if (dr.drivers.length) {
-      const top = dr.drivers.slice(0, 3);
-      const movers = top.map((d) => `${d.label} ${d.direction === "up" ? "+" : "−"}${money(Math.abs(d.contribution))}`).join(", ");
-      const dimName = (dr.dimension ?? "segment").replace("_name", "");
-      recs.push({
-        title: `What's driving the ${ov.growth >= 0 ? "growth" : "decline"}`,
-        observation: `Revenue moved ${ov.growth}% (${money(dr.totalPrevious)} → ${money(dr.totalCurrent)}). Biggest movers by ${dimName}: ${movers}.`,
-        explanation: `Each ${dimName}'s contribution is its current minus prior period; together they add up to the total change, so this is an exact decomposition — not an estimate.`,
-        action: top[0].shareOfChange !== null
-          ? `Focus on ${top[0].label} — it accounts for ${top[0].shareOfChange}% of the net change.`
-          : `Focus on ${top[0].label}, the largest single mover.`,
-        impact: "MEDIUM", confidence: 0.7,
-      });
+  // Forecast risk (on the pack's primary revenue-like metric)
+  const primary = packMetric(pack, pack.keyMetrics[0] ?? "revenue") ?? packMetric(pack, "revenue");
+  if (primary) {
+    const revSeries = A.timeSeries(rows, s, primary);
+    if (revSeries.length >= 3) {
+      const fc = forecast(revSeries.map((p) => ({ period: p.period, value: p.value })), 1);
+      const next = fc.points[0];
+      if (next && next.value < revSeries[revSeries.length - 1].value * 0.9) {
+        alerts.push({ type: "forecast_risk", severity: "MEDIUM", metric: primary.id, currentValue: next.value, threshold: revSeries[revSeries.length - 1].value, description: `Forecast projects ${primary.label} of ${money(next.value)} next period, below the latest ${money(revSeries[revSeries.length - 1].value)}.` });
+      }
     }
   }
 

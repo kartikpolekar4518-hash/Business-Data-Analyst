@@ -1,118 +1,57 @@
-// Deterministic anomaly detection on a time series. Pure — no I/O, no randomness.
-// A point is flagged when it departs from the fitted trend by more than the normal
-// variation, judged two robust ways that a single wild point cannot mask: a
-// MAD-based modified z-score (Iglewicz–Hoaglin) on the residuals, and an IQR fence
-// on them. Both use medians, so one outlier does not inflate the "normal" spread and
-// hide itself. Same input always yields the same anomalies; the model never sees
-// anything but the numbers.
+import type { Row } from "./parse.js";
+import type { SchemaMap } from "./schema.js";
+import * as A from "./analytics.js";
+import { outliersByIQR, outliersByZScore, mean, stdDev } from "./statistics.js";
 
-import { linearFit } from "./forecast.js";
-import { quartiles } from "./quantiles.js";
-
-function median(xs: number[]): number {
-  if (!xs.length) return 0;
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
-
-export interface SeriesPoint { period: string; value: number; }
+// Anomaly detection on a metric's monthly series. Deterministic; uses the
+// statistics.ts primitives (IQR fences + z-score) — no ML, no randomness.
 
 export interface AnomalyPoint {
   period: string;
   value: number;
-  expected: number;          // trend-fit value for this period
-  lower: number;             // expected "normal" range
-  upper: number;
-  deviation: number;         // signed z-score (residual / std); 0 when std is 0
-  direction: "spike" | "drop";
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  method: "zscore" | "iqr" | "both";
-  reason: string;            // human-readable explanation
-}
-
-export interface AnnotatedPoint extends SeriesPoint {
-  expected: number;
-  lower: number;
-  upper: number;
-  isAnomaly: boolean;
+  expected: number;      // median of the series (robust baseline)
+  deviation: number;     // value - expected
+  zScore: number | null;
+  method: "iqr" | "zscore";
 }
 
 export interface AnomalyResult {
-  method: string;
   metric: string;
-  anomalies: AnomalyPoint[];
-  points: AnnotatedPoint[];  // whole series, annotated — for charting the band
+  points: AnomalyPoint[];
 }
 
-// Modified-z thresholds (Iglewicz–Hoaglin): >= FLAG is anomalous, >= SEVERE is severe.
-const Z_FLAG = 3.5;
-const Z_SEVERE = 5;
-const IQR_K = 1.5;
-const MAD_SCALE = 1.4826; // makes MAD a consistent estimator of the std-dev for normal data
-const MIN_POINTS = 4;     // below this, "normal variation" isn't defined — report nothing.
+/**
+ * Detect anomalous months in a metric's time series. Uses IQR fences primarily
+ * (robust to the outliers' own effect); z-score as a secondary signal.
+ */
+export function detectAnomalies(
+  rows: Row[],
+  s: SchemaMap,
+  metric: string | { id: string; compute: (rows: Row[], s: SchemaMap) => number },
+): AnomalyResult {
+  const metricId = typeof metric === "object" ? metric.id : metric;
+  const series = A.timeSeries(rows, s, metric as any);
+  if (series.length < 4) return { metric: metricId, points: [] };
 
-function round(n: number): number { return Math.round(n * 100) / 100; }
-function fmt(n: number): string { return Math.round(n).toLocaleString("en-US"); }
+  const values = series.map((p) => p.value);
+  const iqrIdx = new Set(outliersByIQR(values, 1.5));
+  const zIdx = new Set(outliersByZScore(values, 2.5));
+  const median = values.slice().sort((a, b) => a - b)[Math.floor(values.length / 2)];
 
-// Detect anomalies in a period/value series. `metric` only shapes the wording.
-export function detectAnomalies(series: SeriesPoint[], metric = "value"): AnomalyResult {
-  const clean = series.filter((p) => isFinite(p.value));
-  const method = "residual_modz+iqr";
-  if (clean.length < MIN_POINTS) {
-    return {
-      method, metric, anomalies: [],
-      points: clean.map((p) => ({ ...p, expected: p.value, lower: p.value, upper: p.value, isAnomaly: false })),
-    };
+  const points: AnomalyPoint[] = [];
+  for (let i = 0; i < series.length; i++) {
+    const p = series[i];
+    const isIqr = iqrIdx.has(i);
+    const isZ = zIdx.has(i);
+    if (!isIqr && !isZ) continue;
+    points.push({
+      period: p.period,
+      value: p.value,
+      expected: median,
+      deviation: Math.round((p.value - median) * 100) / 100,
+      zScore: isZ ? Math.round(((p.value - mean(values)) / stdDev(values)) * 100) / 100 : null,
+      method: isIqr ? "iqr" : "zscore",
+    });
   }
-
-  const ys = clean.map((p) => p.value);
-  const { a, b } = linearFit(ys);
-  const resid = ys.map((y, i) => y - (a + b * i));
-
-  // Robust spread of the residuals — medians, so one outlier can't inflate it.
-  const medR = median(resid);
-  const rstd = MAD_SCALE * median(resid.map((r) => Math.abs(r - medR)));
-  const { q1, q3 } = quartiles(resid);
-  const iqr = q3 - q1;
-  const iqrLo = q1 - IQR_K * iqr;
-  const iqrHi = q3 + IQR_K * iqr;
-
-  // Normal band on residuals = the INTERSECTION of the active envelopes (modified-z and
-  // IQR fence). Detection flags a point outside EITHER envelope, so the intersection is
-  // exactly the region no method flags — a point outside the drawn band is then exactly
-  // a flagged one. An inactive method (zero spread) doesn't constrain the band.
-  const modzActive = rstd > 0;
-  const iqrActive = iqr > 0;
-  let resLo = Math.max(modzActive ? medR - Z_FLAG * rstd : -Infinity, iqrActive ? iqrLo : -Infinity);
-  let resHi = Math.min(modzActive ? medR + Z_FLAG * rstd : Infinity, iqrActive ? iqrHi : Infinity);
-  if (!isFinite(resLo) || !isFinite(resHi)) { resLo = medR; resHi = medR; } // no spread defined at all
-
-  const anomalies: AnomalyPoint[] = [];
-  const points: AnnotatedPoint[] = clean.map((p, i) => {
-    const expected = a + b * i;
-    const r = resid[i];
-    const modz = rstd > 0 ? (r - medR) / rstd : 0;
-    const lower = round(expected + resLo);
-    const upper = round(expected + resHi);
-
-    const byZ = rstd > 0 && Math.abs(modz) >= Z_FLAG;
-    const byIqr = iqr > 0 && (r < iqrLo || r > iqrHi);
-    const isAnomaly = byZ || byIqr;
-
-    if (isAnomaly) {
-      const direction: "spike" | "drop" = r >= medR ? "spike" : "drop";
-      const severity = Math.abs(modz) >= Z_SEVERE ? "HIGH" : byZ ? "MEDIUM" : "LOW";
-      const m: AnomalyPoint["method"] = byZ && byIqr ? "both" : byZ ? "zscore" : "iqr";
-      const magnitude = rstd > 0 ? `${round(Math.abs(modz))}× the normal variation` : "well outside the typical range";
-      anomalies.push({
-        period: p.period, value: round(p.value), expected: round(expected),
-        lower, upper, deviation: round(modz), direction, severity, method: m,
-        reason: `${metric} was ${fmt(p.value)} in ${p.period} — ${magnitude} ${direction === "spike" ? "above" : "below"} the expected ${fmt(expected)} (normal range ${fmt(lower)}–${fmt(upper)}).`,
-      });
-    }
-    return { period: p.period, value: round(p.value), expected: round(expected), lower, upper, isAnomaly };
-  });
-
-  return { method, metric, anomalies, points };
+  return { metric: metricId, points };
 }
