@@ -90,4 +90,3 @@ export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: 
 export function distinctValues(rows: Row[], s: SchemaMap, dimension: Semantic): string[] { const col = s[dimension]; if (!col) return []; const set = new Set<string>(); for (const r of rows) { const v = str(r[col]); if (v) set.add(v); } return [...set].sort().slice(0, 100); }
 function round(n: number): number { return Math.round(n * 100) / 100; }
 export function fmtMoney(n: unknown): string { return "$" + Math.round(num(n)).toLocaleString("en-US"); }
-export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters };
