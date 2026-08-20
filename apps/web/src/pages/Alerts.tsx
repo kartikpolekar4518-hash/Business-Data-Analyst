@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, AlertTriangle, TrendingDown, Package, Check } from "lucide-react";
 import { api } from "../lib/api";
-import { Card, CardBody, Badge, Button, Spinner, EmptyState } from "../components/ui";
+import { Card, CardBody, Badge, Button, Skeleton, EmptyState, ErrorState } from "../components/ui";
 import { AnomalyPanel } from "../components/analytics";
 import { AlertRulesSection } from "../components/schedules";
 import { timeAgo } from "../lib/utils";
@@ -11,7 +11,7 @@ const ICONS: Record<string, any> = { revenue_drop: TrendingDown, profit_decline:
 
 export default function Alerts() {
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ["alerts"], queryFn: () => api.get<{ alerts: Alert[]; unread: number }>("/alerts") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["alerts"], queryFn: () => api.get<{ alerts: Alert[]; unread: number }>("/alerts") });
 
   async function markRead(id: string) { await api.patch(`/alerts/${id}/read`); qc.invalidateQueries({ queryKey: ["alerts"] }); }
 
@@ -23,7 +23,16 @@ export default function Alerts() {
 
       <AlertRulesSection />
 
-      {isLoading ? <Spinner /> : !data?.alerts.length ? <EmptyState icon={Bell} title="No alerts" description="We'll flag revenue drops, inventory shortages, and unusual performance here." /> : (
+      {isLoading ? <AlertsSkeleton /> : isError ? (
+        <ErrorState message="We couldn't load your alerts. Check your connection and try again." retry={() => refetch()} />
+      ) : !data?.alerts.length ? (
+        <EmptyState
+          icon={Bell}
+          title="No alerts"
+          description="We'll flag revenue drops, inventory shortages, and unusual performance here."
+          action={<Button variant="outline" onClick={() => refetch()}>Refresh</Button>}
+        />
+      ) : (
         <div className="space-y-2">
           {data.alerts.map((a) => {
             const Icon = ICONS[a.type] ?? Bell;
@@ -47,6 +56,26 @@ export default function Alerts() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+// Skeleton mirrors an alert card: severity tile, title/description lines, timestamp.
+function AlertsSkeleton() {
+  return (
+    <div className="space-y-2">
+      {[0, 1, 2].map((i) => (
+        <Card key={i}>
+          <CardBody className="flex items-start gap-3 py-3">
+            <Skeleton className="h-9 w-9 rounded-lg" />
+            <div className="flex-1 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-full max-w-md" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </CardBody>
+        </Card>
+      ))}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Download, Plus, Eye } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Modal, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Skeleton, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
 import { ScheduledReportsSection } from "../components/schedules";
 import { money, num, timeAgo } from "../lib/utils";
 
@@ -30,7 +30,7 @@ export default function Reports() {
   const [generating, setGenerating] = useState(false);
   const [viewId, setViewId] = useState<string>();
 
-  const { data, isLoading } = useQuery({ queryKey: ["reports"], queryFn: () => api.get<{ reports: ReportRow[] }>("/reports") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["reports"], queryFn: () => api.get<{ reports: ReportRow[] }>("/reports") });
   const view = useQuery({ queryKey: ["report", viewId], queryFn: () => api.get<{ report: FullReport }>(`/reports/${viewId}`), enabled: !!viewId });
 
   async function generate() {
@@ -57,7 +57,16 @@ export default function Reports() {
         {can("ADMIN", "MANAGER") && <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button>}
       </div>
 
-      {isLoading ? <Spinner /> : !data?.reports.length ? <EmptyState icon={FileText} title="No reports yet" description={can("ADMIN", "MANAGER") ? "Generate an executive report from your latest dataset." : "Ask an admin or manager to generate a report."} /> : (
+      {isLoading ? <ReportsSkeleton /> : isError ? (
+        <ErrorState message="We couldn't load your reports. Check your connection and try again." retry={() => refetch()} />
+      ) : !data?.reports.length ? (
+        <EmptyState
+          icon={FileText}
+          title="No reports yet"
+          description={can("ADMIN", "MANAGER") ? "Generate an executive report from your latest dataset." : "Ask an admin or manager to generate a report."}
+          action={can("ADMIN", "MANAGER") ? <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button> : undefined}
+        />
+      ) : (
         <Card><CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.reports.map((rep) => (
             <div key={rep.id} className="flex items-center gap-3 px-5 py-3">
@@ -75,7 +84,9 @@ export default function Reports() {
 
       {/* Report viewer */}
       <Modal open={!!viewId} onClose={() => setViewId(undefined)} title={view.data?.report.title ?? "Report"}>
-        {!r ? <Spinner /> : (
+        {view.isError ? (
+          <ErrorState message="We couldn't open this report. Please try again." retry={() => view.refetch()} />
+        ) : !r ? <ReportViewSkeleton /> : (
           <div className="max-h-[70vh] space-y-4 overflow-y-auto text-sm">
             <section><h4 className="mb-1 font-semibold">Executive Summary</h4><p className="text-slate-600 dark:text-slate-400">{r.summary}</p></section>
             <section className="grid grid-cols-3 gap-2">
@@ -96,6 +107,33 @@ export default function Reports() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+// Skeleton for the reports list — icon tile, two text lines, action buttons per row.
+function ReportsSkeleton() {
+  return (
+    <Card><CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="flex items-center gap-3 px-5 py-3">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="flex-1 space-y-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-24" /></div>
+          <Skeleton className="h-9 w-16" /><Skeleton className="h-9 w-16" />
+        </div>
+      ))}
+    </div></CardBody></Card>
+  );
+}
+
+// Skeleton for the report viewer modal — summary, KPI grid, section blocks.
+function ReportViewSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="h-16 w-full" />
+      <div className="grid grid-cols-3 gap-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full" />)}</div>
+      <Skeleton className="h-24 w-full" />
     </div>
   );
 }

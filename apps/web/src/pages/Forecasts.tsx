@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, Info } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Label, Spinner, EmptyState, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Label, Skeleton, EmptyState, ErrorState, Badge, useToast } from "../components/ui";
 import { ForecastChart } from "../components/charts";
 import { money, num, timeAgo } from "../lib/utils";
 
@@ -26,7 +26,7 @@ export default function Forecasts() {
   const [running, setRunning] = useState(false);
   const [scenario, setScenario] = useState<Scenario>("value");
 
-  const { data, isLoading } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
 
   async function run() {
     setRunning(true);
@@ -65,7 +65,16 @@ export default function Forecasts() {
         ) : null}
       </div>
 
-      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description={can("ADMIN", "MANAGER") ? "Generate one above to project future performance." : "Ask an admin or manager to create a forecast."} /> : (
+      {isLoading ? <ForecastsSkeleton /> : isError ? (
+        <ErrorState message="We couldn't load your forecasts. Check your connection and try again." retry={() => refetch()} />
+      ) : !data?.forecasts.length ? (
+        <EmptyState
+          icon={TrendingUp}
+          title="No forecasts yet"
+          description={can("ADMIN", "MANAGER") ? "Generate one to project future performance from your historical trend." : "Ask an admin or manager to create a forecast."}
+          action={can("ADMIN", "MANAGER") ? <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button> : undefined}
+        />
+      ) : (
         <div className="space-y-4">
           {data.forecasts.map((f) => {
             // "orders" is a count, not currency — format it as a plain number.
@@ -99,3 +108,22 @@ export default function Forecasts() {
   );
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Skeleton mirrors a forecast card: header, chart band, and the 4-tile scenario grid.
+function ForecastsSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[0, 1].map((i) => (
+        <Card key={i}>
+          <CardHeader title={<Skeleton className="h-4 w-48" />} subtitle={<Skeleton className="mt-1 h-3 w-32" />} />
+          <CardBody>
+            <Skeleton className="h-56 w-full" />
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((j) => <Skeleton key={j} className="h-16 w-full" />)}
+            </div>
+          </CardBody>
+        </Card>
+      ))}
+    </div>
+  );
+}

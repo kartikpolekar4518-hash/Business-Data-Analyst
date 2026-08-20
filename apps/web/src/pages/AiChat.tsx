@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Send, Sparkles, User, Plus, History, MessageSquare } from "lucide-react";
 import { api, ApiError } from "../lib/api";
-import { Card, CardBody, Button, Input } from "../components/ui";
+import { Card, CardBody, Button, Input, Skeleton, ErrorState } from "../components/ui";
 import { AIThinking, SuggestedPrompts, ConfidenceMeter, followUpsFor } from "../components/ai";
 import { BarRankChart, TrendChart } from "../components/charts";
 import { num, timeAgo, cn } from "../lib/utils";
@@ -76,7 +76,11 @@ export default function AiChat() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} aria-hidden="true" />
                 <div className="absolute right-0 top-full z-50 mt-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800">
-                  {conversations.data?.conversations.length ? conversations.data.conversations.map((c) => (
+                  {conversations.isLoading ? (
+                    <div className="space-y-1.5 p-1.5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
+                  ) : conversations.isError ? (
+                    <div className="p-1.5"><ErrorState message="Couldn't load your chat history." retry={() => conversations.refetch()} /></div>
+                  ) : conversations.data?.conversations.length ? conversations.data.conversations.map((c) => (
                     <button key={c.id} onClick={() => openConversation(c.id)} className={cn("flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700", c.id === conversationId && "bg-slate-100 dark:bg-slate-700")}>
                       <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
                       <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-700 dark:text-slate-200">{c.title}</span><span className="text-xs text-slate-400">{timeAgo(c.createdAt)} · {c._count.messages} messages</span></span>
