@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
@@ -30,6 +30,16 @@ export default function DataList() {
   const [job, setJob] = useState<UploadJob>(null);
   const [loadingSample, setLoadingSample] = useState(false);
   const busy = !!job && job.phase !== "done";
+
+  // Guard against progress/completion updates landing after the page unmounts
+  // (the upload itself finishes server-side; we just stop touching dead state).
+  const mounted = useRef(true);
+  const completeTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => {
+    mounted.current = false;
+    if (completeTimer.current) clearTimeout(completeTimer.current);
+  }, []);
+  const safeSetJob: typeof setJob = (u) => { if (mounted.current) setJob(u); };
 
   const [connectType, setConnectType] = useState<ConnectorType | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -67,14 +77,14 @@ export default function DataList() {
       const fd = new FormData(); fd.append("file", file);
       const body = await api.upload<{ dataset: { qualityScore: number } }>("/uploads", fd, (pct) => {
         // Transfer done → the server is now parsing/profiling; show that step.
-        setJob((j) => (j ? { ...j, pct, phase: pct >= 100 ? "processing" : "uploading" } : j));
+        safeSetJob((j) => (j ? { ...j, pct, phase: pct >= 100 ? "processing" : "uploading" } : j));
       });
-      setJob((j) => (j ? { ...j, phase: "done", pct: 100 } : j));
+      safeSetJob((j) => (j ? { ...j, phase: "done", pct: 100 } : j));
       toast(`Uploaded ${file.name} — quality score ${body.dataset.qualityScore}`, "success");
       qc.invalidateQueries({ queryKey: ["datasets"] });
       // Let the completed state read for a beat before clearing.
-      setTimeout(() => setJob(null), 1200);
-    } catch (e) { setJob(null); toast(e instanceof ApiError ? e.message : "Upload failed", "error"); }
+      completeTimer.current = setTimeout(() => safeSetJob(null), 1200);
+    } catch (e) { safeSetJob(null); toast(e instanceof ApiError ? e.message : "Upload failed", "error"); }
   }
 
   async function loadSample() {
