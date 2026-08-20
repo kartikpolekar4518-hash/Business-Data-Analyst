@@ -26,7 +26,7 @@ test("wording never implies causation", () => {
   const rows: Row[] = [];
   for (let i = 1; i <= 8; i++) rows.push({ spend: i, sales: i * 2 });
   const r = analyzeCorrelations(rows, ["spend", "sales"]);
-  assert.match(r.caveat, /does not mean one causes the other/);
+  assert.match(r.caveat!, /does not mean one causes the other/);
   for (const p of r.pairs) assert.doesNotMatch(p.interpretation, /caus|because|leads to|drives|results in/i);
 });
 
