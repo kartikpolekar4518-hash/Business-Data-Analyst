@@ -19,7 +19,7 @@ test("flags a clear spike, with direction, severity and an explanation", () => {
   assert.equal(a.severity, "HIGH");
   assert.ok(a.deviation > 0, "spike has positive z");
   assert.ok(a.expected < a.value, "value sits above the expected trend");
-  assert.match(a.reason, /revenue was 900 in 2024-07/);
+  assert.match(a.reason!, /revenue was 900 in 2024-07/);
 });
 
 test("flags a drop below trend", () => {
