@@ -106,7 +106,8 @@ const shareView = (s: { id: string; token: string; expiresAt: Date | null; revok
 
 const shareCreate = z.object({ expiresInDays: z.union([z.literal(7), z.literal(30), z.literal(90)]).nullable().default(30) });
 
-reportsRouter.get("/:id/shares", wrap(async (req, res) => {
+// Listing exposes live bearer tokens, so it needs the same role gate as create/revoke.
+reportsRouter.get("/:id/shares", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const report = await prisma.report.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId }, select: { id: true } });
   if (!report) throw new HttpError(404, "Report not found");
   const shares = await prisma.reportShare.findMany({ where: { reportId: report.id }, orderBy: { createdAt: "desc" } });

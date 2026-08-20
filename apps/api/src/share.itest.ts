@@ -89,6 +89,8 @@ test("RBAC: a VIEWER cannot create a share (403)", async () => {
   await prisma.organizationMember.create({ data: { userId: viewer.id, organizationId: orgId, role: "VIEWER" } });
   const vtoken = `Bearer ${signToken({ userId: viewer.id, organizationId: orgId, role: "VIEWER" })}`;
   assert.equal((await request(app).post(`/api/reports/${reportId}/shares`).set("Authorization", vtoken).send({})).status, 403);
+  // Listing exposes live bearer tokens — a VIEWER must not be able to enumerate them.
+  assert.equal((await request(app).get(`/api/reports/${reportId}/shares`).set("Authorization", vtoken)).status, 403);
 });
 
 test("tenant isolation: org B cannot create, list, or revoke shares on org A's report", async () => {
