@@ -42,9 +42,11 @@ function rowProfit(r: Row, s: SchemaMap): number {
 }
 
 function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
-  // "YYYY-MM-DD" parses to midnight, so an inclusive dateTo must cover the whole end day.
+  // A date-only "YYYY-MM-DD" bound parses to midnight, so an inclusive dateTo must cover
+  // the whole end day. A full datetime already carries its own time, so use it as-is.
+  const dateOnly = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s);
   const from = f.dateFrom ? new Date(f.dateFrom) : null;
-  const to = f.dateTo ? new Date(new Date(f.dateTo).getTime() + 86_399_999) : null;
+  const to = f.dateTo ? new Date(new Date(f.dateTo).getTime() + (dateOnly(f.dateTo) ? 86_399_999 : 0)) : null;
   return rows.filter((r) => {
     if (s.date && (from || to)) {
       const d = parseDate(r[s.date]);

@@ -149,16 +149,17 @@ analyticsRouter.get("/anomalies", wrap(async (req, res) => {
 analyticsRouter.get("/segments", wrap(async (req, res) => {
   const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const entity = (["customer_name", "product_name"] as const).find((e) => e === req.query.entity) as SegmentEntity | undefined;
-  res.json(segmentEntities(rows, schema, entity));
+  res.json(segmentEntities(A.applyFilters(rows, schema, filtersFrom(req.query)), schema, entity));
 }));
 
 // Correlations across the dataset's numeric columns (association only, never causal).
 analyticsRouter.get("/correlations", wrap(async (req, res) => {
-  const { dataset, rows } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
   const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
   const numeric = cols.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name);
-  res.json(analyzeCorrelations(rows, numeric.length ? numeric : undefined));
+  const filtered = A.applyFilters(rows, schema, filtersFrom(req.query));
+  res.json(analyzeCorrelations(filtered, numeric.length ? numeric : undefined));
 }));
 
 // Flat rows for the analytics data table + CSV export on the client (with pagination).

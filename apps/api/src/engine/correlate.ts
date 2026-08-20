@@ -28,10 +28,13 @@ const NUMERIC_FRACTION = 0.6;   // a column counts as numeric if ≥60% of value
 function toNum(v: unknown): number | null {
   if (typeof v === "number") return isFinite(v) ? v : null;
   if (typeof v === "string") {
+    // Accounting style wraps negatives in parentheses, e.g. "(1,234)" = -1234. Detect
+    // that before stripping the parens, otherwise the sign is silently lost.
+    const negative = /^\s*[$€£₹]?\s*\(.*\)\s*%?\s*$/.test(v);
     const t = v.replace(/[$€£₹,()%\s]/g, "");
     if (t === "") return null;
     const n = Number(t);
-    return isFinite(n) ? n : null;
+    return isFinite(n) ? (negative ? -n : n) : null;
   }
   return null;
 }

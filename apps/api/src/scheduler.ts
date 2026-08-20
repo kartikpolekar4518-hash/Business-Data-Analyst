@@ -24,7 +24,15 @@ export function nextRun(freq: Frequency, from: Date): Date {
     case "HOURLY": d.setHours(d.getHours() + 1); break;
     case "DAILY": d.setDate(d.getDate() + 1); break;
     case "WEEKLY": d.setDate(d.getDate() + 7); break;
-    case "MONTHLY": d.setMonth(d.getMonth() + 1); break;
+    case "MONTHLY": {
+      // setMonth overflows on month-end days (Jan 31 → Mar 3, skipping February), so
+      // advance the month on the 1st, then clamp the day to the target month's length.
+      const day = d.getDate();
+      d.setDate(1);
+      d.setMonth(d.getMonth() + 1);
+      d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+      break;
+    }
   }
   return d;
 }
@@ -103,12 +111,14 @@ export async function runDueAlertRules(now = new Date()): Promise<number> {
       let triggered = false;
       if (value !== null && crosses(value, rule.comparator as Comparator, rule.threshold)) {
         triggered = true;
-        // De-dupe: only one open (unread) alert per rule at a time.
-        const open = await prisma.alert.findFirst({ where: { organizationId: rule.organizationId, type: "custom_alert", read: false, description: { startsWith: `${rule.name}: ` } } });
+        // De-dupe: only one open (unread) alert per rule at a time. Match on the stored
+        // rule id, so renaming a rule (or one name being a prefix of another) never
+        // breaks de-dup.
+        const open = await prisma.alert.findFirst({ where: { organizationId: rule.organizationId, type: "custom_alert", read: false, ruleId: rule.id } });
         if (!open) {
           await prisma.alert.create({
             data: {
-              organizationId: rule.organizationId, type: "custom_alert", severity: "MEDIUM", metric: rule.metric,
+              organizationId: rule.organizationId, type: "custom_alert", severity: "MEDIUM", metric: rule.metric, ruleId: rule.id,
               currentValue: value, threshold: rule.threshold,
               description: `${rule.name}: ${rule.metric} is ${round(value)} (${CMP_TEXT[rule.comparator as Comparator]} ${rule.threshold}).`,
             },
