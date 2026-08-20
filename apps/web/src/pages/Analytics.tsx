@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import { api } from "../lib/api";
 import { num } from "../lib/utils";
 import { kpiIcon } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Label } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Label, useToast } from "../components/ui";
 import { DataTable, type Column } from "../components/DataTable";
 import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, type Chip } from "../components/filters";
 import { TrendChart, BarRankChart } from "../components/charts";
@@ -25,6 +25,7 @@ const FILTERS = [
 
 export default function Analytics() {
   const [params, setParams] = useSearchParams();
+  const { toast } = useToast();
   const query = Object.fromEntries(params.entries());
   const qs = params.toString();
 
@@ -51,7 +52,14 @@ export default function Analytics() {
     to ? next.set("dateTo", to) : next.delete("dateTo");
     setParams(next, { replace: true });
   };
-  const clear = () => setParams(new URLSearchParams(), { replace: true });
+  const clear = () => {
+    const prev = params.toString();
+    if (!prev) return;
+    setParams(new URLSearchParams(), { replace: true });
+    toast("Filters cleared", {
+      action: { label: "Undo", onClick: () => setParams(new URLSearchParams(prev), { replace: true }) },
+    });
+  };
 
   // Stable identity so DataTable's search/sort memos survive re-renders (they key on `columns`).
   const tableColumns = useMemo<Column<Record<string, unknown>>[]>(

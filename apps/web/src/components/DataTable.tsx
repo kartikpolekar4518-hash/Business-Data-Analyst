@@ -1,7 +1,7 @@
 import { type ReactNode, useMemo, useState, useEffect } from "react";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search, Inbox, Rows3, Rows2 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Checkbox, Pagination, Spinner, EmptyState, ErrorState, Button, Tooltip } from "./ui";
+import { Checkbox, Pagination, Spinner, EmptyState, ErrorState, Button, Tooltip, useToast } from "./ui";
 
 // Row-padding presets. Persisted per browser so heavy analysts keep their
 // preferred density across every table and session.
@@ -101,6 +101,15 @@ export function DataTable<T>({
     () => (localStorage.getItem(DENSITY_KEY) as Density) || "comfortable",
   );
   useEffect(() => { localStorage.setItem(DENSITY_KEY, density); }, [density]);
+  const { toast } = useToast();
+
+  // Clear the in-table search, offering a one-tap Undo to restore the query.
+  const clearSearch = () => {
+    const prev = search;
+    setSearch("");
+    setPage(1);
+    if (prev) toast("Search cleared", { action: { label: "Undo", onClick: () => { setSearch(prev); setPage(1); } } });
+  };
 
   // Pair each row with its key once, against the original index, so the key is
   // stable through sort/filter/paginate — index-derived `rowKey`s (e.g. `(_,i)=>i`)
@@ -235,7 +244,7 @@ export function DataTable<T>({
               description={search ? `Nothing matches “${search}”.` : emptyDescription}
               action={
                 search ? (
-                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setPage(1); }}>
+                  <Button variant="outline" size="sm" onClick={clearSearch}>
                     Clear search
                   </Button>
                 ) : undefined
