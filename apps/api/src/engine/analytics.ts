@@ -39,7 +39,6 @@ function rowProfit(r: Row, s: SchemaMap): number {
 }
 
 function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
-  // "YYYY-MM-DD" parses to midnight, so an inclusive dateTo must cover the whole end day.
   const from = f.dateFrom ? new Date(f.dateFrom) : null;
   const to = f.dateTo ? new Date(new Date(f.dateTo).getTime() + 86_399_999) : null;
   return rows.filter((r) => {
@@ -63,7 +62,6 @@ function pctChange(cur: number, prev: number): number | null {
   return Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10;
 }
 
-// Split rows into current vs previous period by the median date, for period-over-period KPIs.
 function splitPeriods(rows: Row[], s: SchemaMap): { current: Row[]; previous: Row[] } {
   if (!s.date) return { current: rows, previous: [] };
   const dated = rows.map((r) => ({ r, d: parseDate(r[s.date!]) })).filter((x) => x.d) as { r: Row; d: Date }[];
@@ -71,9 +69,7 @@ function splitPeriods(rows: Row[], s: SchemaMap): { current: Row[]; previous: Ro
   dated.sort((a, b) => a.d.getTime() - b.d.getTime());
   const mid = dated[Math.floor(dated.length / 2)].d.getTime();
   const current: Row[] = [], previous: Row[] = [];
-  for (const x of dated) {
-    (x.d.getTime() >= mid ? current : previous).push(x.r);
-  }
+  for (const x of dated) (x.d.getTime() >= mid ? current : previous).push(x.r);
   return { current, previous };
 }
 
@@ -81,21 +77,14 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
   const filtered = applyFilters(rows, s, f);
   const { current, previous } = splitPeriods(filtered, s);
   const sum = (rs: Row[], fn: (r: Row) => number) => rs.reduce((a, r) => a + fn(r), 0);
-
-  // Distinct-count helpers, applied consistently to filtered/current/previous so the
-  // KPI value and its period-over-period change are measured on the same basis.
   const orderCount = (rs: Row[]) => s.order_id ? new Set(rs.map((r) => str(r[s.order_id!]))).size : rs.length;
   const customerCount = (rs: Row[]) => s.customer_id ? new Set(rs.map((r) => str(r[s.customer_id!]))).size
     : s.customer_name ? new Set(rs.map((r) => str(r[s.customer_name!]))).size : 0;
-
   const revenue = sum(filtered, (r) => rowRevenue(r, s));
   const profit = sum(filtered, (r) => rowProfit(r, s));
-
   const curRev = sum(current, (r) => rowRevenue(r, s));
   const prevRev = sum(previous, (r) => rowRevenue(r, s));
-
   const kpi = (value: number, cur: number, prev: number): Kpi => ({ value, previous: prev, changePct: pctChange(cur, prev) });
-
   return {
     revenue: kpi(revenue, curRev, prevRev),
     profit: kpi(profit, sum(current, (r) => rowProfit(r, s)), sum(previous, (r) => rowProfit(r, s))),
@@ -106,8 +95,6 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
   };
 }
 
-// Resolve a per-row value for a metric. Built-in string metrics map to the
-// existing helpers; a PackMetric uses its deterministic compute reducer.
 function metricValue(metric: string | PackMetric, r: Row, s: SchemaMap): number {
   if (typeof metric === "object") return metric.compute([r], s);
   switch (metric) {
@@ -124,23 +111,46 @@ export type MetricRef = string | PackMetric;
 export function timeSeries(rows: Row[], s: SchemaMap, metric: MetricRef, f: Filters = {}) {
   const filtered = applyFilters(rows, s, f);
   if (!s.date) return [];
+  if (typeof metric === "object") {
+    const buckets = new Map<string, Row[]>();
+    for (const r of filtered) {
+      const d = parseDate(r[s.date!]);
+      if (!d) continue;
+      const key = monthKey(d);
+      const bucket = buckets.get(key) ?? [];
+      bucket.push(r);
+      buckets.set(key, bucket);
+    }
+    return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b))
+      .map(([period, bucket]) => ({ period, value: round(metric.compute(bucket, s)) }));
+  }
   const buckets = new Map<string, number>();
   for (const r of filtered) {
     const d = parseDate(r[s.date!]);
     if (!d) continue;
     const key = monthKey(d);
-    const val = metricValue(metric, r, s);
-    buckets.set(key, (buckets.get(key) || 0) + val);
+    buckets.set(key, (buckets.get(key) || 0) + metricValue(metric, r, s));
   }
   return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, value]) => ({ period, value: round(value) }));
 }
 
-// Generic group-by ranking. dimension is a semantic; metric is a built-in string
-// or a PackMetric (so any pack-declared metric can be ranked by dimension).
 export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: MetricRef, f: Filters = {}, limit = 10) {
   const col = s[dimension];
   const filtered = applyFilters(rows, s, f);
   if (!col) return [];
+  if (typeof metric === "object") {
+    const buckets = new Map<string, Row[]>();
+    for (const r of filtered) {
+      const key = str(r[col]) || "Unknown";
+      const bucket = buckets.get(key) ?? [];
+      bucket.push(r);
+      buckets.set(key, bucket);
+    }
+    return [...buckets.entries()]
+      .map(([label, bucket]) => ({ label, value: round(metric.compute(bucket, s)) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, limit);
+  }
   const buckets = new Map<string, number>();
   for (const r of filtered) {
     const key = str(r[col]) || "Unknown";
@@ -153,7 +163,6 @@ export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: 
     .slice(0, limit);
 }
 
-// Distinct values for a dimension — powers filter dropdowns.
 export function distinctValues(rows: Row[], s: SchemaMap, dimension: Semantic): string[] {
   const col = s[dimension];
   if (!col) return [];
@@ -163,9 +172,6 @@ export function distinctValues(rows: Row[], s: SchemaMap, dimension: Semantic): 
 }
 
 function round(n: number): number { return Math.round(n * 100) / 100; }
-// Shared money formatter so reports, insights, and PDFs all render the same figure the same way.
-export function fmtMoney(n: unknown): string {
-  return "$" + Math.round(num(n)).toLocaleString("en-US");
-}
+export function fmtMoney(n: unknown): string { return "$" + Math.round(num(n)).toLocaleString("en-US"); }
 
 export { rowRevenue, rowProfit, num, str, parseDate, monthKey, applyFilters };
