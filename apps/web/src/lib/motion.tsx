@@ -1,6 +1,6 @@
 // Single source of motion truth. Everything animated in the app consumes these
 // tokens so timings stay uniform: fast, purposeful, physics-based.
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import {
   motion,
   animate,
@@ -39,6 +39,33 @@ export const staggerContainer = (stagger = 0.06): Variants => ({
 });
 
 export const staggerItem = fadeUp;
+
+// Heavy entrance choreography (staggered reveals, KPI count-ups) plays once per
+// browser session. Returning users navigating between routes get the final
+// state instantly — motion should orient, not nag on every reload. Reduced-motion
+// users never see it. Every consumer reads the flag during first render, so the
+// whole initial screen animates together before the flag is set below.
+const ENTRANCE_KEY = "diq_entrance_played";
+export function useEntranceMotion(): boolean {
+  const reduced = useReducedMotion();
+  const [play] = useState(() => {
+    if (reduced) return false;
+    try {
+      return sessionStorage.getItem(ENTRANCE_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    if (!play) return;
+    try {
+      sessionStorage.setItem(ENTRANCE_KEY, "1");
+    } catch {
+      /* private mode / storage disabled — animate every load, no worse than before */
+    }
+  }, [play]);
+  return play;
+}
 
 // Scroll reveal — plays once, triggered slightly before the element is centred.
 const VIEWPORT = { once: true, margin: "-80px" } as const;
@@ -81,13 +108,13 @@ export function Stagger({
   stagger?: number;
   inView?: boolean;
 }) {
-  const reduced = useReducedMotion();
+  const play = useEntranceMotion();
   return (
     <motion.div
       className={className}
       variants={staggerContainer(stagger)}
-      initial={reduced ? false : "hidden"}
-      {...(inView && !reduced
+      initial={play ? "hidden" : false}
+      {...(play && inView
         ? { whileInView: "show", viewport: VIEWPORT }
         : { animate: "show" })}
     >
@@ -122,7 +149,9 @@ export function AnimatedNumber({
   className?: string;
   duration?: number;
 }) {
-  const reduced = useReducedMotion();
+  // Count-ups are entrance choreography — they play on first session view, then
+  // returning users see the final figure immediately on every later navigation.
+  const play = useEntranceMotion();
   // A count-up passes through fractions the count formats never expect
   // (toLocaleString would render "8,411.888" on the way to 8,412).
   const fmt = (n: number) =>
@@ -134,11 +163,11 @@ export function AnimatedNumber({
   const text = useTransform(mv, fmt);
 
   useEffect(() => {
-    if (reduced) return;
+    if (!play) return;
     const controls = animate(mv, value, { duration, ease: EASE });
     return () => controls.stop();
-  }, [mv, value, duration, reduced]);
+  }, [mv, value, duration, play]);
 
-  if (reduced) return <span className={className}>{fmt(value)}</span>;
+  if (!play) return <span className={className}>{fmt(value)}</span>;
   return <motion.span className={className}>{text}</motion.span>;
 }

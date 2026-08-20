@@ -4,3 +4,4 @@ export * from "./ui.primitives";
 export * from "./ui.form";
 export * from "./ui.feedback";
 export * from "./ui.navigation";
+export * from "./ui.command";

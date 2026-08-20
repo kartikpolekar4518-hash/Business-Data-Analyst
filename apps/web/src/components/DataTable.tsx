@@ -1,7 +1,13 @@
 import { type ReactNode, useMemo, useState, useEffect } from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Search, Inbox } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronsUpDown, Search, Inbox, Rows3, Rows2 } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Checkbox, Pagination, Spinner, EmptyState, ErrorState } from "./ui";
+import { Checkbox, Pagination, Spinner, EmptyState, ErrorState, Button, Tooltip } from "./ui";
+
+// Row-padding presets. Persisted per browser so heavy analysts keep their
+// preferred density across every table and session.
+type Density = "comfortable" | "compact";
+const DENSITY_KEY = "diq_table_density";
+const DENSITY_PAD: Record<Density, string> = { comfortable: "py-3", compact: "py-1.5" };
 
 // ─────────────────────────────────────────────
 // DataTable — sortable / searchable / paginated / selectable
@@ -91,6 +97,10 @@ export function DataTable<T>({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string | number>>(new Set());
+  const [density, setDensity] = useState<Density>(
+    () => (localStorage.getItem(DENSITY_KEY) as Density) || "comfortable",
+  );
+  useEffect(() => { localStorage.setItem(DENSITY_KEY, density); }, [density]);
 
   // Pair each row with its key once, against the original index, so the key is
   // stable through sort/filter/paginate — index-derived `rowKey`s (e.g. `(_,i)=>i`)
@@ -158,7 +168,33 @@ export function DataTable<T>({
     return [...selected].map((k) => byKey.get(k)).filter((r): r is T => r !== undefined);
   }, [selected, keyed]);
 
-  const hasToolbar = title || subtitle || searchable || toolbar;
+  const densityControl = (
+    <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 dark:border-white/10">
+      {([
+        ["comfortable", Rows3, "Comfortable rows"],
+        ["compact", Rows2, "Compact rows"],
+      ] as const).map(([value, Icon, label]) => (
+        <Tooltip key={value} content={label}>
+          <button
+            type="button"
+            aria-label={label}
+            aria-pressed={density === value}
+            onClick={() => setDensity(value)}
+            className={cn(
+              "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
+              density === value
+                ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white"
+                : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200",
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </button>
+        </Tooltip>
+      ))}
+    </div>
+  );
+
+  const hasToolbar = true; // density control always renders, so the toolbar is always present
 
   return (
     <div className={cn("overflow-hidden rounded-xl border border-border bg-white dark:border-white/[0.06] dark:bg-slate-900/70", className)}>
@@ -181,6 +217,7 @@ export function DataTable<T>({
               </div>
             )}
             {toolbar}
+            {densityControl}
           </div>
         </div>
       )}
@@ -192,7 +229,18 @@ export function DataTable<T>({
           <Spinner label="Loading…" />
         ) : sorted.length === 0 ? (
           <div className="p-4">
-            <EmptyState icon={Inbox} title={search ? "No matching rows" : emptyTitle} description={search ? "Try a different search." : emptyDescription} />
+            <EmptyState
+              icon={Inbox}
+              title={search ? "No matching rows" : emptyTitle}
+              description={search ? `Nothing matches “${search}”.` : emptyDescription}
+              action={
+                search ? (
+                  <Button variant="outline" size="sm" onClick={() => { setSearch(""); setPage(1); }}>
+                    Clear search
+                  </Button>
+                ) : undefined
+              }
+            />
           </div>
         ) : (
           <table className="w-full text-sm">
@@ -238,12 +286,12 @@ export function DataTable<T>({
                 return (
                   <tr key={k} className={cn("transition-colors", isSel ? "bg-brand-50/60 dark:bg-brand-500/10" : "hover:bg-slate-50 dark:hover:bg-slate-800/40")}>
                     {selectable && (
-                      <td className="px-3 py-2">
+                      <td className={cn("px-3", DENSITY_PAD[density])}>
                         <Checkbox aria-label="Select row" checked={isSel} onChange={() => toggleRow(k)} />
                       </td>
                     )}
                     {columns.map((col) => (
-                      <td key={col.key} className={cn("whitespace-nowrap px-3 py-2 text-slate-700 dark:text-slate-300", align[col.align ?? "left"], col.className)}>
+                      <td key={col.key} className={cn("whitespace-nowrap px-3 text-slate-700 dark:text-slate-300", DENSITY_PAD[density], align[col.align ?? "left"], col.className)}>
                         {col.render ? col.render(row, i) : String(rawAccessor(col, row) ?? "—")}
                       </td>
                     ))}

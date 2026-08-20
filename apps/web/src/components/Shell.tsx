@@ -1,5 +1,5 @@
-import { type ReactNode, useState, useRef, useEffect, useCallback } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { type ReactNode, useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -22,6 +22,10 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
+  Upload,
+  Keyboard,
+  SunMoon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useAuth } from "../lib/auth";
@@ -30,6 +34,12 @@ import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
+import { CommandPalette, type Command, Modal } from "./ui";
+import type { DatasetSummary } from "../lib/types";
+
+const IS_MAC =
+  typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
+const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 
 /* ─────────────────────────────────────────────
    Navigation configuration — grouped sections
@@ -288,10 +298,12 @@ function Header({
   onMenuClick,
   collapsed,
   onToggleCollapse,
+  onOpenPalette,
 }: {
   onMenuClick: () => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  onOpenPalette: () => void;
 }) {
   const location = useLocation();
   const { theme, toggle } = useTheme();
@@ -374,6 +386,19 @@ function Header({
       </nav>
 
       <div className="flex-1" />
+
+      {/* Command palette trigger */}
+      <button
+        onClick={onOpenPalette}
+        aria-label="Open command palette"
+        className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex"
+      >
+        <Search className="h-4 w-4" />
+        <span className="hidden md:inline">Search…</span>
+        <kbd className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:border-white/10">
+          {MOD_KEY} K
+        </kbd>
+      </button>
 
       {/* Theme toggle */}
       <button
@@ -495,6 +520,35 @@ function Header({
 /* ─────────────────────────────────────────────
    Shell — application layout wrapper
    ───────────────────────────────────────────── */
+/* ─────────────────────────────────────────────
+   Keyboard shortcuts help — quick reference (?)
+   ───────────────────────────────────────────── */
+const SHORTCUTS: { keys: string; label: string }[] = [
+  { keys: `${MOD_KEY} K`, label: "Open command palette" },
+  { keys: "/", label: "Search pages, datasets and actions" },
+  { keys: "?", label: "Show this shortcuts reference" },
+  { keys: "↑ ↓", label: "Move between results" },
+  { keys: "Enter", label: "Run the highlighted command" },
+  { keys: "Esc", label: "Close palette or dialog" },
+];
+
+function ShortcutsHelp({ open, onClose }: { open: boolean; onClose: () => void }) {
+  return (
+    <Modal open={open} onClose={onClose} title="Keyboard shortcuts">
+      <ul className="space-y-2">
+        {SHORTCUTS.map((s) => (
+          <li key={s.label} className="flex items-center justify-between gap-4 text-sm">
+            <span className="text-slate-600 dark:text-slate-300">{s.label}</span>
+            <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-slate-500 dark:border-white/10 dark:text-slate-400">
+              {s.keys}
+            </kbd>
+          </li>
+        ))}
+      </ul>
+    </Modal>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(
@@ -503,6 +557,82 @@ export function Shell({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem("diq_sidebar_collapsed", collapsed ? "1" : "0");
   }, [collapsed]);
+
+  const navigate = useNavigate();
+  const { can, logout } = useAuth();
+  const { toggle } = useTheme();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // Datasets feed the palette's search — only fetched once it's first opened.
+  const { data: dsData } = useQuery({
+    queryKey: ["datasets"],
+    queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads"),
+    enabled: paletteOpen,
+    staleTime: 60_000,
+  });
+
+  // Global keyboard entry points. Cmd/Ctrl+K works while typing; single-key
+  // shortcuts only fire when focus is outside a form field.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+        return;
+      }
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = document.activeElement;
+      const typing =
+        el instanceof HTMLElement &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable);
+      if (typing) return;
+      if (e.key === "/") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      } else if (e.key === "?") {
+        e.preventDefault();
+        setHelpOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const commands = useMemo<Command[]>(() => {
+    const nav = NAV_SECTIONS.flatMap((s) => s.items)
+      .filter((n) => !n.roles || can(...n.roles))
+      .map((n) => ({
+        id: n.to,
+        label: n.label,
+        section: "Navigate",
+        icon: n.icon,
+        hint: n.to,
+        run: () => navigate(n.to),
+      }));
+
+    const actions: Command[] = [
+      { id: "act-upload", label: "Upload dataset", section: "Actions", icon: Upload, keywords: "new csv excel import add data", run: () => navigate("/data") },
+      { id: "act-theme", label: "Toggle light / dark theme", section: "Actions", icon: SunMoon, keywords: "dark mode appearance", run: toggle },
+      { id: "act-help", label: "Keyboard shortcuts", section: "Actions", icon: Keyboard, keywords: "help hotkeys reference", run: () => setHelpOpen(true) },
+      { id: "act-logout", label: "Log out", section: "Actions", icon: LogOut, keywords: "sign out exit", run: logout },
+    ];
+
+    const datasets: Command[] = (dsData?.datasets ?? []).map((d) => ({
+      id: `ds-${d.id}`,
+      label: d.name,
+      section: "Datasets",
+      icon: Database,
+      hint: `${d.rowCount.toLocaleString()} rows`,
+      keywords: d.fileName ?? "",
+      run: () => navigate(`/data/${d.id}`),
+    }));
+
+    return [...nav, ...actions, ...datasets];
+  }, [can, navigate, toggle, dsData]);
 
   return (
     <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
@@ -517,11 +647,19 @@ export function Shell({ children }: { children: ReactNode }) {
           onMenuClick={() => setSidebarOpen(true)}
           collapsed={collapsed}
           onToggleCollapse={() => setCollapsed((c) => !c)}
+          onOpenPalette={() => setPaletteOpen(true)}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {children}
         </main>
       </div>
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        commands={commands}
+      />
+      <ShortcutsHelp open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

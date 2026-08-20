@@ -19,7 +19,9 @@ function useSeriesAnimation() {
   };
 }
 
-// Electric-blue / violet / teal accent system (+ supporting hues for multi-series & donut).
+// Electric-blue / violet / teal accent system. Named tokens drive single-series
+// and semantic charts (revenue = blue, profit = emerald) where a text legend
+// already carries the meaning.
 export const CHART = {
   blue: "#5b8cff",
   violet: "#a78bfa",
@@ -28,7 +30,10 @@ export const CHART = {
   amber: "#fbbf24",
   rose: "#fb7185",
 };
-export const SERIES = [CHART.blue, CHART.violet, CHART.teal, CHART.emerald, CHART.amber, CHART.rose];
+// Categorical multi-series palette — Okabe–Ito, ordered so adjacent series stay
+// distinguishable under protanopia/deuteranopia. The old blue/violet and
+// teal/emerald neighbours collapsed into one hue for colourblind viewers.
+export const SERIES = ["#56b4e9", "#e69f00", "#009e73", "#d55e00", "#cc79a7", "#f0e442"];
 const BRAND = CHART.blue;
 
 function useAxis() {
