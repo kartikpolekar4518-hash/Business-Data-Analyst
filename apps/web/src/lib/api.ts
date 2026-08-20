@@ -21,7 +21,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const isJson = res.headers.get("content-type")?.includes("application/json");
   const data = isJson ? await res.json() : await res.blob();
   if (!res.ok) {
-    if (res.status === 401 && !path.startsWith("/auth")) { setToken(null); location.href = "/login"; }
+    if (res.status === 401 && !path.startsWith("/auth") && !path.startsWith("/share")) { setToken(null); location.href = "/login"; }
     throw new ApiError(res.status, (data as any)?.error || res.statusText, (data as any)?.details);
   }
   return data as T;

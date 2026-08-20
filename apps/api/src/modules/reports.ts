@@ -1,7 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 import PDFDocument from "pdfkit";
 import { prisma } from "../prisma.js";
+import { env } from "../env.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { assertWithinLimit } from "./billing.js";
@@ -53,6 +55,46 @@ reportsRouter.get("/:id", wrap(async (req, res) => {
   const report = await prisma.report.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
   if (!report) throw new HttpError(404, "Report not found");
   res.json({ report });
+}));
+
+// ─── Public share links ───
+// A share is a bearer capability: anyone with the token can view the report (and
+// its PDF) without logging in. Creation/listing/revocation are ADMIN/MANAGER and
+// org-scoped; the public read side lives in modules/share.ts.
+
+const shareUrl = (token: string) => `${env.appUrl.split(",")[0]}/share/${token}`;
+const shareView = (s: { id: string; token: string; expiresAt: Date | null; revokedAt: Date | null; createdAt: Date }) =>
+  ({ id: s.id, token: s.token, url: shareUrl(s.token), expiresAt: s.expiresAt, revokedAt: s.revokedAt, createdAt: s.createdAt });
+
+const shareCreate = z.object({ expiresInDays: z.union([z.literal(7), z.literal(30), z.literal(90)]).nullable().default(30) });
+
+reportsRouter.get("/:id/shares", wrap(async (req, res) => {
+  const report = await prisma.report.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId }, select: { id: true } });
+  if (!report) throw new HttpError(404, "Report not found");
+  const shares = await prisma.reportShare.findMany({ where: { reportId: report.id }, orderBy: { createdAt: "desc" } });
+  res.json({ shares: shares.map(shareView) });
+}));
+
+reportsRouter.post("/:id/shares", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const { expiresInDays } = shareCreate.parse(req.body ?? {});
+  const report = await prisma.report.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId }, select: { id: true, title: true } });
+  if (!report) throw new HttpError(404, "Report not found");
+  const expiresAt = expiresInDays ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000) : null;
+  const share = await prisma.reportShare.create({
+    data: { token: randomBytes(24).toString("base64url"), expiresAt, reportId: report.id, organizationId: req.auth!.organizationId, createdById: req.auth!.userId },
+  });
+  await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.shared", detail: report.title, actorId: req.auth!.userId } });
+  res.status(201).json({ share: shareView(share) });
+}));
+
+reportsRouter.delete("/:id/shares/:shareId", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const share = await prisma.reportShare.findFirst({ where: { id: req.params.shareId, reportId: req.params.id, organizationId: req.auth!.organizationId }, include: { report: { select: { title: true } } } });
+  if (!share) throw new HttpError(404, "Share link not found");
+  if (!share.revokedAt) {
+    await prisma.reportShare.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
+    await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.shareRevoked", detail: share.report.title, actorId: req.auth!.userId } });
+  }
+  res.status(204).end();
 }));
 
 reportsRouter.get("/:id/pdf", wrap(async (req, res) => {

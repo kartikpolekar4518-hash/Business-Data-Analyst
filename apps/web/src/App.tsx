@@ -24,6 +24,7 @@ const Reports = lazy(() => import("./pages/Reports"));
 const Alerts = lazy(() => import("./pages/Alerts"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
+const SharedReport = lazy(() => import("./pages/SharedReport"));
 
 function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -72,6 +73,8 @@ export default function App() {
             <Route path="/signup" element={<PublicOnly><Signup /></PublicOnly>} />
             <Route path="/forgot-password" element={<PublicOnly><ForgotPassword /></PublicOnly>} />
             <Route path="/reset-password" element={<PublicOnly><ResetPassword /></PublicOnly>} />
+            {/* Public capability link — bare route (no auth, no PublicOnly redirect). */}
+            <Route path="/share/:token" element={<Suspense fallback={<Spinner />}><SharedReport /></Suspense>} />
 
             <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
             <Route path="/builder" element={<Protected><DashboardBuilder /></Protected>} />

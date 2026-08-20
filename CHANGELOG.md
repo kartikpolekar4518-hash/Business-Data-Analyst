@@ -1,5 +1,33 @@
 # Changelog
 
+## Share a report by public link — 2026-08-20
+
+Executive reports can now be handed to people without a NoPS login (board
+members, investors, clients). An ADMIN/MANAGER mints a **capability link** to one
+report; anyone with the link views it — and can download its PDF — with no
+account.
+
+- **Backend** — new `ReportShare` model (192-bit `randomBytes` token, optional
+  expiry, soft revoke). Authed, org-scoped management on `reportsRouter`:
+  `POST/GET/DELETE /api/reports/:id/shares` (create gated ADMIN/MANAGER; create &
+  revoke write `report.shared` / `report.shareRevoked` to the activity log). New
+  **public** `shareRouter` at `/api/share` (no auth, rate-limited 60/min):
+  `GET /:token` returns **only** the report content + org name; `GET /:token/pdf`
+  streams the PDF via the shared `renderReportPdf`. A pure `isShareLive` helper
+  gates expiry/revocation. No app.ts SPA change needed — the prod catch-all
+  already serves `/share/:token`.
+- **Frontend** — extracted the report renderer into a reusable `ReportView`
+  (shared by the authed modal and the public page). New public page
+  `SharedReport` at `/share/:token` (bare route, `noindex`, graceful
+  invalid/expired state). A **Share** action in Reports opens a panel to create
+  links (7/30/90 days or Never; default 30), copy, and revoke.
+- **Security** — link is a bearer capability: high-entropy token, optional/default
+  expiry, one-click revocation, rate-limited public surface, minimal public
+  payload (never org id, dataset rows, other reports, or user info), `noindex`.
+- **Tests** — unit (`isShareLive`) + integration: public view/PDF, expired &
+  revoked 404, unknown token 404, VIEWER 403, cross-org isolation, and the audit
+  entry.
+
 ## Activity log — 2026-08-20
 
 Surfaces the workspace audit trail. `ActivityLog` was already written across the

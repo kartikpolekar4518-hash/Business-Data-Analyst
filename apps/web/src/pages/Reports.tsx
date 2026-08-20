@@ -1,27 +1,15 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Download, Plus, Eye } from "lucide-react";
+import { FileText, Download, Plus, Eye, Share2, Link2, Copy, Check, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Skeleton, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Skeleton, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
 import { ScheduledReportsSection } from "../components/schedules";
-import { money, num, timeAgo } from "../lib/utils";
+import { ReportView, type ReportContent } from "../components/ReportView";
+import { timeAgo } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }
-interface ReportKpi { key: string; label: string; format: "money" | "number" | "percent"; value: number; changePct: number | null; }
-interface ReportSection { title: string; format: "money" | "number"; items: { label: string; value: number }[]; }
-interface FullReport {
-  id: string; title: string; content: {
-    summary: string; generatedAt: string; industry?: string;
-    kpis: ReportKpi[];
-    sections: ReportSection[];
-    forecast: { points: { period: string; value: number; lower: number; upper: number }[] } | null;
-    recommendations: { title: string; observation: string; explanation: string; action: string; impact: string }[];
-  };
-}
-
-const fmtVal = (k: { format: string; value: number }) =>
-  k.format === "money" ? money(k.value) : k.format === "percent" ? `${Math.round(k.value * 10) / 10}%` : num(k.value);
+interface FullReport { id: string; title: string; content: ReportContent; }
 
 export default function Reports() {
   const { can } = useAuth();
@@ -29,6 +17,7 @@ export default function Reports() {
   const { toast } = useToast();
   const [generating, setGenerating] = useState(false);
   const [viewId, setViewId] = useState<string>();
+  const [shareFor, setShareFor] = useState<ReportRow>();
 
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["reports"], queryFn: () => api.get<{ reports: ReportRow[] }>("/reports") });
   const view = useQuery({ queryKey: ["report", viewId], queryFn: () => api.get<{ report: FullReport }>(`/reports/${viewId}`), enabled: !!viewId });
@@ -73,6 +62,7 @@ export default function Reports() {
               <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileText className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
               <div className="flex-1"><div className="font-medium">{rep.title}</div><div className="text-xs text-slate-500 dark:text-slate-400">{timeAgo(rep.createdAt)}</div></div>
               <Button variant="ghost" onClick={() => setViewId(rep.id)}><Eye className="h-4 w-4" />View</Button>
+              {can("ADMIN", "MANAGER") && <Button variant="ghost" onClick={() => setShareFor(rep)}><Share2 className="h-4 w-4" />Share</Button>}
               <Button variant="outline" onClick={() => downloadPdf(rep.id, rep.title)}><Download className="h-4 w-4" />PDF</Button>
             </div>
           ))}
@@ -87,26 +77,79 @@ export default function Reports() {
         {view.isError ? (
           <ErrorState message="We couldn't open this report. Please try again." retry={() => view.refetch()} />
         ) : !r ? <ReportViewSkeleton /> : (
-          <div className="max-h-[70vh] space-y-4 overflow-y-auto text-sm">
-            <section><h4 className="mb-1 font-semibold">Executive Summary</h4><p className="text-slate-600 dark:text-slate-400">{r.summary}</p></section>
-            <section className="grid grid-cols-3 gap-2">
-              {(Array.isArray(r.kpis) ? r.kpis : []).map((k) => <Kpi key={k.key} label={k.label} value={fmtVal(k)} />)}
-            </section>
-            {(Array.isArray(r.sections) ? r.sections : []).map((s) => <ReportList key={s.title} title={s.title} items={s.items} format={s.format} />)}
-            {r.forecast && <section><h4 className="mb-1 font-semibold">Forecast (estimate)</h4>{r.forecast.points.map((p) => <div key={p.period} className="flex justify-between text-slate-600 dark:text-slate-400"><span>{p.period}</span><span>{money(p.value)} <span className="text-slate-400">({money(p.lower)}–{money(p.upper)})</span></span></div>)}</section>}
-            <section><h4 className="mb-1 font-semibold">Risks & Recommendations</h4>
-              {r.recommendations.map((rec, i) => (
-                <div key={i} className="mb-2 rounded-lg border border-slate-100 p-2 dark:border-slate-800">
-                  <div className="flex items-center justify-between"><span className="font-medium">{rec.title}</span><Badge tone={rec.impact === "HIGH" ? "red" : rec.impact === "MEDIUM" ? "amber" : "slate"}>{rec.impact}</Badge></div>
-                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{rec.observation}</p>
-                  <p className="mt-0.5 text-xs text-brand-600">{rec.action}</p>
-                </div>
-              ))}
-            </section>
-            <Button className="w-full" onClick={() => downloadPdf(view.data!.report.id, view.data!.report.title)}><Download className="h-4 w-4" />Download PDF</Button>
+          <div className="max-h-[70vh] overflow-y-auto">
+            <ReportView content={r} onDownload={() => downloadPdf(view.data!.report.id, view.data!.report.title)} />
           </div>
         )}
       </Modal>
+
+      {/* Share links */}
+      <Modal open={!!shareFor} onClose={() => setShareFor(undefined)} title={shareFor ? `Share "${shareFor.title}"` : "Share report"}>
+        {shareFor && <SharePanel report={shareFor} />}
+      </Modal>
+    </div>
+  );
+}
+
+interface ShareLink { id: string; token: string; url: string; expiresAt: string | null; revokedAt: string | null; createdAt: string; }
+
+// Manage public capability links for one report: list, create (with expiry),
+// copy, and revoke. A revoked/expired link is shown struck-through until removed.
+function SharePanel({ report }: { report: ReportRow }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [expiry, setExpiry] = useState("30");
+  const [creating, setCreating] = useState(false);
+  const [copied, setCopied] = useState<string>();
+
+  const key = ["report-shares", report.id];
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: key, queryFn: () => api.get<{ shares: ShareLink[] }>(`/reports/${report.id}/shares`) });
+  const refresh = () => qc.invalidateQueries({ queryKey: key });
+  const live = (s: ShareLink) => !s.revokedAt && (!s.expiresAt || new Date(s.expiresAt) > new Date());
+
+  async function create() {
+    setCreating(true);
+    try {
+      await api.post(`/reports/${report.id}/shares`, { expiresInDays: expiry === "never" ? null : Number(expiry) });
+      toast("Share link created", "success"); refresh();
+    } catch { toast("Could not create the link", "error"); }
+    finally { setCreating(false); }
+  }
+  async function revoke(id: string) { try { await api.del(`/reports/${report.id}/shares/${id}`); refresh(); } catch { toast("Could not revoke", "error"); } }
+  async function copy(url: string) {
+    try { await navigator.clipboard.writeText(url); setCopied(url); setTimeout(() => setCopied(undefined), 1500); }
+    catch { toast("Copy failed — select and copy manually", "error"); }
+  }
+
+  return (
+    <div className="space-y-4 text-sm">
+      <p className="text-slate-500 dark:text-slate-400">Anyone with a link can view this report — and download its PDF — without logging in. Revoke a link anytime to cut off access.</p>
+      <div className="flex items-end gap-2">
+        <div className="flex-1"><label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Link expires</label>
+          <Select value={expiry} onChange={(e) => setExpiry(e.target.value)}><option value="7">In 7 days</option><option value="30">In 30 days</option><option value="90">In 90 days</option><option value="never">Never</option></Select>
+        </div>
+        <Button onClick={create} loading={creating}><Link2 className="h-4 w-4" />Create link</Button>
+      </div>
+
+      {isLoading ? <Skeleton className="h-10 w-full" /> : isError ? <ErrorState message="Couldn't load existing links." retry={() => refetch()} /> : !data?.shares.length ? (
+        <p className="py-2 text-center text-slate-400">No links yet.</p>
+      ) : (
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {data.shares.map((s) => {
+            const active = live(s);
+            return (
+              <div key={s.id} className="flex items-center gap-2 py-2">
+                <div className="min-w-0 flex-1">
+                  <div className={`truncate font-mono text-xs ${active ? "" : "text-slate-400 line-through"}`}>{s.url}</div>
+                  <div className="text-xs text-slate-400">{s.revokedAt ? "Revoked" : s.expiresAt ? (active ? `Expires ${new Date(s.expiresAt).toLocaleDateString()}` : "Expired") : "Never expires"}</div>
+                </div>
+                {active && <Button variant="ghost" onClick={() => copy(s.url)} aria-label="Copy link">{copied === s.url ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}</Button>}
+                {active && <Button variant="ghost" onClick={() => revoke(s.id)} aria-label="Revoke link"><Trash2 className="h-4 w-4" /></Button>}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -137,8 +180,3 @@ function ReportViewSkeleton() {
     </div>
   );
 }
-
-const Kpi = ({ label, value }: { label: string; value: string }) => <div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800/50"><div className="text-xs text-slate-500 dark:text-slate-400">{label}</div><div className="font-semibold">{value}</div></div>;
-const ReportList = ({ title, items, format = "money" }: { title: string; items: { label: string; value: number }[]; format?: "money" | "number" }) => items.length ? (
-  <section><h4 className="mb-1 font-semibold">{title}</h4>{items.map((it) => <div key={it.label} className="flex justify-between text-slate-600 dark:text-slate-400"><span>{it.label}</span><span>{format === "number" ? num(it.value) : money(it.value)}</span></div>)}</section>
-) : null;
