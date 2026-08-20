@@ -1,5 +1,23 @@
 # Changelog
 
+## Report templates (builder) — 2026-08-20
+
+Standardize what goes in a report. A saved **template** is a named selection of
+which blocks a generated report includes — Executive summary, Key metrics,
+Rankings, Forecast, Risks & recommendations — so an org can define e.g. a
+"Monthly board report" once and reuse it.
+
+- **Backend** — new `ReportTemplate` model (`include` boolean map). Pure
+  `applyTemplate(content, include)` in `engine/report.ts` filters a composed
+  report to the selected blocks (dropped blocks go empty, never break a render).
+  Template CRUD on `reportsRouter` (`/api/reports/templates`, writes gated
+  ADMIN/MANAGER); `POST /reports/generate` accepts an optional `templateId`. The
+  PDF renderer now skips empty blocks.
+- **Frontend** — a template picker beside Generate (defaults to "Full report")
+  and a Templates manager (create with per-block checkboxes, list, delete).
+- **Tests** — unit (`applyTemplate` keep/drop/mutation) + integration (CRUD,
+  templated generate drops blocks, unknown-template 404, RBAC, tenant isolation).
+
 ## Share a report by public link — 2026-08-20
 
 Executive reports can now be handed to people without a NoPS login (board

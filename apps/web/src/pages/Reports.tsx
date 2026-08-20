@@ -1,15 +1,26 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { FileText, Download, Plus, Eye, Share2, Link2, Copy, Check, Trash2 } from "lucide-react";
+import { FileText, Download, Plus, Eye, Share2, Link2, Copy, Check, Trash2, SlidersHorizontal } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Skeleton, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Input, Label, Checkbox, Skeleton, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
 import { ScheduledReportsSection } from "../components/schedules";
 import { ReportView, type ReportContent } from "../components/ReportView";
 import { timeAgo } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }
 interface FullReport { id: string; title: string; content: ReportContent; }
+type ReportInclude = { summary: boolean; kpis: boolean; sections: boolean; forecast: boolean; recommendations: boolean };
+interface ReportTemplate { id: string; name: string; include: Partial<ReportInclude>; }
+
+// The report blocks a template can toggle, in render order.
+const BLOCKS: { key: keyof ReportInclude; label: string }[] = [
+  { key: "summary", label: "Executive summary" },
+  { key: "kpis", label: "Key metrics" },
+  { key: "sections", label: "Rankings" },
+  { key: "forecast", label: "Forecast" },
+  { key: "recommendations", label: "Risks & recommendations" },
+];
 
 export default function Reports() {
   const { can } = useAuth();
@@ -18,13 +29,16 @@ export default function Reports() {
   const [generating, setGenerating] = useState(false);
   const [viewId, setViewId] = useState<string>();
   const [shareFor, setShareFor] = useState<ReportRow>();
+  const [templateId, setTemplateId] = useState("");
+  const [manageOpen, setManageOpen] = useState(false);
 
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["reports"], queryFn: () => api.get<{ reports: ReportRow[] }>("/reports") });
   const view = useQuery({ queryKey: ["report", viewId], queryFn: () => api.get<{ report: FullReport }>(`/reports/${viewId}`), enabled: !!viewId });
+  const templates = useQuery({ queryKey: ["report-templates"], queryFn: () => api.get<{ templates: ReportTemplate[] }>("/reports/templates"), enabled: can("ADMIN", "MANAGER") });
 
   async function generate() {
     setGenerating(true);
-    try { const r = await api.post<{ report: ReportRow }>("/reports/generate", {}); toast("Report generated", "success"); qc.invalidateQueries({ queryKey: ["reports"] }); setViewId(r.report.id); }
+    try { const r = await api.post<{ report: ReportRow }>("/reports/generate", templateId ? { templateId } : {}); toast("Report generated", "success"); qc.invalidateQueries({ queryKey: ["reports"] }); setViewId(r.report.id); }
     catch { toast("Could not generate report — upload data first", "error"); }
     finally { setGenerating(false); }
   }
@@ -43,7 +57,16 @@ export default function Reports() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold">Executive Reports</h1><p className="text-sm text-slate-500 dark:text-slate-400">Board-ready summaries of performance, risks, and forecasts.</p></div>
-        {can("ADMIN", "MANAGER") && <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button>}
+        {can("ADMIN", "MANAGER") && (
+          <div className="flex items-center gap-2">
+            <Select value={templateId} onChange={(e) => setTemplateId(e.target.value)} aria-label="Report template" className="w-44">
+              <option value="">Full report</option>
+              {templates.data?.templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+            </Select>
+            <Button variant="outline" onClick={() => setManageOpen(true)} aria-label="Manage templates"><SlidersHorizontal className="h-4 w-4" />Templates</Button>
+            <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate</Button>
+          </div>
+        )}
       </div>
 
       {isLoading ? <ReportsSkeleton /> : isError ? (
@@ -87,6 +110,64 @@ export default function Reports() {
       <Modal open={!!shareFor} onClose={() => setShareFor(undefined)} title={shareFor ? `Share "${shareFor.title}"` : "Share report"}>
         {shareFor && <SharePanel report={shareFor} />}
       </Modal>
+
+      {/* Report templates */}
+      <Modal open={manageOpen} onClose={() => setManageOpen(false)} title="Report templates">
+        <TemplatesPanel />
+      </Modal>
+    </div>
+  );
+}
+
+const ALL_ON: ReportInclude = { summary: true, kpis: true, sections: true, forecast: true, recommendations: true };
+
+// Manage report templates: create a named block selection, list, and delete.
+// A template controls which blocks a generated report (and its PDF) contains.
+function TemplatesPanel() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [name, setName] = useState("");
+  const [include, setInclude] = useState<ReportInclude>(ALL_ON);
+  const [saving, setSaving] = useState(false);
+
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["report-templates"], queryFn: () => api.get<{ templates: ReportTemplate[] }>("/reports/templates") });
+  const refresh = () => qc.invalidateQueries({ queryKey: ["report-templates"] });
+
+  async function create() {
+    if (!name.trim()) { toast("Name the template", "error"); return; }
+    if (!Object.values(include).some(Boolean)) { toast("Include at least one section", "error"); return; }
+    setSaving(true);
+    try { await api.post("/reports/templates", { name: name.trim(), include }); toast("Template saved", "success"); setName(""); setInclude(ALL_ON); refresh(); }
+    catch { toast("Could not save the template", "error"); }
+    finally { setSaving(false); }
+  }
+  async function remove(id: string) { try { await api.del(`/reports/templates/${id}`); refresh(); } catch { toast("Could not delete", "error"); } }
+
+  const summarize = (inc: Partial<ReportInclude>) => BLOCKS.filter((b) => inc[b.key] !== false).map((b) => b.label).join(", ") || "Nothing selected";
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="rounded-xl border border-border p-3 dark:border-white/[0.06]">
+        <Label>New template</Label>
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Monthly board report" className="mt-1" />
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {BLOCKS.map((b) => <Checkbox key={b.key} checked={include[b.key]} onChange={(v) => setInclude((p) => ({ ...p, [b.key]: v }))} label={b.label} />)}
+        </div>
+        <Button className="mt-3" onClick={create} loading={saving}><Plus className="h-4 w-4" />Save template</Button>
+      </div>
+
+      {isLoading ? <Skeleton className="h-10 w-full" /> : isError ? <ErrorState message="Couldn't load templates." retry={() => refetch()} /> : !data?.templates.length ? (
+        <p className="py-2 text-center text-slate-400">No templates yet. Save one above to reuse a report layout.</p>
+      ) : (
+        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          {data.templates.map((t) => (
+            <div key={t.id} className="flex items-center gap-2 py-2">
+              <div className="min-w-0 flex-1"><div className="font-medium">{t.name}</div><div className="truncate text-xs text-slate-400">{summarize(t.include)}</div></div>
+              <Button variant="ghost" onClick={() => remove(t.id)} aria-label="Delete template"><Trash2 className="h-4 w-4" /></Button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
