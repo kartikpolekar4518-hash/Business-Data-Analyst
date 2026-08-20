@@ -1,10 +1,10 @@
 import { useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { UploadCloud, Database, FileSpreadsheet, Loader2, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
+import { UploadCloud, Database, FileSpreadsheet, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, Label } from "../components/ui";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, Label, Progress, ProgressSteps } from "../components/ui";
 import { bytes, num, timeAgo } from "../lib/utils";
 import type { DatasetSummary, Connection, ConnectorType } from "../lib/types";
 
@@ -18,14 +18,18 @@ const CONNECTOR_LABEL: Record<ConnectorType, string> = Object.fromEntries(CONNEC
 const ALLOWED_EXT = ["csv", "xlsx", "xls"];
 const MAX_FILE_BYTES = 15 * 1024 * 1024; // keep in sync with the API's MAX_FILE_SIZE default
 
+type UploadJob = { phase: "uploading" | "processing" | "done"; pct: number; fileName: string } | null;
+const UPLOAD_STEPS = ["Upload file", "Process & profile", "Ready"];
+
 export default function DataList() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [job, setJob] = useState<UploadJob>(null);
   const [loadingSample, setLoadingSample] = useState(false);
+  const busy = !!job && job.phase !== "done";
 
   const [connectType, setConnectType] = useState<ConnectorType | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
@@ -58,14 +62,19 @@ export default function DataList() {
     if (!ALLOWED_EXT.includes(ext)) { toast(`Unsupported file type “.${ext || "?"}”. Upload a CSV, XLSX or XLS file.`, "error"); return; }
     if (file.size > MAX_FILE_BYTES) { toast(`That file is ${bytes(file.size)} — the limit is 15 MB.`, "error"); return; }
 
-    setUploading(true);
+    setJob({ phase: "uploading", pct: 0, fileName: file.name });
     try {
       const fd = new FormData(); fd.append("file", file);
-      const body = await api.post<{ dataset: { qualityScore: number } }>("/uploads", fd);
+      const body = await api.upload<{ dataset: { qualityScore: number } }>("/uploads", fd, (pct) => {
+        // Transfer done → the server is now parsing/profiling; show that step.
+        setJob((j) => (j ? { ...j, pct, phase: pct >= 100 ? "processing" : "uploading" } : j));
+      });
+      setJob((j) => (j ? { ...j, phase: "done", pct: 100 } : j));
       toast(`Uploaded ${file.name} — quality score ${body.dataset.qualityScore}`, "success");
       qc.invalidateQueries({ queryKey: ["datasets"] });
-    } catch (e) { toast(e instanceof ApiError ? e.message : "Upload failed", "error"); }
-    finally { setUploading(false); }
+      // Let the completed state read for a beat before clearing.
+      setTimeout(() => setJob(null), 1200);
+    } catch (e) { setJob(null); toast(e instanceof ApiError ? e.message : "Upload failed", "error"); }
   }
 
   async function loadSample() {
@@ -86,14 +95,32 @@ export default function DataList() {
 
       {canUpload && (
         <div
-          onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+          onDragOver={(e) => { e.preventDefault(); if (!busy) setDrag(true); }}
           onDragLeave={() => setDrag(false)}
-          onDrop={(e) => { e.preventDefault(); setDrag(false); const f = e.dataTransfer.files[0]; if (f) upload(f); }}
-          onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
-          {uploading ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" /> : <UploadCloud className="h-8 w-8 text-slate-400" />}
-          <p className="mt-3 font-medium">{uploading ? "Analyzing your data…" : "Drag & drop a file, or click to browse"}</p>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">CSV, XLSX or XLS · up to 15 MB</p>
+          onDrop={(e) => { e.preventDefault(); setDrag(false); if (busy) return; const f = e.dataTransfer.files[0]; if (f) upload(f); }}
+          onClick={() => { if (!job) inputRef.current?.click(); }}
+          className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${job ? "cursor-default border-slate-300 dark:border-slate-700" : "cursor-pointer"} ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : job ? "" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
+          {job ? (
+            <div className="w-full max-w-sm text-left">
+              <Progress
+                value={job.pct}
+                label={
+                  job.phase === "uploading" ? `Uploading ${job.fileName}` :
+                  job.phase === "processing" ? "Processing & profiling" :
+                  "Upload complete"
+                }
+              />
+              <div className="mt-4">
+                <ProgressSteps steps={UPLOAD_STEPS} current={job.phase === "uploading" ? 0 : job.phase === "processing" ? 1 : 2} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <UploadCloud className="h-8 w-8 text-slate-400" />
+              <p className="mt-3 font-medium">Drag & drop a file, or click to browse</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">CSV, XLSX or XLS · up to 15 MB</p>
+            </>
+          )}
           <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
         </div>
       )}

@@ -27,11 +27,40 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   return data as T;
 }
 
+// Multipart upload with deterministic transfer progress. fetch() can't report
+// upload progress, so this path uses XMLHttpRequest while mirroring request()'s
+// auth and error handling. onProgress reports 0–100 for the byte transfer.
+function upload<T>(path: string, form: FormData, onProgress?: (pct: number) => void): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api${path}`);
+    const token = getToken();
+    if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+    // Don't set Content-Type — the browser adds the multipart boundary itself.
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+    }
+    xhr.onload = () => {
+      const isJson = xhr.getResponseHeader("content-type")?.includes("application/json");
+      let data: unknown = xhr.responseText;
+      if (isJson) { try { data = JSON.parse(xhr.responseText); } catch { data = undefined; } }
+      if (xhr.status >= 200 && xhr.status < 300) { resolve(data as T); return; }
+      if (xhr.status === 401 && !path.startsWith("/auth")) { setToken(null); location.href = "/login"; }
+      reject(new ApiError(xhr.status, (data as any)?.error || xhr.statusText, (data as any)?.details));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Network error"));
+    xhr.send(form);
+  });
+}
+
 export const api = {
   get: <T,>(path: string) => request<T>("GET", path),
   post: <T,>(path: string, body?: unknown) => request<T>("POST", path, body),
   patch: <T,>(path: string, body?: unknown) => request<T>("PATCH", path, body),
   del: <T,>(path: string) => request<T>("DELETE", path),
+  upload,
   // returns a blob URL for downloads (PDF) — shares auth/401/error handling with request()
   blob: async (path: string) => URL.createObjectURL(await request<Blob>("GET", path)),
 };

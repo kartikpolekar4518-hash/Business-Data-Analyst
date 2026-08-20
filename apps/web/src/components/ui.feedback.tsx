@@ -1,4 +1,5 @@
-import { type ReactNode, type ComponentType, useState, useEffect, useRef, createContext, useContext, useCallback } from "react";
+import { type ReactNode, type ComponentType, useState, useEffect, useLayoutEffect, useRef, createContext, useContext, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
@@ -265,50 +266,98 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 // ─────────────────────────────────────────────
-// Tooltip — hover/focus, positioned around a trigger
+// Tooltip — hover/focus, viewport-aware placement
+// Rendered in a portal with fixed positioning: it measures the trigger and its
+// own box against the viewport, flips to the opposite side when the preferred
+// one would overflow, then clamps within the viewport — so it never clips or
+// creates a horizontal scrollbar near an edge.
 // ─────────────────────────────────────────────
+type Side = "top" | "bottom" | "left" | "right";
+const OPPOSITE: Record<Side, Side> = { top: "bottom", bottom: "top", left: "right", right: "left" };
+
 export const Tooltip = ({
   content,
   side = "top",
   children,
 }: {
   content: ReactNode;
-  side?: "top" | "bottom" | "left" | "right";
+  side?: Side;
   children: ReactNode;
 }) => {
   const [open, setOpen] = useState(false);
-  const pos = {
-    top: "bottom-full left-1/2 -translate-x-1/2 mb-1.5",
-    bottom: "top-full left-1/2 -translate-x-1/2 mt-1.5",
-    left: "right-full top-1/2 -translate-y-1/2 mr-1.5",
-    right: "left-full top-1/2 -translate-y-1/2 ml-1.5",
-  }[side];
+  const [coords, setCoords] = useState<{ left: number; top: number } | null>(null);
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    if (!open || !wrapRef.current || !tipRef.current) return;
+    const place = () => {
+      const trg = wrapRef.current!.getBoundingClientRect();
+      const tip = tipRef.current!.getBoundingClientRect();
+      const vw = document.documentElement.clientWidth;
+      const vh = window.innerHeight;
+      const gap = 8, margin = 8;
+      const fits: Record<Side, boolean> = {
+        top: trg.top - tip.height - gap >= margin,
+        bottom: trg.bottom + tip.height + gap <= vh - margin,
+        left: trg.left - tip.width - gap >= margin,
+        right: trg.right + tip.width + gap <= vw - margin,
+      };
+      let s = side;
+      if (!fits[s]) s = fits[OPPOSITE[s]] ? OPPOSITE[s] : ((["bottom", "top", "right", "left"] as Side[]).find((k) => fits[k]) ?? s);
+
+      let left: number, top: number;
+      if (s === "top" || s === "bottom") {
+        left = trg.left + trg.width / 2 - tip.width / 2;
+        top = s === "top" ? trg.top - tip.height - gap : trg.bottom + gap;
+      } else {
+        left = s === "left" ? trg.left - tip.width - gap : trg.right + gap;
+        top = trg.top + trg.height / 2 - tip.height / 2;
+      }
+      // Clamp so the box always stays fully on-screen.
+      left = Math.min(Math.max(margin, left), vw - tip.width - margin);
+      top = Math.min(Math.max(margin, top), vh - tip.height - margin);
+      setCoords({ left, top });
+    };
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, side, content]);
+
   return (
     <span
-      className="relative inline-flex"
+      ref={wrapRef}
+      className="inline-flex"
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
     >
       {children}
-      <AnimatePresence>
-        {open && content != null && (
-          <motion.span
-            role="tooltip"
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: DUR.fast, ease: EASE }}
-            className={cn(
-              "pointer-events-none absolute z-50 w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown dark:bg-slate-700",
-              pos,
+      {typeof document !== "undefined" &&
+        createPortal(
+          <AnimatePresence>
+            {open && content != null && (
+              <motion.span
+                ref={tipRef}
+                role="tooltip"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: DUR.fast, ease: EASE }}
+                style={{ position: "fixed", left: coords?.left ?? -9999, top: coords?.top ?? -9999 }}
+                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown dark:bg-slate-700"
+              >
+                {content}
+              </motion.span>
             )}
-          >
-            {content}
-          </motion.span>
+          </AnimatePresence>,
+          document.body,
         )}
-      </AnimatePresence>
     </span>
   );
 };
