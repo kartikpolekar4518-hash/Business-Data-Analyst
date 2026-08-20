@@ -57,7 +57,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 19 | Error states | 🟡 | `ErrorState` + boundary ✅; typed API/network/auth/parse variants to add |
 | 20 | Forms | 🟡 | Input/Select ✅; **this batch adds Checkbox, Switch, Textarea**. Gaps: combobox/multi-select, radio, time/color picker, tags, formula/expression |
 | 21 | Modal / overlay | 🟡 | Modal, Toast ✅; **this batch adds Tooltip, Dropdown**. Gaps: Drawer/Sheet, Popover, context menu, command palette |
-| 22 | User / workspace | 🟡 | User menu, roles, org ✅. Gaps: permission matrix, activity/audit log, invite modal polish |
+| 22 | User / workspace | 🟡 | User menu, roles, org, **activity/audit log** ✅. Gaps: permission matrix, invite modal polish |
 | 23 | Collaboration | ⬜ | Not started: share dialog, comments, mentions, activity feed, version history |
 | 24 | Settings | 🟡 | Tabbed settings, profile, API-key vault, theme ✅. Gaps: AI/notification/billing/integration panels |
 | 25 | Design-system primitives | 🟡 | Most exist; **this batch adds Checkbox/Switch/Tooltip/Dropdown/Pagination**. Gaps: Accordion, Popover, Sheet, Calendar, Command menu |

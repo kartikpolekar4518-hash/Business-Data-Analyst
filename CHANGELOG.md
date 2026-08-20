@@ -1,5 +1,20 @@
 # Changelog
 
+## Activity log — 2026-08-20
+
+Surfaces the workspace audit trail. `ActivityLog` was already written across the
+app (org creation, uploads, dataset cleaning, team/role changes, connections,
+billing) but had no read path — the data was invisible. Now it's a feature.
+
+- **Backend** — `GET /api/organizations/activity`, cursor-paginated (newest
+  first, `?limit` + `?cursor`), org-scoped. `ActivityLog` has no FK to `User`, so
+  actor names/emails are batch-resolved per page. Integration tests cover
+  newest-first ordering, actor resolution, cursor paging without overlap, and
+  tenant isolation.
+- **Frontend** — a new **Activity** tab in Settings renders the trail as a
+  timeline (per-action icon, actor, detail, relative time) with load-more paging
+  and the usual loading / empty / error states. Read-only for every role.
+
 ## Run scheduled reports & alert rules on demand — 2026-08-20
 
 Finishes the automation loop: users no longer wait for the timer to see a

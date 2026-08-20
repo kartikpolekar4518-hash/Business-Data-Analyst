@@ -9,6 +9,29 @@ import { reapplyIndustrySchema } from "./context.js";
 export const organizationsRouter = Router();
 organizationsRouter.use(requireAuth);
 
+// Org-wide activity feed. ActivityLog is written across the app (uploads, dataset
+// cleaning, user/role changes, connections, billing) but has no FK to User, so
+// actor names are batch-resolved here. Cursor-paginated (newest first).
+organizationsRouter.get("/activity", wrap(async (req, res) => {
+  const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
+  const cursor = typeof req.query.cursor === "string" ? req.query.cursor : undefined;
+  const rows = await prisma.activityLog.findMany({
+    where: { organizationId: req.auth!.organizationId },
+    orderBy: { createdAt: "desc" },
+    take: limit + 1, // one extra to detect a next page
+    ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+  });
+  const hasMore = rows.length > limit;
+  const page = hasMore ? rows.slice(0, limit) : rows;
+  const actorIds = [...new Set(page.map((r) => r.actorId).filter((id): id is string => !!id))];
+  const actors = actorIds.length ? await prisma.user.findMany({ where: { id: { in: actorIds } }, select: { id: true, name: true, email: true } }) : [];
+  const byId = new Map(actors.map((a) => [a.id, a]));
+  res.json({
+    activity: page.map((r) => ({ id: r.id, action: r.action, detail: r.detail, createdAt: r.createdAt, actor: r.actorId ? byId.get(r.actorId) ?? null : null })),
+    nextCursor: hasMore ? page[page.length - 1].id : null,
+  });
+}));
+
 organizationsRouter.get("/current", wrap(async (req, res) => {
   const org = await prisma.organization.findUnique({
     where: { id: req.auth!.organizationId },

@@ -1,27 +1,29 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Plus, KeyRound, ShieldAlert } from "lucide-react";
+import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
+import { Trash2, Plus, KeyRound, ShieldAlert, History, Upload, Sparkles, UserCog, Plug, CreditCard, Building2, Activity as ActivityIcon } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { useIndustries } from "../lib/industries";
-import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, useToast, ErrorState } from "../components/ui";
+import { timeAgo } from "../lib/utils";
+import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, Skeleton, EmptyState, useToast, ErrorState } from "../components/ui";
 import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
-  const tabs = [{ id: "organization", label: "Organization" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
+  const tabs = [{ id: "organization", label: "Organization" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500 dark:text-slate-400">Manage your workspace, team, and integrations.</p></div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
-      {!can("ADMIN") && tab !== "preferences" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
+      {!can("ADMIN") && tab !== "preferences" && tab !== "activity" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
       {tab === "billing" && <BillingTab />}
       {tab === "users" && <UsersTab />}
+      {tab === "activity" && <ActivityTab />}
       {tab === "api-keys" && <ApiKeysTab />}
       {tab === "preferences" && <PreferencesTab />}
     </div>
@@ -245,6 +247,74 @@ function ApiKeysTab() {
         )}
       </CardBody></Card>
     </div>
+  );
+}
+
+interface ActivityItem { id: string; action: string; detail: string | null; createdAt: string; actor: { name: string; email: string } | null; }
+interface ActivityPage { activity: ActivityItem[]; nextCursor: string | null; }
+
+// Human labels for known actions; unknown actions fall back to a de-slugged form.
+const ACTION_LABEL: Record<string, string> = {
+  "org.created": "Organization created",
+  "dataset.uploaded": "Dataset uploaded",
+  "dataset.sampleLoaded": "Sample data loaded",
+  "dataset.cleaned": "Dataset cleaned",
+  "user.invited": "Team member invited",
+  "user.role-changed": "Role changed",
+  "user.removed": "Team member removed",
+  "connection.created": "Connection added",
+  "connection.synced": "Connection synced",
+  "billing.planChanged": "Plan changed",
+};
+const actionIcon = (action: string) =>
+  action.startsWith("dataset.") ? (action === "dataset.cleaned" ? Sparkles : Upload)
+  : action.startsWith("user.") ? UserCog
+  : action.startsWith("connection.") ? Plug
+  : action.startsWith("billing.") ? CreditCard
+  : action.startsWith("org.") ? Building2
+  : ActivityIcon;
+const actionLabel = (a: string) => ACTION_LABEL[a] ?? a.replace(/[._]/g, " ");
+
+function ActivityTab() {
+  const q = useInfiniteQuery({
+    queryKey: ["activity"],
+    queryFn: ({ pageParam }) => api.get<ActivityPage>(`/organizations/activity?limit=30${pageParam ? `&cursor=${pageParam}` : ""}`),
+    initialPageParam: "" as string,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+  const items = q.data?.pages.flatMap((p) => p.activity) ?? [];
+
+  return (
+    <Card>
+      <CardHeader title={<span className="flex items-center gap-2"><History className="h-4 w-4 text-brand-500" />Activity log</span>} subtitle="A record of changes across your workspace — uploads, team, connections, and billing." />
+      <CardBody>
+        {q.isLoading ? (
+          <div className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-32" /></div></div>)}</div>
+        ) : q.isError ? (
+          <ErrorState message="Couldn't load the activity log." retry={() => q.refetch()} />
+        ) : !items.length ? (
+          <EmptyState icon={History} title="No activity yet" description="Actions like uploads, invites, and connection syncs will show up here." />
+        ) : (
+          <>
+            <ol className="relative space-y-1 before:absolute before:left-[18px] before:top-2 before:bottom-2 before:w-px before:bg-border dark:before:bg-white/[0.06]">
+              {items.map((it) => {
+                const Icon = actionIcon(it.action);
+                return (
+                  <li key={it.id} className="relative flex items-start gap-3 py-2">
+                    <span className="z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"><Icon className="h-4 w-4" /></span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2 text-sm"><span className="font-medium">{actionLabel(it.action)}</span>{it.detail && <span className="truncate text-slate-500 dark:text-slate-400">{it.detail}</span>}</div>
+                      <div className="text-xs text-slate-400">{it.actor ? it.actor.name : "System"} · {timeAgo(it.createdAt)}</div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+            {q.hasNextPage && <div className="pt-3 text-center"><Button variant="outline" onClick={() => q.fetchNextPage()} loading={q.isFetchingNextPage}>Load more</Button></div>}
+          </>
+        )}
+      </CardBody>
+    </Card>
   );
 }
 
