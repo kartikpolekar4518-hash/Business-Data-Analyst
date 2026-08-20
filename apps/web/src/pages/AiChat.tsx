@@ -66,7 +66,7 @@ export default function AiChat() {
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col">
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
+        <div><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500 dark:text-slate-400">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="relative">
             <Button variant="outline" size="sm" onClick={() => setHistoryOpen((o) => !o)} aria-expanded={historyOpen}>
@@ -114,7 +114,7 @@ export default function AiChat() {
                 {t.result && t.result.confidence > 0 && <ConfidenceMeter value={t.result.confidence} className="mt-2.5" />}
               </div>
               {t.result?.metrics && t.result.metrics.length > 0 && !t.result.chart && (
-                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"><div className="text-xs text-slate-500">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
+                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"><div className="text-xs text-slate-500 dark:text-slate-400">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
               )}
               {t.result?.chart && (
                 <Card><CardBody>{t.result.chart.type === "bar" ? <BarRankChart data={t.result.chart.data} /> : <TrendChart data={t.result.chart.data} />}</CardBody></Card>

@@ -17,7 +17,7 @@ export const EmptyState = ({
 }) => (
   <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-14 text-center dark:border-slate-700">
     <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-      <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+      <Icon className="h-6 w-6 text-slate-400 dark:text-slate-400" />
     </div>
     <h3 className="mt-4 text-[15px] font-semibold text-slate-900 dark:text-white">
       {title}

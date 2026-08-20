@@ -82,7 +82,7 @@ export default function DataList() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Data</h1><p className="text-sm text-slate-500">Upload files or connect a source. We profile and quality-check every dataset automatically.</p></div>
+      <div><h1 className="text-2xl font-bold">Data</h1><p className="text-sm text-slate-500 dark:text-slate-400">Upload files or connect a source. We profile and quality-check every dataset automatically.</p></div>
 
       {canUpload && (
         <div
@@ -93,13 +93,13 @@ export default function DataList() {
           className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
           {uploading ? <Loader2 className="h-8 w-8 animate-spin text-brand-500" /> : <UploadCloud className="h-8 w-8 text-slate-400" />}
           <p className="mt-3 font-medium">{uploading ? "Analyzing your data…" : "Drag & drop a file, or click to browse"}</p>
-          <p className="mt-1 text-sm text-slate-500">CSV, XLSX or XLS · up to 15 MB</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">CSV, XLSX or XLS · up to 15 MB</p>
           <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
         </div>
       )}
 
       {canUpload && (
-        <div className="flex items-center gap-3 text-sm text-slate-500">
+        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
           <span>No file handy?</span>
           <Button variant="outline" size="sm" loading={loadingSample} onClick={loadSample}>
             <Sparkles className="h-4 w-4" /> Load sample data
@@ -115,9 +115,9 @@ export default function DataList() {
            <div className="divide-y divide-slate-100 dark:divide-slate-800">
              {data.datasets.map((d) => (
                <Link key={d.id} to={`/data/${d.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                 <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileSpreadsheet className="h-5 w-5 text-slate-500" /></div>
-                 <div className="min-w-0 flex-1"><div className="truncate font-medium">{d.name}</div><div className="text-xs text-slate-500">{d.fileName} · {d.fileSize ? bytes(d.fileSize) : ""} · {timeAgo(d.createdAt)}</div></div>
-                 <div className="hidden text-right text-xs text-slate-500 sm:block"><div className="flex items-center gap-1"><Table2 className="h-3 w-3" />{num(d.rowCount)} rows · {d.columnCount} cols</div></div>
+                 <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileSpreadsheet className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
+                 <div className="min-w-0 flex-1"><div className="truncate font-medium">{d.name}</div><div className="text-xs text-slate-500 dark:text-slate-400">{d.fileName} · {d.fileSize ? bytes(d.fileSize) : ""} · {timeAgo(d.createdAt)}</div></div>
+                 <div className="hidden text-right text-xs text-slate-500 dark:text-slate-400 sm:block"><div className="flex items-center gap-1"><Table2 className="h-3 w-3" />{num(d.rowCount)} rows · {d.columnCount} cols</div></div>
                  <QualityBadge score={d.qualityScore} />
                  <Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge>
                </Link>
@@ -146,10 +146,10 @@ export default function DataList() {
             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
               {connData.connections.map((c) => (
                 <div key={c.id} className="flex items-center gap-4 px-4 py-3">
-                  <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><Database className="h-4 w-4 text-slate-500" /></div>
+                  <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><Database className="h-4 w-4 text-slate-500 dark:text-slate-400" /></div>
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{c.name}</div>
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
                       {CONNECTOR_LABEL[c.type]}
                       {c.lastSyncedAt ? ` · synced ${timeAgo(c.lastSyncedAt)}` : " · never synced"}
                       {c.lastSyncStatus === "error" && c.lastSyncError ? ` · ${c.lastSyncError}` : ""}
@@ -208,7 +208,7 @@ function ConnectModal({ type, onClose, onSaved }: { type: ConnectorType; onClose
           <div>
             <Label>Google Sheet URL</Label>
             <Input value={form.sheetUrl} onChange={set("sheetUrl")} placeholder="https://docs.google.com/spreadsheets/d/…" />
-            <p className="mt-1 text-xs text-slate-500">Share the sheet as “anyone with the link” so we can read it.</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Share the sheet as “anyone with the link” so we can read it.</p>
           </div>
         ) : (
           <>

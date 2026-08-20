@@ -42,7 +42,7 @@ export const ConfidenceMeter = ({ value, className }: { value: number; className
 // Data-source citation — the auditability breadcrumb
 // ─────────────────────────────────────────────
 export const AICitation = ({ source, rows, note }: { source?: string; rows?: number | null; note?: ReactNode }) => (
-  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-500">
+  <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-400">
     <Database className="h-3 w-3" />
     <span>Computed from {source ?? "your dataset"}{rows != null ? ` · ${num(rows)} rows` : ""}. Deterministic — reproducible from your data.</span>
     {note}
@@ -173,13 +173,13 @@ export const ExplainMetric = ({ label, value, format, changePct }: { label: stri
         <p className="text-slate-700 dark:text-slate-200">
           Current value: <span className="font-semibold">{formatKpiValue(value, format)}</span>
         </p>
-        <p className={cn("flex items-center gap-1.5 font-medium", up ? "text-emerald-600 dark:text-emerald-400" : down ? "text-red-600 dark:text-red-400" : "text-slate-500")}>
+        <p className={cn("flex items-center gap-1.5 font-medium", up ? "text-emerald-600 dark:text-emerald-400" : down ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400")}>
           <Arrow className="h-4 w-4" />
           {changePct == null
             ? "No prior period to compare against yet."
             : `${up ? "Up" : down ? "Down" : "Flat"} ${Math.abs(changePct)}% vs the previous period${up ? " — an improvement." : down ? " — a decline." : "."}`}
         </p>
-        <div className="border-t border-border pt-1.5 text-[11px] text-slate-400 dark:border-white/[0.06] dark:text-slate-500">
+        <div className="border-t border-border pt-1.5 text-[11px] text-slate-400 dark:border-white/[0.06] dark:text-slate-400">
           Computed deterministically — this figure is reproducible from your data, not an estimate.
         </div>
       </div>

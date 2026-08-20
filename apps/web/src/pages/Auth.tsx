@@ -25,7 +25,7 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle: st
             <div><div className="text-2xl font-bold text-white">PDF</div>exec reports</div>
           </div>
         </div>
-        <p className="relative text-xs text-slate-500">© {new Date().getFullYear()} NoPS</p>
+        <p className="relative text-xs text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} NoPS</p>
       </div>
       {/* Form panel */}
       <div className="flex items-center justify-center p-6">
@@ -65,9 +65,9 @@ export function Login() {
           <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
-        <p className="text-center text-sm text-slate-500">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
         {import.meta.env.DEV && (
-          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:text-slate-400 dark:bg-slate-800/50">
             <strong>Demo:</strong> admin@nops.dev · manager@nops.dev · viewer@nops.dev — password <code>password123</code>
           </div>
         )}
@@ -108,7 +108,7 @@ export function Signup() {
         </div>
         <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-slate-400">At least 8 characters.</p></div>
         <Button type="submit" className="w-full" loading={loading}>Create account</Button>
-        <p className="text-center text-sm text-slate-500">Have an account? <Link to="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></p>
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400">Have an account? <Link to="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></p>
       </form>
     </AuthLayout>
   );

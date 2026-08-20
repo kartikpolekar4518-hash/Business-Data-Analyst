@@ -53,7 +53,7 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold">Executive Reports</h1><p className="text-sm text-slate-500">Board-ready summaries of performance, risks, and forecasts.</p></div>
+        <div><h1 className="text-2xl font-bold">Executive Reports</h1><p className="text-sm text-slate-500 dark:text-slate-400">Board-ready summaries of performance, risks, and forecasts.</p></div>
         {can("ADMIN", "MANAGER") && <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button>}
       </div>
 
@@ -70,8 +70,8 @@ export default function Reports() {
         <Card><CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
           {data.reports.map((rep) => (
             <div key={rep.id} className="flex items-center gap-3 px-5 py-3">
-              <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileText className="h-5 w-5 text-slate-500" /></div>
-              <div className="flex-1"><div className="font-medium">{rep.title}</div><div className="text-xs text-slate-500">{timeAgo(rep.createdAt)}</div></div>
+              <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileText className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
+              <div className="flex-1"><div className="font-medium">{rep.title}</div><div className="text-xs text-slate-500 dark:text-slate-400">{timeAgo(rep.createdAt)}</div></div>
               <Button variant="ghost" onClick={() => setViewId(rep.id)}><Eye className="h-4 w-4" />View</Button>
               <Button variant="outline" onClick={() => downloadPdf(rep.id, rep.title)}><Download className="h-4 w-4" />PDF</Button>
             </div>
@@ -98,7 +98,7 @@ export default function Reports() {
               {r.recommendations.map((rec, i) => (
                 <div key={i} className="mb-2 rounded-lg border border-slate-100 p-2 dark:border-slate-800">
                   <div className="flex items-center justify-between"><span className="font-medium">{rec.title}</span><Badge tone={rec.impact === "HIGH" ? "red" : rec.impact === "MEDIUM" ? "amber" : "slate"}>{rec.impact}</Badge></div>
-                  <p className="mt-1 text-xs text-slate-500">{rec.observation}</p>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{rec.observation}</p>
                   <p className="mt-0.5 text-xs text-brand-600">{rec.action}</p>
                 </div>
               ))}
@@ -138,7 +138,7 @@ function ReportViewSkeleton() {
   );
 }
 
-const Kpi = ({ label, value }: { label: string; value: string }) => <div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800/50"><div className="text-xs text-slate-500">{label}</div><div className="font-semibold">{value}</div></div>;
+const Kpi = ({ label, value }: { label: string; value: string }) => <div className="rounded-lg bg-slate-50 p-2 dark:bg-slate-800/50"><div className="text-xs text-slate-500 dark:text-slate-400">{label}</div><div className="font-semibold">{value}</div></div>;
 const ReportList = ({ title, items, format = "money" }: { title: string; items: { label: string; value: number }[]; format?: "money" | "number" }) => items.length ? (
   <section><h4 className="mb-1 font-semibold">{title}</h4>{items.map((it) => <div key={it.label} className="flex justify-between text-slate-600 dark:text-slate-400"><span>{it.label}</span><span>{format === "number" ? num(it.value) : money(it.value)}</span></div>)}</section>
 ) : null;

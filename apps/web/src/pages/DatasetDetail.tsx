@@ -47,9 +47,9 @@ export default function DatasetDetail() {
   const d = meta.data?.dataset;
   return (
     <div className="space-y-6">
-      <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
+      <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">{d?.name ?? "Dataset"}</h1><p className="text-sm text-slate-500">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
+        <div><h1 className="text-2xl font-bold">{d?.name ?? "Dataset"}</h1><p className="text-sm text-slate-500 dark:text-slate-400">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
         {d && <div className="flex items-center gap-2"><Badge tone={d.qualityScore >= 90 ? "green" : d.qualityScore >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge><Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge></div>}
       </div>
 
@@ -93,7 +93,7 @@ export default function DatasetDetail() {
                     <Badge tone={i.severity === "HIGH" ? "red" : i.severity === "MEDIUM" ? "amber" : "slate"}>{i.severity}</Badge>
                     {!i.autoFixable && <Badge tone="slate">manual review</Badge>}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500">{i.recommendation} {i.affectedRows > 0 && <span className="text-slate-400">· {num(i.affectedRows)} rows</span>}</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{i.recommendation} {i.affectedRows > 0 && <span className="text-slate-400">· {num(i.affectedRows)} rows</span>}</p>
                 </div>
               </label>
             ))}

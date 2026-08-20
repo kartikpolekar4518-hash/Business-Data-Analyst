@@ -17,7 +17,7 @@ export default function Alerts() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Alerts</h1><p className="text-sm text-slate-500">Automatically flagged risks and anomalies from your data.</p></div>
+      <div><h1 className="text-2xl font-bold">Alerts</h1><p className="text-sm text-slate-500 dark:text-slate-400">Automatically flagged risks and anomalies from your data.</p></div>
 
       <AnomalyPanel />
 
@@ -39,7 +39,7 @@ export default function Alerts() {
             return (
               <Card key={a.id} className={a.read ? "opacity-60" : ""}>
                 <CardBody className="flex items-start gap-3 py-3">
-                  <div className={`rounded-lg p-2 ${a.severity === "HIGH" ? "bg-red-100 text-red-600 dark:bg-red-950" : a.severity === "MEDIUM" ? "bg-amber-100 text-amber-600 dark:bg-amber-950" : "bg-slate-100 text-slate-500 dark:bg-slate-800"}`}><Icon className="h-5 w-5" /></div>
+                  <div className={`rounded-lg p-2 ${a.severity === "HIGH" ? "bg-red-100 text-red-600 dark:bg-red-950" : a.severity === "MEDIUM" ? "bg-amber-100 text-amber-600 dark:bg-amber-950" : "bg-slate-100 text-slate-500 dark:text-slate-400 dark:bg-slate-800"}`}><Icon className="h-5 w-5" /></div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium capitalize">{a.type.replace(/_/g, " ")}</span>

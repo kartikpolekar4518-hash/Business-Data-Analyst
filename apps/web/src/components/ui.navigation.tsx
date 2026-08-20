@@ -30,7 +30,7 @@ export const Tabs = ({
           "relative px-4 py-2.5 text-sm font-medium transition",
           active === t.id
             ? "text-brand-700 dark:text-brand-400"
-            : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200",
+            : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200",
         )}
       >
         {t.label}
@@ -168,7 +168,7 @@ export const Pagination = ({
     "flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm transition-colors disabled:pointer-events-none disabled:opacity-40";
   return (
     <div className={cn("flex items-center gap-1", className)}>
-      <button className={cn(btn, "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800")} onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous page">
+      <button className={cn(btn, "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")} onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous page">
         <ChevronLeft className="h-4 w-4" />
       </button>
       {pageRange(page, pageCount).map((p, i) =>
@@ -190,7 +190,7 @@ export const Pagination = ({
           </button>
         ),
       )}
-      <button className={cn(btn, "text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800")} onClick={() => go(page + 1)} disabled={page >= pageCount} aria-label="Next page">
+      <button className={cn(btn, "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800")} onClick={() => go(page + 1)} disabled={page >= pageCount} aria-label="Next page">
         <ChevronRight className="h-4 w-4" />
       </button>
     </div>

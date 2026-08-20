@@ -87,7 +87,7 @@ export default function Analytics() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Analytics</h1><p className="text-sm text-slate-500">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
+        <div><h1 className="text-2xl font-bold">Analytics</h1><p className="text-sm text-slate-500 dark:text-slate-400">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
         <Button variant="outline" onClick={exportCsv} disabled={!table.data}><Download className="h-4 w-4" />Export CSV</Button>
       </div>
 
