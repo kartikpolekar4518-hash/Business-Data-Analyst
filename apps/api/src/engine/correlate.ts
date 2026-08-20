@@ -3,81 +3,8 @@ import type { SchemaMap } from "./schema.js";
 import * as A from "./analytics.js";
 import { pearsonCorrelation, spearmanCorrelation } from "./statistics.js";
 
-// Correlation between a metric's monthly series and other numeric columns.
-// Deterministic; non-causal (the caller must present it as association, not cause).
-
-export interface CorrelatedFactor {
-  column: string;
-  pearson: number;
-  spearman: number;
-  // Direction of the association relative to the metric (positive = moves together).
-  direction: "positive" | "negative";
-  strength: "strong" | "moderate" | "weak";
-}
-
-export interface CorrelationResult {
-  metric: string;
-  factors: CorrelatedFactor[];
-}
-
-function strength(r: number): "strong" | "moderate" | "weak" {
-  const a = Math.abs(r);
-  if (a >= 0.7) return "strong";
-  if (a >= 0.4) return "moderate";
-  return "weak";
-}
-
-/**
- * Correlate a metric's monthly series against every other numeric column's
- * monthly series. Returns factors sorted by |pearson| descending.
- */
-export function correlateMetric(
-  rows: Row[],
-  s: SchemaMap,
-  metric: string | { id: string; compute: (rows: Row[], s: SchemaMap) => number },
-): CorrelationResult {
-  const metricId = typeof metric === "object" ? metric.id : metric;
-  if (!s.date) return { metric: metricId, factors: [] };
-
-  // Build monthly series for the metric.
-  const metricSeries = A.timeSeries(rows, s, metric as any);
-  if (metricSeries.length < 3) return { metric: metricId, factors: [] };
-  const metricByMonth = new Map(metricSeries.map((p) => [p.period, p.value]));
-
-  // Candidate numeric columns (exclude the metric's own source columns to avoid self-correlation).
-  const exclude = new Set<string>([s.revenue, s.sales, s.profit, s.cost, s.quantity, s.unit_price].filter(Boolean) as string[]);
-  const numericCols = rows[0] ? Object.keys(rows[0]).filter((c) => !exclude.has(c)) : [];
-
-  const factors: CorrelatedFactor[] = [];
-  for (const col of numericCols) {
-    // Build monthly series for this column.
-    const colByMonth = new Map<string, number>();
-    for (const r of rows) {
-      const d = A.parseDate(r[s.date!]);
-      if (!d) continue;
-      const key = A.monthKey(d);
-      const v = A.num(r[col]);
-      colByMonth.set(key, (colByMonth.get(key) ?? 0) + v);
-    }
-    // Align on the metric's months.
-    const xs: number[] = [], ys: number[] = [];
-    for (const [month, mv] of metricByMonth) {
-      const cv = colByMonth.get(month);
-      if (cv !== undefined) { xs.push(mv); ys.push(cv); }
-    }
-    if (xs.length < 3) continue;
-    const p = pearsonCorrelation(xs, ys);
-    const sp = spearmanCorrelation(xs, ys);
-    if (!isFinite(p) || !isFinite(sp)) continue;
-    factors.push({
-      column: col,
-      pearson: Math.round(p * 1000) / 1000,
-      spearman: Math.round(sp * 1000) / 1000,
-      direction: p >= 0 ? "positive" : "negative",
-      strength: strength(p),
-    });
-  }
-
-  factors.sort((a, b) => Math.abs(b.pearson) - Math.abs(a.pearson));
-  return { metric: metricId, factors: factors.slice(0, 10) };
-}
+export interface CorrelatedFactor { column:string; pearson:number; spearman:number; direction:"positive"|"negative"; strength:"strong"|"moderate"|"weak"; }
+export interface CorrelationResult { metric:string; factors:CorrelatedFactor[]; columns?:string[]; pairs?:Array<{a:string;b:string;coefficient:number;sampleSize:number;strength:string;direction:string;interpretation:string}>; caveat?:string; }
+function strength(r:number):"strong"|"moderate"|"weak"{const a=Math.abs(r);return a>=.7?"strong":a>=.4?"moderate":"weak";}
+export function correlateMetric(rows:Row[],s:SchemaMap,metric:string|{id:string;compute:(rows:Row[],s:SchemaMap)=>number}):CorrelationResult{const id=typeof metric==="object"?metric.id:metric;if(!s.date)return{metric:id,factors:[]};const series=A.timeSeries(rows,s,metric as any);if(series.length<3)return{metric:id,factors:[]};const by=new Map(series.map(p=>[p.period,p.value]));const exclude=new Set<string>([s.revenue,s.sales,s.profit,s.cost,s.quantity,s.unit_price].filter(Boolean) as string[]);const cols=rows[0]?Object.keys(rows[0]).filter(c=>!exclude.has(c)):[];const factors:CorrelatedFactor[]=[];for(const col of cols){const cb=new Map<string,number>();for(const r of rows){const d=A.parseDate(r[s.date!]);if(!d)continue;const k=A.monthKey(d);cb.set(k,(cb.get(k)??0)+A.num(r[col]));}const xs:number[]=[],ys:number[]=[];for(const[m,v]of by){const cv=cb.get(m);if(cv!==undefined){xs.push(v);ys.push(cv);}}if(xs.length<3)continue;const p=pearsonCorrelation(xs,ys),sp=spearmanCorrelation(xs,ys);if(!isFinite(p)||!isFinite(sp))continue;factors.push({column:col,pearson:Math.round(p*1000)/1000,spearman:Math.round(sp*1000)/1000,direction:p>=0?"positive":"negative",strength:strength(p)});}factors.sort((a,b)=>Math.abs(b.pearson)-Math.abs(a.pearson));return{metric:id,factors:factors.slice(0,10)};}
+export function analyzeCorrelations(rows:Row[],columns?:string[]):CorrelationResult{const candidates=columns??Object.keys(rows[0]??{});const pairs:NonNullable<CorrelationResult["pairs"]>=[];for(let i=0;i<candidates.length;i++){for(let j=i+1;j<candidates.length;j++){const a=candidates[i],b=candidates[j],xs:number[]=[],ys:number[]=[];for(const r of rows){const x=A.num(r[a]),y=A.num(r[b]);if(isFinite(x)&&isFinite(y)){xs.push(x);ys.push(y);}}if(xs.length<5)continue;const p=pearsonCorrelation(xs,ys);if(!isFinite(p))continue;const abs=Math.abs(p),dir=abs<.2?"none":p>0?"positive":"negative",st=abs>=.8?"very strong":abs>=.6?"strong":abs>=.4?"moderate":abs>=.2?"weak":"negligible";pairs.push({a,b,coefficient:Math.round(p*1000)/1000,sampleSize:xs.length,strength:st,direction:dir,interpretation:dir==="none"?`${a} and ${b} show no meaningful association.`:`${a} and ${b} move together or in opposite directions.`});}}pairs.sort((a,b)=>Math.abs(b.coefficient)-Math.abs(a.coefficient));return{metric:"columns",factors:[],columns:candidates,pairs,caveat:"Correlation measures association, not causation."};}
