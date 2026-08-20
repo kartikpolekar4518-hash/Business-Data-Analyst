@@ -1,5 +1,24 @@
 # Changelog
 
+## Run scheduled reports & alert rules on demand — 2026-08-20
+
+Finishes the automation loop: users no longer wait for the timer to see a
+schedule work.
+
+- **Backend** — extracted single-job runners `executeReport` / `executeAlertRule`
+  from the scheduler's due-job loops (behavior unchanged for scheduled runs), and
+  exposed `POST /api/schedules/reports/:id/run` and
+  `POST /api/schedules/alert-rules/:id/run`. A manual run executes immediately,
+  **off-cadence** — it records `lastRunAt` / status (and raises an alert if a rule
+  crosses its threshold) without touching `nextRunAt`, so the schedule keeps its
+  rhythm. Same ADMIN/MANAGER gating and tenant isolation as the rest of the router.
+- **Frontend** — a "Run now" (▶) action on every row in the Scheduled reports and
+  Alert rules sections, with a per-row loading state and a result toast
+  (report generated / run failed; rule fired / threshold not crossed).
+- **Tests** — integration coverage for on-demand runs: report generation and rule
+  firing both leave the cadence untouched, plus RBAC (VIEWER 403) and tenant
+  isolation (cross-org 404).
+
 ## NoPS UI/UX Remediation — 2026-08-20 (PR #44)
 
 Remediation of the NoPS UI/UX audit, delivered through the centralized design

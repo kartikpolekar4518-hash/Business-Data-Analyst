@@ -121,6 +121,41 @@ test("failure isolation: a job with no dataset errors without breaking a healthy
   assert.ok(brokenJob!.nextRunAt.getTime() > Date.now(), "failing job's nextRunAt advanced");
 });
 
+test("run now: a report runs off-cadence without advancing its nextRunAt", async () => {
+  const { orgId, token } = await setupOrg("run-report");
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // a week out — not due
+  const created = await prisma.scheduledReport.create({ data: { organizationId: orgId, frequency: "WEEKLY", enabled: true, nextRunAt: future } });
+  const res = await request(app).post(`/api/schedules/reports/${created.id}/run`).set("Authorization", token);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.report.lastRunStatus, "ok");
+  assert.ok((await prisma.report.count({ where: { organizationId: orgId } })) >= 1, "a report was generated on demand");
+  const after = await prisma.scheduledReport.findUnique({ where: { id: created.id } });
+  assert.equal(after!.nextRunAt.getTime(), future.getTime(), "manual run leaves the cadence untouched");
+});
+
+test("run now: a rule evaluates on demand and raises an alert when crossed", async () => {
+  const { orgId, token } = await setupOrg("run-rule");
+  const future = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const created = await prisma.alertRule.create({ data: { organizationId: orgId, name: "Any revenue", metric: "revenue", comparator: "GT", threshold: 1, frequency: "DAILY", enabled: true, nextRunAt: future } });
+  const res = await request(app).post(`/api/schedules/alert-rules/${created.id}/run`).set("Authorization", token);
+  assert.equal(res.status, 200);
+  assert.ok(res.body.rule.lastTriggeredAt, "the rule recorded a trigger");
+  assert.equal(await prisma.alert.count({ where: { organizationId: orgId, type: "custom_alert" } }), 1, "an alert was raised on demand");
+  const after = await prisma.alertRule.findUnique({ where: { id: created.id } });
+  assert.equal(after!.nextRunAt.getTime(), future.getTime(), "manual run leaves the cadence untouched");
+});
+
+test("run now: RBAC + tenant isolation — a VIEWER and another org both get 403/404", async () => {
+  const { orgId, token } = await setupOrg("run-guard");
+  const created = await prisma.scheduledReport.create({ data: { organizationId: orgId, frequency: "WEEKLY", enabled: true, nextRunAt: past() } });
+  const viewer = await prisma.user.create({ data: { email: email("run-guard-v"), name: "V", passwordHash: "x" } });
+  await prisma.organizationMember.create({ data: { userId: viewer.id, organizationId: orgId, role: "VIEWER" } });
+  const vtoken = `Bearer ${signToken({ userId: viewer.id, organizationId: orgId, role: "VIEWER" })}`;
+  assert.equal((await request(app).post(`/api/schedules/reports/${created.id}/run`).set("Authorization", vtoken)).status, 403);
+  const other = await setupOrg("run-guard-other", false);
+  assert.equal((await request(app).post(`/api/schedules/reports/${created.id}/run`).set("Authorization", other.token)).status, 404);
+});
+
 test("email stays optional: a report with recipients still generates when SMTP is unset", async () => {
   const { orgId } = await setupOrg("email");
   await prisma.scheduledReport.create({ data: { organizationId: orgId, frequency: "DAILY", enabled: true, nextRunAt: past(), recipients: ["ceo@acme.test"] } });

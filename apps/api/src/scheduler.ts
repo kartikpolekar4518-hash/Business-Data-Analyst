@@ -63,6 +63,29 @@ export function metricValue(ov: ReturnType<typeof A.overview>, metric: string): 
 
 // ─── job runners ───
 
+type ScheduledReportJob = Awaited<ReturnType<typeof prisma.scheduledReport.findMany>>[number];
+type AlertRuleJob = Awaited<ReturnType<typeof prisma.alertRule.findMany>>[number];
+
+// Execute one report job: build, persist, optionally email, then record its outcome.
+// Never throws — a failure is caught and stored as lastRunStatus "error". Does not
+// touch nextRunAt, so both the scheduled loop (which advances it on claim) and a
+// manual "run now" share this body without disturbing the cadence.
+export async function executeReport(job: ScheduledReportJob, now = new Date()): Promise<void> {
+  try {
+    const content = await buildReport(job.organizationId, job.datasetId ?? undefined);
+    const report = await prisma.report.create({
+      data: { organizationId: job.organizationId, datasetId: content.datasetId, title: job.title || `Scheduled Report — ${content.datasetName}`, content: content as object },
+    });
+    if (job.recipients.length && isEmailEnabled()) {
+      const pdf = await renderReportPdf(report);
+      await sendMail({ to: job.recipients, subject: report.title, text: `Your scheduled ${job.frequency.toLowerCase()} report is attached.`, attachments: [{ filename: "report.pdf", content: pdf, contentType: "application/pdf" }] });
+    }
+    await prisma.scheduledReport.update({ where: { id: job.id }, data: { lastRunAt: now, lastRunStatus: "ok", lastError: null } });
+  } catch (e) {
+    await prisma.scheduledReport.update({ where: { id: job.id }, data: { lastRunAt: now, lastRunStatus: "error", lastError: errMsg(e) } }).catch(() => {});
+  }
+}
+
 // Regenerate every due scheduled report (persist + optionally email). Each job is
 // claimed by advancing nextRunAt first, so a crash mid-run never double-sends and a
 // failing job doesn't hot-loop. Returns how many ran.
@@ -76,21 +99,40 @@ export async function runDueReports(now = new Date()): Promise<number> {
     });
     if (claim.count === 0) continue; // already claimed by a concurrent tick
     ran++;
-    try {
-      const content = await buildReport(job.organizationId, job.datasetId ?? undefined);
-      const report = await prisma.report.create({
-        data: { organizationId: job.organizationId, datasetId: content.datasetId, title: job.title || `Scheduled Report — ${content.datasetName}`, content: content as object },
-      });
-      if (job.recipients.length && isEmailEnabled()) {
-        const pdf = await renderReportPdf(report);
-        await sendMail({ to: job.recipients, subject: report.title, text: `Your scheduled ${job.frequency.toLowerCase()} report is attached.`, attachments: [{ filename: "report.pdf", content: pdf, contentType: "application/pdf" }] });
-      }
-      await prisma.scheduledReport.update({ where: { id: job.id }, data: { lastRunAt: now, lastRunStatus: "ok", lastError: null } });
-    } catch (e) {
-      await prisma.scheduledReport.update({ where: { id: job.id }, data: { lastRunAt: now, lastRunStatus: "error", lastError: errMsg(e) } }).catch(() => {});
-    }
+    await executeReport(job, now);
   }
   return ran;
+}
+
+// Evaluate one alert rule against the org's latest dataset; write an Alert row when
+// the threshold is crossed (de-duped against an open alert from the same rule). Never
+// throws — failures are recorded in lastError. Does not touch nextRunAt, so the
+// scheduled loop and a manual "run now" share this body.
+export async function executeAlertRule(rule: AlertRuleJob, now = new Date()): Promise<void> {
+  try {
+    const { rows, schema } = await loadDataset(rule.organizationId);
+    const value = metricValue(A.overview(rows, schema), rule.metric);
+    let triggered = false;
+    if (value !== null && crosses(value, rule.comparator as Comparator, rule.threshold)) {
+      triggered = true;
+      // De-dupe: only one open (unread) alert per rule at a time. Match on the stored
+      // rule id, so renaming a rule (or one name being a prefix of another) never
+      // breaks de-dup.
+      const open = await prisma.alert.findFirst({ where: { organizationId: rule.organizationId, type: "custom_alert", read: false, ruleId: rule.id } });
+      if (!open) {
+        await prisma.alert.create({
+          data: {
+            organizationId: rule.organizationId, type: "custom_alert", severity: "MEDIUM", metric: rule.metric, ruleId: rule.id,
+            currentValue: value, threshold: rule.threshold,
+            description: `${rule.name}: ${rule.metric} is ${round(value)} (${CMP_TEXT[rule.comparator as Comparator]} ${rule.threshold}).`,
+          },
+        });
+      }
+    }
+    await prisma.alertRule.update({ where: { id: rule.id }, data: { lastRunAt: now, lastTriggeredAt: triggered ? now : rule.lastTriggeredAt, lastError: null } });
+  } catch (e) {
+    await prisma.alertRule.update({ where: { id: rule.id }, data: { lastRunAt: now, lastError: errMsg(e) } }).catch(() => {});
+  }
 }
 
 // Evaluate every due alert rule against the org's latest dataset; write an Alert row
@@ -105,30 +147,7 @@ export async function runDueAlertRules(now = new Date()): Promise<number> {
     });
     if (claim.count === 0) continue;
     ran++;
-    try {
-      const { rows, schema } = await loadDataset(rule.organizationId);
-      const value = metricValue(A.overview(rows, schema), rule.metric);
-      let triggered = false;
-      if (value !== null && crosses(value, rule.comparator as Comparator, rule.threshold)) {
-        triggered = true;
-        // De-dupe: only one open (unread) alert per rule at a time. Match on the stored
-        // rule id, so renaming a rule (or one name being a prefix of another) never
-        // breaks de-dup.
-        const open = await prisma.alert.findFirst({ where: { organizationId: rule.organizationId, type: "custom_alert", read: false, ruleId: rule.id } });
-        if (!open) {
-          await prisma.alert.create({
-            data: {
-              organizationId: rule.organizationId, type: "custom_alert", severity: "MEDIUM", metric: rule.metric, ruleId: rule.id,
-              currentValue: value, threshold: rule.threshold,
-              description: `${rule.name}: ${rule.metric} is ${round(value)} (${CMP_TEXT[rule.comparator as Comparator]} ${rule.threshold}).`,
-            },
-          });
-        }
-      }
-      await prisma.alertRule.update({ where: { id: rule.id }, data: { lastRunAt: now, lastTriggeredAt: triggered ? now : rule.lastTriggeredAt, lastError: null } });
-    } catch (e) {
-      await prisma.alertRule.update({ where: { id: rule.id }, data: { lastRunAt: now, lastError: errMsg(e) } }).catch(() => {});
-    }
+    await executeAlertRule(rule, now);
   }
   return ran;
 }

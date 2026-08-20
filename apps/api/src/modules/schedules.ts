@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { nextRun, type Frequency } from "../scheduler.js";
+import { nextRun, executeReport, executeAlertRule, type Frequency } from "../scheduler.js";
 
 export const schedulesRouter = Router();
 schedulesRouter.use(requireAuth);
@@ -52,6 +52,16 @@ schedulesRouter.delete("/reports/:id", requireRole("ADMIN", "MANAGER"), wrap(asy
   res.status(204).end();
 }));
 
+// Run one schedule immediately, off-cadence. executeReport records success/failure
+// in lastRunStatus and never throws, so we re-read and return the updated row.
+schedulesRouter.post("/reports/:id/run", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const existing = await prisma.scheduledReport.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
+  if (!existing) throw new HttpError(404, "Scheduled report not found");
+  await executeReport(existing);
+  const report = await prisma.scheduledReport.findUnique({ where: { id: existing.id } });
+  res.json({ report });
+}));
+
 // ─── Alert rules ───
 const ruleCreate = z.object({
   name: z.string().min(1).max(80),
@@ -90,4 +100,14 @@ schedulesRouter.delete("/alert-rules/:id", requireRole("ADMIN", "MANAGER"), wrap
   if (!existing) throw new HttpError(404, "Alert rule not found");
   await prisma.alertRule.delete({ where: { id: existing.id } });
   res.status(204).end();
+}));
+
+// Evaluate one rule immediately, off-cadence. executeAlertRule records the outcome
+// (and any threshold-crossing alert) and never throws; re-read and return the row.
+schedulesRouter.post("/alert-rules/:id/run", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const existing = await prisma.alertRule.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
+  if (!existing) throw new HttpError(404, "Alert rule not found");
+  await executeAlertRule(existing);
+  const rule = await prisma.alertRule.findUnique({ where: { id: existing.id } });
+  res.json({ rule });
 }));
