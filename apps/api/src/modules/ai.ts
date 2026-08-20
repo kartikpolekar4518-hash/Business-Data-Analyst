@@ -40,8 +40,12 @@ aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) =>
   // Understand the question with GPT when configured; fall back to the deterministic
   // rule parser when it isn't (or on any failure). Either way, runIntent computes the
   // numbers deterministically — the model never sees the data rows.
+  // A null result means the LLM was unavailable or failed; an "unknown" classification
+  // means it ran but couldn't map the question. Both fall back to the rule parser, which
+  // may still answer deterministically.
   const llmIntent = await llmParseIntent(message, schema);
-  const result = runIntent(llmIntent ?? ruleParse(message, schema), rows, schema);
+  const intent = llmIntent && llmIntent.intent !== "unknown" ? llmIntent : ruleParse(message, schema);
+  const result = runIntent(intent, rows, schema);
 
   // Persist conversation + both messages.
   const convo = conversationId

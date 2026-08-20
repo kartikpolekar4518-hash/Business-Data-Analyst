@@ -158,8 +158,10 @@ export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
     const value = Math.max(0, model.at(x, month));
     const band = Z95 * std * Math.sqrt(1 + i / n);        // noise band, widens with horizon
     // Scenarios: sustained steeper / flatter slope, so they fan out over the horizon.
-    const best = Math.max(0, value + seB * x);
-    const worst = Math.max(0, value - seB * x);
+    // Scale by the horizon offset i (distance beyond the last actual), not the absolute
+    // time index x, so the fan widens with the forecast rather than the history length.
+    const best = Math.max(0, value + seB * i);
+    const worst = Math.max(0, value - seB * i);
     points.push({
       period: last, value: round(value),
       lower: round(Math.max(0, value - band)), upper: round(value + band),

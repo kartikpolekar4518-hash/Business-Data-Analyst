@@ -38,6 +38,15 @@ test("ignores non-numeric columns and parses currency strings", () => {
   assert.ok(r.columns.includes("revenue") && r.columns.includes("cost"), "currency strings counted as numeric");
 });
 
+test("parses accounting-style parenthesized negatives", () => {
+  // y = -x written accounting-style; the sign must survive parsing, giving r = -1.
+  const rows: Row[] = [];
+  for (let i = 1; i <= 6; i++) rows.push({ x: i, y: `(${i})` });
+  const pair = analyzeCorrelations(rows, ["x", "y"]).pairs[0];
+  assert.equal(pair.coefficient, -1);
+  assert.equal(pair.direction, "negative");
+});
+
 test("skips pairs with too few shared rows", () => {
   const rows: Row[] = [
     { x: 1, y: 2 }, { x: 2, y: null }, { x: 3, y: null }, { x: 4, y: null },

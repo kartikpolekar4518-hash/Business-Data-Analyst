@@ -196,12 +196,14 @@ model Alert {
   threshold      Float?
   description    String
   read           Boolean      @default(false)
+  ruleId         String?      // set for custom_alert rows so de-dup survives rule renames
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
   @@index([organizationId])
   @@index([organizationId, read])
+  @@index([organizationId, ruleId, read])
 }
 
 model AIConversation {

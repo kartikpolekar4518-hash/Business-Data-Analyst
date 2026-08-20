@@ -18,8 +18,12 @@ interface SegmentResult { entity: string | null; metric: string; totalMembers: n
 interface CorrelationPair { a: string; b: string; coefficient: number; sampleSize: number; strength: string; direction: "positive" | "negative" | "none"; interpretation: string; }
 interface CorrelationResult { columns: string[]; pairs: CorrelationPair[]; caveat: string; }
 
-const qs = (datasetId?: string, extra: Record<string, string> = {}) => {
-  const p = new URLSearchParams(extra);
+// Build the query string. `filters` is the page's active filter query (region/date/…),
+// so these panels stay consistent with the KPIs and table. `extra`/`datasetId` win over
+// anything in `filters`.
+const qs = (datasetId?: string, extra: Record<string, string> = {}, filters?: string) => {
+  const p = new URLSearchParams(filters);
+  for (const [k, v] of Object.entries(extra)) p.set(k, v);
   if (datasetId) p.set("datasetId", datasetId);
   const s = p.toString();
   return s ? `?${s}` : "";
@@ -29,10 +33,10 @@ const sevTone = (s: string) => (s === "HIGH" ? "red" : s === "MEDIUM" ? "amber" 
 const strengthTone = (s: string) => (s === "very strong" || s === "strong" ? "blue" : s === "moderate" ? "amber" : "slate");
 
 // ─── Driver / contribution breakdown ───
-export function DriverBreakdown({ datasetId, metric = "revenue", className }: { datasetId?: string; metric?: "revenue" | "profit"; className?: string }) {
+export function DriverBreakdown({ datasetId, metric = "revenue", filters, className }: { datasetId?: string; metric?: "revenue" | "profit"; filters?: string; className?: string }) {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["drivers", metric, datasetId ?? "latest"],
-    queryFn: () => api.get<DriverResult>(`/analytics/drivers${qs(datasetId, { metric })}`),
+    queryKey: ["drivers", metric, datasetId ?? "latest", filters ?? ""],
+    queryFn: () => api.get<DriverResult>(`/analytics/drivers${qs(datasetId, { metric }, filters)}`),
     retry: false,
   });
 
@@ -87,10 +91,10 @@ export function DriverBreakdown({ datasetId, metric = "revenue", className }: { 
 }
 
 // ─── Anomaly panel ───
-export function AnomalyPanel({ datasetId, metric = "revenue", className }: { datasetId?: string; metric?: "revenue" | "profit" | "orders"; className?: string }) {
+export function AnomalyPanel({ datasetId, metric = "revenue", filters, className }: { datasetId?: string; metric?: "revenue" | "profit" | "orders"; filters?: string; className?: string }) {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["anomalies", metric, datasetId ?? "latest"],
-    queryFn: () => api.get<AnomalyResult>(`/analytics/anomalies${qs(datasetId, { metric })}`),
+    queryKey: ["anomalies", metric, datasetId ?? "latest", filters ?? ""],
+    queryFn: () => api.get<AnomalyResult>(`/analytics/anomalies${qs(datasetId, { metric }, filters)}`),
     retry: false,
   });
 
@@ -127,10 +131,10 @@ export function AnomalyPanel({ datasetId, metric = "revenue", className }: { dat
 }
 
 // ─── Value-tier segmentation ───
-export function SegmentTiers({ datasetId, entity, className }: { datasetId?: string; entity?: "customer_name" | "product_name"; className?: string }) {
+export function SegmentTiers({ datasetId, entity, filters, className }: { datasetId?: string; entity?: "customer_name" | "product_name"; filters?: string; className?: string }) {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["segments", entity ?? "auto", datasetId ?? "latest"],
-    queryFn: () => api.get<SegmentResult>(`/analytics/segments${qs(datasetId, entity ? { entity } : {})}`),
+    queryKey: ["segments", entity ?? "auto", datasetId ?? "latest", filters ?? ""],
+    queryFn: () => api.get<SegmentResult>(`/analytics/segments${qs(datasetId, entity ? { entity } : {}, filters)}`),
     retry: false,
   });
 
@@ -164,10 +168,10 @@ export function SegmentTiers({ datasetId, entity, className }: { datasetId?: str
 }
 
 // ─── Correlations ───
-export function CorrelationList({ datasetId, className }: { datasetId?: string; className?: string }) {
+export function CorrelationList({ datasetId, filters, className }: { datasetId?: string; filters?: string; className?: string }) {
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ["correlations", datasetId ?? "latest"],
-    queryFn: () => api.get<CorrelationResult>(`/analytics/correlations${qs(datasetId)}`),
+    queryKey: ["correlations", datasetId ?? "latest", filters ?? ""],
+    queryFn: () => api.get<CorrelationResult>(`/analytics/correlations${qs(datasetId, {}, filters)}`),
     retry: false,
   });
 

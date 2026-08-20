@@ -10,6 +10,15 @@ test("nextRun advances by exactly one interval per frequency", () => {
   assert.equal(nextRun("MONTHLY", base).toISOString(), "2024-04-10T12:00:00.000Z");
 });
 
+test("nextRun MONTHLY clamps month-end days instead of overflowing a month", () => {
+  // Jan 31 + 1 month must land in February (day clamped), not overflow to March.
+  const next = nextRun("MONTHLY", new Date(2026, 0, 31, 9, 0, 0));
+  assert.equal(next.getMonth(), 1);        // February, never March
+  assert.equal(next.getDate(), 28);        // 2026 is not a leap year
+  // Leap year: Jan 31 2024 -> Feb 29.
+  assert.equal(nextRun("MONTHLY", new Date(2024, 0, 31)).getDate(), 29);
+});
+
 test("nextRun does not mutate its input", () => {
   const base = new Date("2024-01-01T00:00:00.000Z");
   nextRun("MONTHLY", base);

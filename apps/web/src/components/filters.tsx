@@ -6,7 +6,9 @@ import { Dropdown, DropdownItem, Badge, Button, Modal, Input, Label } from "./ui
 // ─────────────────────────────────────────────
 // Relative date presets → fills dateFrom / dateTo (YYYY-MM-DD)
 // ─────────────────────────────────────────────
-const iso = (d: Date) => d.toISOString().slice(0, 10);
+// Format the LOCAL calendar date. toISOString() would convert to UTC first and
+// shift the day for any non-UTC user, so the presets picked the wrong date.
+const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const shift = (days: number) => { const d = new Date(); d.setDate(d.getDate() - days); return d; };
 
 type Range = { from?: string; to?: string };

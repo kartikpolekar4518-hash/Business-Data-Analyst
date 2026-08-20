@@ -78,11 +78,15 @@ export function detectAnomalies(series: SeriesPoint[], metric = "value"): Anomal
   const iqrLo = q1 - IQR_K * iqr;
   const iqrHi = q3 + IQR_K * iqr;
 
-  // Normal band on residuals = the wider of the modified-z envelope and the IQR fence.
-  // Detection uses the same envelope, so a point outside the drawn band is exactly a
-  // flagged one.
-  const resLo = Math.min(medR - Z_FLAG * rstd, iqrLo);
-  const resHi = Math.max(medR + Z_FLAG * rstd, iqrHi);
+  // Normal band on residuals = the INTERSECTION of the active envelopes (modified-z and
+  // IQR fence). Detection flags a point outside EITHER envelope, so the intersection is
+  // exactly the region no method flags — a point outside the drawn band is then exactly
+  // a flagged one. An inactive method (zero spread) doesn't constrain the band.
+  const modzActive = rstd > 0;
+  const iqrActive = iqr > 0;
+  let resLo = Math.max(modzActive ? medR - Z_FLAG * rstd : -Infinity, iqrActive ? iqrLo : -Infinity);
+  let resHi = Math.min(modzActive ? medR + Z_FLAG * rstd : Infinity, iqrActive ? iqrHi : Infinity);
+  if (!isFinite(resLo) || !isFinite(resHi)) { resLo = medR; resHi = medR; } // no spread defined at all
 
   const anomalies: AnomalyPoint[] = [];
   const points: AnnotatedPoint[] = clean.map((p, i) => {

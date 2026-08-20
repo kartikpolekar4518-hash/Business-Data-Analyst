@@ -139,9 +139,9 @@ export default function Analytics() {
       {/* Advanced analytics: drivers, segments, correlations */}
       {ov.data && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <DriverBreakdown datasetId={ov.data.datasetId} />
-          <SegmentTiers datasetId={ov.data.datasetId} />
-          <CorrelationList datasetId={ov.data.datasetId} className="lg:col-span-2" />
+          <DriverBreakdown datasetId={ov.data.datasetId} filters={qs} />
+          <SegmentTiers datasetId={ov.data.datasetId} filters={qs} />
+          <CorrelationList datasetId={ov.data.datasetId} filters={qs} className="lg:col-span-2" />
         </div>
       )}
 
