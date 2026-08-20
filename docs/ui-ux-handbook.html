@@ -283,6 +283,36 @@ footer { border-top: 1px solid var(--line); padding: 28px 0 60px; color: var(--i
 
 .muted { color: var(--ink-faint); font-size: 12.5px; }
 .tabnum { font-variant-numeric: tabular-nums; }
+
+/* ---- Print / PDF: force the ink-friendly light palette and clean pagination ---- */
+@media print {
+  :root, :root[data-theme="dark"] {
+    --ground: #ffffff; --panel: #ffffff; --panel-2: #f8f9fc;
+    --ink: #0f172a; --ink-soft: #334155; --ink-faint: #52607a;
+    --line: #d7dce8; --line-soft: #e7ebf3;
+    --brand: #1f47e0; --brand-strong: #1a38c0; --brand-tint: #eef4ff;
+    --good: #047857; --warn: #b45309; --bad: #be123c;
+    --glow: none; --card-shadow: none;
+    --code-bg: #f1f3f8; --swatch-ring: rgba(15,23,42,.12);
+    --aurora-1: transparent; --aurora-2: transparent; --rail-active: #eef4ff;
+  }
+  @page { size: A4; margin: 14mm 12mm; }
+  html { scroll-behavior: auto; }
+  body { background: #fff !important; }
+  .toggle { display: none !important; }
+  .grid { grid-template-columns: 1fr; gap: 0; }
+  .rail { display: none; }
+  .hero { padding: 0 0 24px; }
+  h1 { font-size: 2rem; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  section { break-inside: avoid-page; page-break-inside: avoid; border-top-color: #d7dce8; padding: 22px 0; }
+  h2 { break-after: avoid; }
+  h3, h4.sub { break-after: avoid; }
+  .card, .finding, .kpi, .swatch, .stage, .tbl-wrap { break-inside: avoid; page-break-inside: avoid; }
+  tr { break-inside: avoid; }
+  a { color: var(--ink); text-decoration: none; }
+  .card { backdrop-filter: none; }
+}
 </style>
 
 <button class="toggle" id="themeToggle" aria-label="Toggle color theme">◐ Theme</button>
