@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, BellPlus, Plus, Trash2 } from "lucide-react";
+import { CalendarClock, BellPlus, Plus, Trash2, Play } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Button, Select, Input, Label, Switch, Badge, Skeleton, ErrorState, useToast } from "./ui";
@@ -41,6 +41,7 @@ export function ScheduledReportsSection() {
   const [frequency, setFrequency] = useState("WEEKLY");
   const [recipients, setRecipients] = useState("");
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["scheduledReports"], queryFn: () => api.get<{ reports: ScheduledReport[] }>("/schedules/reports") });
   const refresh = () => qc.invalidateQueries({ queryKey: ["scheduledReports"] });
@@ -56,6 +57,15 @@ export function ScheduledReportsSection() {
   }
   async function toggle(r: ScheduledReport) { await api.patch(`/schedules/reports/${r.id}`, { enabled: !r.enabled }); refresh(); }
   async function remove(id: string) { await api.del(`/schedules/reports/${id}`); refresh(); }
+  async function runNow(r: ScheduledReport) {
+    setRunning(r.id);
+    try {
+      const { report } = await api.post<{ report: ScheduledReport }>(`/schedules/reports/${r.id}/run`);
+      toast(report?.lastRunStatus === "error" ? "Run failed — check the schedule's dataset" : "Report generated", report?.lastRunStatus === "error" ? "error" : "success");
+      refresh();
+    } catch { toast("Could not run the report", "error"); }
+    finally { setRunning(null); }
+  }
 
   return (
     <Card>
@@ -81,7 +91,7 @@ export function ScheduledReportsSection() {
                   <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{r.title || "Latest dataset report"}</span><Badge tone="blue">{r.frequency.toLowerCase()}</Badge>{r.lastRunStatus === "error" && <Badge tone="red">last run failed</Badge>}</div>
                   <div className="text-xs text-slate-400">Next: {when(r.nextRunAt)}{r.recipients.length ? ` · ${r.recipients.length} recipient(s)` : " · no email"}{r.lastRunAt ? ` · last ${when(r.lastRunAt)}` : ""}</div>
                 </div>
-                {editable && <><Switch checked={r.enabled} onChange={() => toggle(r)} aria-label="Enable schedule" /><Button variant="ghost" onClick={() => remove(r.id)} aria-label="Delete"><Trash2 className="h-4 w-4" /></Button></>}
+                {editable && <><Button variant="ghost" onClick={() => runNow(r)} loading={running === r.id} aria-label="Run now"><Play className="h-4 w-4" /></Button><Switch checked={r.enabled} onChange={() => toggle(r)} aria-label="Enable schedule" /><Button variant="ghost" onClick={() => remove(r.id)} aria-label="Delete"><Trash2 className="h-4 w-4" /></Button></>}
               </div>
             ))}
           </div>
@@ -104,6 +114,7 @@ export function AlertRulesSection() {
   const [threshold, setThreshold] = useState("");
   const [frequency, setFrequency] = useState("DAILY");
   const [saving, setSaving] = useState(false);
+  const [running, setRunning] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["alertRules"], queryFn: () => api.get<{ rules: AlertRule[] }>("/schedules/alert-rules") });
   const refresh = () => qc.invalidateQueries({ queryKey: ["alertRules"] });
@@ -120,6 +131,15 @@ export function AlertRulesSection() {
   }
   async function toggle(r: AlertRule) { await api.patch(`/schedules/alert-rules/${r.id}`, { enabled: !r.enabled }); refresh(); }
   async function remove(id: string) { await api.del(`/schedules/alert-rules/${id}`); refresh(); }
+  async function runNow(r: AlertRule) {
+    setRunning(r.id);
+    try {
+      const { rule } = await api.post<{ rule: AlertRule }>(`/schedules/alert-rules/${r.id}/run`);
+      toast(rule?.lastTriggeredAt && rule.lastTriggeredAt !== r.lastTriggeredAt ? "Rule fired — alert raised" : "Checked — threshold not crossed", "success");
+      refresh(); qc.invalidateQueries({ queryKey: ["alerts"] });
+    } catch { toast("Could not run the rule", "error"); }
+    finally { setRunning(null); }
+  }
 
   return (
     <Card>
@@ -147,7 +167,7 @@ export function AlertRulesSection() {
                   <div className="flex items-center gap-2"><span className="truncate text-sm font-medium">{r.name}</span><Badge tone="slate">{r.frequency.toLowerCase()}</Badge></div>
                   <div className="text-xs text-slate-400">When {r.metric} is {CMP_LABEL[r.comparator] ?? r.comparator} {r.threshold}{r.lastTriggeredAt ? ` · last fired ${when(r.lastTriggeredAt)}` : ""}</div>
                 </div>
-                {editable && <><Switch checked={r.enabled} onChange={() => toggle(r)} aria-label="Enable rule" /><Button variant="ghost" onClick={() => remove(r.id)} aria-label="Delete"><Trash2 className="h-4 w-4" /></Button></>}
+                {editable && <><Button variant="ghost" onClick={() => runNow(r)} loading={running === r.id} aria-label="Run now"><Play className="h-4 w-4" /></Button><Switch checked={r.enabled} onChange={() => toggle(r)} aria-label="Enable rule" /><Button variant="ghost" onClick={() => remove(r.id)} aria-label="Delete"><Trash2 className="h-4 w-4" /></Button></>}
               </div>
             ))}
           </div>
