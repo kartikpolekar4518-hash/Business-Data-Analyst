@@ -1,9 +1,10 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, Info } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Label, Spinner, EmptyState, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Label, Skeleton, EmptyState, ErrorState, Badge, useToast } from "../components/ui";
 import { ForecastChart } from "../components/charts";
 import { money, num, timeAgo } from "../lib/utils";
 
@@ -17,16 +18,37 @@ const SCENARIOS: { key: Scenario; label: string }[] = [
   { key: "best", label: "Best" },
 ];
 
+// URL is the source of truth for the filter/view config so a shared or reloaded
+// link restores the exact selection. Values are validated against their allowed
+// set — a hand-edited or stale param falls back to the default.
+const METRICS = ["revenue", "profit", "orders"];
+const HORIZONS = [1, 3, 6, 12];
+
 export default function Forecasts() {
   const { can } = useAuth();
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [metric, setMetric] = useState("revenue");
-  const [horizon, setHorizon] = useState(3);
+  const [params, setParams] = useSearchParams();
   const [running, setRunning] = useState(false);
-  const [scenario, setScenario] = useState<Scenario>("value");
 
-  const { data, isLoading } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
+  const metric = METRICS.includes(params.get("metric") ?? "") ? params.get("metric")! : "revenue";
+  const horizon = HORIZONS.includes(Number(params.get("horizon"))) ? Number(params.get("horizon")) : 3;
+  const scenario: Scenario = (["value", "best", "worst"].includes(params.get("scenario") ?? "") ? params.get("scenario") : "value") as Scenario;
+
+  // Drop a param when it equals its default so shared URLs stay clean; replace
+  // (not push) so filter tweaks don't flood the back button.
+  const setParam = (key: string, value: string, dflt: string) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (value === dflt) next.delete(key);
+        else next.set(key, value);
+        return next;
+      },
+      { replace: true },
+    );
+
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
 
   async function run() {
     setRunning(true);
@@ -37,13 +59,13 @@ export default function Forecasts() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-slate-500">Projections from historical trend. Estimates only — not guarantees.</p></div>
+      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-slate-500 dark:text-slate-400">Projections from historical trend. Estimates only — not guarantees.</p></div>
 
       {can("ADMIN", "MANAGER") && (
         <Card><CardBody>
           <div className="flex flex-wrap items-end gap-3">
-            <div className="w-40"><Label>Metric</Label><Select value={metric} onChange={(e) => setMetric(e.target.value)}><option value="revenue">Revenue</option><option value="profit">Profit</option><option value="orders">Orders</option></Select></div>
-            <div className="w-40"><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setHorizon(Number(e.target.value))}>{[1, 3, 6, 12].map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
+            <div className="w-40"><Label>Metric</Label><Select value={metric} onChange={(e) => setParam("metric", e.target.value, "revenue")}><option value="revenue">Revenue</option><option value="profit">Profit</option><option value="orders">Orders</option></Select></div>
+            <div className="w-40"><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setParam("horizon", e.target.value, "3")}>{HORIZONS.map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
             <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button>
           </div>
         </CardBody></Card>
@@ -56,8 +78,8 @@ export default function Forecasts() {
         {data?.forecasts.length ? (
           <div className="inline-flex rounded-lg border border-border p-0.5 dark:border-white/10">
             {SCENARIOS.map((s) => (
-              <button key={s.key} onClick={() => setScenario(s.key)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scenario === s.key ? "bg-brand-500 text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"}`}>
+              <button key={s.key} onClick={() => setParam("scenario", s.key, "value")}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scenario === s.key ? "bg-brand-500 text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}>
                 {s.label}
               </button>
             ))}
@@ -65,7 +87,16 @@ export default function Forecasts() {
         ) : null}
       </div>
 
-      {isLoading ? <Spinner /> : !data?.forecasts.length ? <EmptyState icon={TrendingUp} title="No forecasts yet" description={can("ADMIN", "MANAGER") ? "Generate one above to project future performance." : "Ask an admin or manager to create a forecast."} /> : (
+      {isLoading ? <ForecastsSkeleton /> : isError ? (
+        <ErrorState message="We couldn't load your forecasts. Check your connection and try again." retry={() => refetch()} />
+      ) : !data?.forecasts.length ? (
+        <EmptyState
+          icon={TrendingUp}
+          title="No forecasts yet"
+          description={can("ADMIN", "MANAGER") ? "Generate one to project future performance from your historical trend." : "Ask an admin or manager to create a forecast."}
+          action={can("ADMIN", "MANAGER") ? <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button> : undefined}
+        />
+      ) : (
         <div className="space-y-4">
           {data.forecasts.map((f) => {
             // "orders" is a count, not currency — format it as a plain number.
@@ -82,7 +113,7 @@ export default function Forecasts() {
                     const hasScenarios = p.best != null && p.worst != null;
                     return (
                     <div key={p.period} className="rounded-lg border border-slate-100 p-2 text-center dark:border-slate-800">
-                      <div className="text-xs text-slate-500">{p.period}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{p.period}</div>
                       <div className="font-semibold">{fmt(shown)}</div>
                       <div className="text-xs text-slate-400">{hasScenarios ? `${fmt(p.worst!)}–${fmt(p.best!)}` : `${fmt(p.lower)}–${fmt(p.upper)}`}</div>
                     </div>
@@ -99,3 +130,22 @@ export default function Forecasts() {
   );
 }
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Skeleton mirrors a forecast card: header, chart band, and the 4-tile scenario grid.
+function ForecastsSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[0, 1].map((i) => (
+        <Card key={i}>
+          <CardHeader title={<Skeleton className="h-4 w-48" />} subtitle={<Skeleton className="mt-1 h-3 w-32" />} />
+          <CardBody>
+            <Skeleton className="h-56 w-full" />
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {[0, 1, 2, 3].map((j) => <Skeleton key={j} className="h-16 w-full" />)}
+            </div>
+          </CardBody>
+        </Card>
+      ))}
+    </div>
+  );
+}

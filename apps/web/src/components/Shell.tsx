@@ -218,7 +218,7 @@ function Sidebar({
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-500">
+              <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
                 {section.label}
               </div>
               <div className="space-y-0.5">
@@ -279,7 +279,7 @@ function Sidebar({
               <div className="truncate text-sm font-medium text-slate-200">
                 {user?.name ?? "User"}
               </div>
-              <div className="truncate text-xs text-slate-500">
+              <div className="truncate text-xs text-slate-400">
                 {user?.email ?? ""}
               </div>
             </div>
@@ -374,10 +374,10 @@ function Header({
       <nav className="hidden items-center gap-1.5 text-sm md:flex" aria-label="Breadcrumb">
         {section && (
           <>
-            <span className="text-slate-400 dark:text-slate-500">
+            <span className="text-slate-500 dark:text-slate-400">
               {section.label}
             </span>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500" />
+            <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
           </>
         )}
         <span className="font-medium text-slate-800 dark:text-slate-100">

@@ -154,7 +154,7 @@ export function GettingStartedChecklist({
               >
                 {s.done ? <Check className="h-3.5 w-3.5" /> : <s.icon className="h-3.5 w-3.5" />}
               </span>
-              <span className={cn("flex-1 font-medium", s.done ? "text-slate-500 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-200")}>
+              <span className={cn("flex-1 font-medium", s.done ? "text-slate-500 line-through dark:text-slate-400" : "text-slate-700 dark:text-slate-200")}>
                 {s.label}
               </span>
               {!s.done && <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />}

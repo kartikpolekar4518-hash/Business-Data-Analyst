@@ -16,7 +16,7 @@ export default function SettingsPage() {
   const tabs = [{ id: "organization", label: "Organization" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500">Manage your workspace, team, and integrations.</p></div>
+      <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500 dark:text-slate-400">Manage your workspace, team, and integrations.</p></div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
       {!can("ADMIN") && tab !== "preferences" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
@@ -73,7 +73,7 @@ function BillingTab() {
               <UsageMeter label="Team members" used={s.usage.seats} limit={s.limits.seats} />
               <UsageMeter label="Reports this month" used={s.usage.reportsPerMonth} limit={s.limits.reportsPerMonth} />
               {!s.billingConfigured && (
-                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800/50">
+                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:text-slate-400 dark:bg-slate-800/50">
                   Payments aren't connected in this environment, so plan changes apply immediately in demo mode. Set <code>STRIPE_SECRET_KEY</code> to enable real checkout.
                 </p>
               )}
@@ -117,7 +117,7 @@ function OrgTab() {
         </Select>
         <p className="mt-1 text-xs text-slate-400">Your dashboards, KPIs, and labels adapt to this.</p>
       </div>
-      <div className="text-sm text-slate-500">{data?.organization.memberCount ?? 0} members</div>
+      <div className="text-sm text-slate-500 dark:text-slate-400">{data?.organization.memberCount ?? 0} members</div>
       {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
     </CardBody></Card>
   );
@@ -144,7 +144,7 @@ function UsersTab() {
         {data?.users.map((u) => (
           <div key={u.membershipId} className="flex items-center gap-3 px-5 py-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">{u.name[0]}</div>
-            <div className="flex-1"><div className="font-medium">{u.name} {u.id === user?.id && <span className="text-xs text-slate-400">(you)</span>}</div><div className="text-xs text-slate-500">{u.email}</div></div>
+            <div className="flex-1"><div className="font-medium">{u.name} {u.id === user?.id && <span className="text-xs text-slate-400">(you)</span>}</div><div className="text-xs text-slate-500 dark:text-slate-400">{u.email}</div></div>
             {can("ADMIN") && u.id !== user?.id ? (
               <Select value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
             ) : <Badge tone="blue">{u.role}</Badge>}
@@ -188,7 +188,7 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           </div>
           {invited.tempPassword && (
             <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
-              <div className="text-xs text-slate-500">Share this one-time password securely — it won't be shown again:</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Share this one-time password securely — it won't be shown again:</div>
               <code className="mt-1 block select-all break-all font-mono text-slate-900 dark:text-slate-100">{invited.tempPassword}</code>
             </div>
           )}
@@ -231,7 +231,7 @@ function ApiKeysTab() {
       <Card><CardHeader title="API keys" /><CardBody className="space-y-3">
         {data?.apiKeys.length ? data.apiKeys.map((k) => (
           <div key={k.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
-            <KeyRound className="h-4 w-4 text-slate-400" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-slate-500">{k.provider} · ••••{k.lastFour}</div></div>
+            <KeyRound className="h-4 w-4 text-slate-400" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-slate-500 dark:text-slate-400">{k.provider} · ••••{k.lastFour}</div></div>
             {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
           </div>
         )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
@@ -252,7 +252,7 @@ function PreferencesTab() {
   const { theme, toggle } = useTheme();
   return (
     <Card><CardHeader title="Preferences" /><CardBody className="max-w-md space-y-4">
-      <div className="flex items-center justify-between"><div><div className="font-medium">Theme</div><div className="text-sm text-slate-500">Current: {theme}</div></div><Button variant="outline" onClick={toggle}>Switch to {theme === "dark" ? "light" : "dark"}</Button></div>
+      <div className="flex items-center justify-between"><div><div className="font-medium">Theme</div><div className="text-sm text-slate-500 dark:text-slate-400">Current: {theme}</div></div><Button variant="outline" onClick={toggle}>Switch to {theme === "dark" ? "light" : "dark"}</Button></div>
     </CardBody></Card>
   );
 }

@@ -58,7 +58,7 @@ export function DriverBreakdown({ datasetId, metric = "revenue", filters, classN
                   <span className={cn("text-lg font-bold", up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
                     {up ? "+" : "−"}{money(Math.abs(data.totalChange))}
                   </span>
-                  <span className="text-slate-500">{money(data.totalPrevious)} → {money(data.totalCurrent)}{data.totalChangePct !== null ? ` (${data.totalChangePct}%)` : ""}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{money(data.totalPrevious)} → {money(data.totalCurrent)}{data.totalChangePct !== null ? ` (${data.totalChangePct}%)` : ""}</span>
                 </div>
                 {data.drivers.map((d) => {
                   const pos = d.contribution >= 0;
@@ -77,7 +77,7 @@ export function DriverBreakdown({ datasetId, metric = "revenue", filters, classN
                   );
                 })}
                 {data.otherCount > 0 && (
-                  <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm text-slate-500 dark:border-white/[0.06]">
+                  <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm text-slate-500 dark:text-slate-400 dark:border-white/[0.06]">
                     <span>Other ({data.otherCount})</span>
                     <span className="shrink-0 font-medium">{data.otherContribution >= 0 ? "+" : "−"}{money(Math.abs(data.otherContribution))}</span>
                   </div>
@@ -156,7 +156,7 @@ export function SegmentTiers({ datasetId, entity, filters, className }: { datase
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{s.label}</span>
                     <Badge tone={s.key === "high" ? "blue" : s.key === "mid" ? "amber" : "slate"}>{s.count}</Badge>
                   </div>
-                  <div className="mt-1 text-xs text-slate-500">{s.shareOfRevenue}% of revenue · avg {money(s.avgRevenue)}</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{s.shareOfRevenue}% of revenue · avg {money(s.avgRevenue)}</div>
                   <p className="mt-2 text-[11px] leading-snug text-slate-400">{s.rule}</p>
                 </div>
               ))}

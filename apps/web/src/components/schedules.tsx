@@ -7,7 +7,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, BellPlus, Plus, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Input, Label, Switch, Badge, Spinner, useToast } from "./ui";
+import { Card, CardHeader, CardBody, Button, Select, Input, Label, Switch, Badge, Skeleton, ErrorState, useToast } from "./ui";
 
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString() : "—");
 
@@ -15,6 +15,20 @@ interface ScheduledReport { id: string; title?: string | null; frequency: string
 interface AlertRule { id: string; name: string; metric: string; comparator: string; threshold: number; frequency: string; enabled: boolean; lastTriggeredAt?: string | null; nextRunAt: string; }
 
 const CMP_LABEL: Record<string, string> = { LT: "below", LTE: "at or below", GT: "above", GTE: "at or above" };
+
+// Shared loading skeleton for both automation lists — two placeholder rows.
+function RowsSkeleton() {
+  return (
+    <div className="divide-y divide-border dark:divide-white/[0.06]">
+      {[0, 1].map((i) => (
+        <div key={i} className="flex items-center gap-3 py-2.5">
+          <div className="flex-1 space-y-2"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-56" /></div>
+          <Skeleton className="h-6 w-10 rounded-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 // ─── Scheduled reports ───
 export function ScheduledReportsSection() {
@@ -28,7 +42,7 @@ export function ScheduledReportsSection() {
   const [recipients, setRecipients] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const { data, isLoading } = useQuery({ queryKey: ["scheduledReports"], queryFn: () => api.get<{ reports: ScheduledReport[] }>("/schedules/reports") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["scheduledReports"], queryFn: () => api.get<{ reports: ScheduledReport[] }>("/schedules/reports") });
   const refresh = () => qc.invalidateQueries({ queryKey: ["scheduledReports"] });
 
   async function create() {
@@ -59,7 +73,7 @@ export function ScheduledReportsSection() {
             <div className="sm:col-span-4"><Label>Email recipients (optional, comma-separated)</Label><Input value={recipients} onChange={(e) => setRecipients(e.target.value)} placeholder="ceo@acme.com, cfo@acme.com" /></div>
           </div>
         )}
-        {isLoading ? <Spinner /> : !data?.reports.length ? <p className="py-4 text-center text-sm text-slate-400">No scheduled reports yet.</p> : (
+        {isLoading ? <RowsSkeleton /> : isError ? <ErrorState message="Couldn't load scheduled reports." retry={() => refetch()} /> : !data?.reports.length ? <p className="py-4 text-center text-sm text-slate-400">No scheduled reports yet.</p> : (
           <div className="divide-y divide-border dark:divide-white/[0.06]">
             {data.reports.map((r) => (
               <div key={r.id} className="flex items-center gap-3 py-2.5">
@@ -91,7 +105,7 @@ export function AlertRulesSection() {
   const [frequency, setFrequency] = useState("DAILY");
   const [saving, setSaving] = useState(false);
 
-  const { data, isLoading } = useQuery({ queryKey: ["alertRules"], queryFn: () => api.get<{ rules: AlertRule[] }>("/schedules/alert-rules") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["alertRules"], queryFn: () => api.get<{ rules: AlertRule[] }>("/schedules/alert-rules") });
   const refresh = () => qc.invalidateQueries({ queryKey: ["alertRules"] });
 
   async function create() {
@@ -125,7 +139,7 @@ export function AlertRulesSection() {
             <div className="flex items-end sm:col-span-6"><Button onClick={create} loading={saving}>Create rule</Button></div>
           </div>
         )}
-        {isLoading ? <Spinner /> : !data?.rules.length ? <p className="py-4 text-center text-sm text-slate-400">No alert rules yet.</p> : (
+        {isLoading ? <RowsSkeleton /> : isError ? <ErrorState message="Couldn't load alert rules." retry={() => refetch()} /> : !data?.rules.length ? <p className="py-4 text-center text-sm text-slate-400">No alert rules yet.</p> : (
           <div className="divide-y divide-border dark:divide-white/[0.06]">
             {data.rules.map((r) => (
               <div key={r.id} className="flex items-center gap-3 py-2.5">

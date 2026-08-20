@@ -1,4 +1,6 @@
+import { useSearchParams } from "react-router-dom";
 import { Card, CardHeader, CardBody } from "../components/ui";
+import { cn } from "../lib/utils";
 import { Reveal } from "../lib/motion";
 import {
   ComboChart, WaterfallChart, FunnelStages, ScatterBubbleChart, RadarProfile, GaugeChart, TreemapChart, Heatmap,
@@ -40,6 +42,15 @@ const heat = days.flatMap((y) => buckets.map((x) => ({ x, y, value: Math.round(2
 const trend = months.map((label, i) => ({ label, value: 90000 + i * 22000 + (i % 2) * 15000 }));
 const rank = [...treemap].sort((a, b) => b.value - a.value);
 
+// Category filter is persisted in the URL (?category=…) so a filtered view of the
+// catalog can be shared or reloaded and lands on the same selection.
+const CATEGORIES = ["all", "trend", "comparison", "composition", "distribution", "relationship", "progress"] as const;
+type Category = (typeof CATEGORIES)[number];
+const CATEGORY_LABEL: Record<Category, string> = {
+  all: "All", trend: "Trend", comparison: "Comparison", composition: "Composition",
+  distribution: "Distribution", relationship: "Relationship", progress: "Progress",
+};
+
 function Panel({ title, subtitle, wide, children }: { title: string; subtitle: string; wide?: boolean; children: React.ReactNode }) {
   return (
     <div className={wide ? "lg:col-span-2" : ""}>
@@ -54,47 +65,102 @@ function Panel({ title, subtitle, wide, children }: { title: string; subtitle: s
 }
 
 export default function ChartLibrary() {
+  const [params, setParams] = useSearchParams();
+  const raw = params.get("category") as Category | null;
+  const active: Category = raw && CATEGORIES.includes(raw) ? raw : "all";
+  const show = (c: Category) => active === "all" || active === c;
+  const setCategory = (c: Category) =>
+    setParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (c === "all") next.delete("category");
+        else next.set("category", c);
+        return next;
+      },
+      { replace: true },
+    );
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Chart library</h1>
-        <p className="text-sm text-slate-500">The visualization catalog — every chart type shares one palette, axis theme, and motion system, and works in light and dark. Sample data shown.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">The visualization catalog — every chart type shares one palette, axis theme, and motion system, and works in light and dark. Sample data shown.</p>
+      </div>
+
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter charts by category">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            aria-pressed={active === c}
+            className={cn(
+              "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+              active === c
+                ? "border-brand-500 bg-brand-500 text-white"
+                : "border-border text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800",
+            )}
+          >
+            {CATEGORY_LABEL[c]}
+          </button>
+        ))}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panel wide title="Combo (bar + line)" subtitle="Two metrics, two axes — e.g. revenue vs margin %">
-          <ComboChart data={combo} />
-        </Panel>
-        <Panel title="Waterfall" subtitle="Running total of positive and negative contributions">
-          <WaterfallChart data={waterfall} />
-        </Panel>
-        <Panel title="Funnel" subtitle="Stage-to-stage conversion and drop-off">
-          <FunnelStages data={funnel} />
-        </Panel>
-        <Panel title="Scatter / bubble" subtitle="Correlation; bubble size encodes a third measure">
-          <ScatterBubbleChart data={scatter} xName="Spend" yName="Revenue" />
-        </Panel>
-        <Panel title="Radar" subtitle="Multi-metric profile comparison across entities">
-          <RadarProfile data={radar} series={["A", "B"]} />
-        </Panel>
-        <Panel title="Gauge" subtitle="A single value against its target or maximum">
-          <div className="mx-auto max-w-xs"><GaugeChart value={72} max={100} label="Health score" /></div>
-        </Panel>
-        <Panel title="Treemap" subtitle="Part-to-whole composition sized by area">
-          <TreemapChart data={treemap} />
-        </Panel>
-        <Panel wide title="Heatmap" subtitle="Matrix intensity across two dimensions (day × time of day)">
-          <Heatmap data={heat} xLabels={buckets} yLabels={days} />
-        </Panel>
-        <Panel title="Area trend" subtitle="Single-series trend over time">
-          <TrendChart data={trend} />
-        </Panel>
-        <Panel title="Donut" subtitle="Composition with legend and center total">
-          <DonutChart data={treemap} centerLabel="Sales" />
-        </Panel>
-        <Panel wide title="Ranked bars" subtitle="Ordered comparison of one metric">
-          <BarRankChart data={rank} />
-        </Panel>
+        {show("comparison") && (
+          <Panel wide title="Combo (bar + line)" subtitle="Two metrics, two axes — e.g. revenue vs margin %">
+            <ComboChart data={combo} />
+          </Panel>
+        )}
+        {show("composition") && (
+          <Panel title="Waterfall" subtitle="Running total of positive and negative contributions">
+            <WaterfallChart data={waterfall} />
+          </Panel>
+        )}
+        {show("composition") && (
+          <Panel title="Funnel" subtitle="Stage-to-stage conversion and drop-off">
+            <FunnelStages data={funnel} />
+          </Panel>
+        )}
+        {show("relationship") && (
+          <Panel title="Scatter / bubble" subtitle="Correlation; bubble size encodes a third measure">
+            <ScatterBubbleChart data={scatter} xName="Spend" yName="Revenue" />
+          </Panel>
+        )}
+        {show("comparison") && (
+          <Panel title="Radar" subtitle="Multi-metric profile comparison across entities">
+            <RadarProfile data={radar} series={["A", "B"]} />
+          </Panel>
+        )}
+        {show("progress") && (
+          <Panel title="Gauge" subtitle="A single value against its target or maximum">
+            <div className="mx-auto max-w-xs"><GaugeChart value={72} max={100} label="Health score" /></div>
+          </Panel>
+        )}
+        {show("composition") && (
+          <Panel title="Treemap" subtitle="Part-to-whole composition sized by area">
+            <TreemapChart data={treemap} />
+          </Panel>
+        )}
+        {show("distribution") && (
+          <Panel wide title="Heatmap" subtitle="Matrix intensity across two dimensions (day × time of day)">
+            <Heatmap data={heat} xLabels={buckets} yLabels={days} />
+          </Panel>
+        )}
+        {show("trend") && (
+          <Panel title="Area trend" subtitle="Single-series trend over time">
+            <TrendChart data={trend} />
+          </Panel>
+        )}
+        {show("composition") && (
+          <Panel title="Donut" subtitle="Composition with legend and center total">
+            <DonutChart data={treemap} centerLabel="Sales" />
+          </Panel>
+        )}
+        {show("comparison") && (
+          <Panel wide title="Ranked bars" subtitle="Ordered comparison of one metric">
+            <BarRankChart data={rank} />
+          </Panel>
+        )}
       </div>
     </div>
   );

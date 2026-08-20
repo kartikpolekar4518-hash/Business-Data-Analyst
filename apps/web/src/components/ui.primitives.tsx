@@ -2,7 +2,7 @@ import { type ReactNode, type ButtonHTMLAttributes, forwardRef } from "react";
 import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { SPRING } from "../lib/motion";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 
 // ─────────────────────────────────────────────
 // Button — 5 variants, 3 sizes, loading state
@@ -191,4 +191,81 @@ export const Skeleton = ({ className }: { className?: string }) => (
       className,
     )}
   />
+);
+
+// ─────────────────────────────────────────────
+// Progress — deterministic bar for long async jobs
+// ─────────────────────────────────────────────
+export const Progress = ({
+  value,
+  label,
+  className,
+}: {
+  value: number;
+  label?: ReactNode;
+  className?: string;
+}) => {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className={cn("w-full", className)}>
+      {label != null && (
+        <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+          <span>{label}</span>
+          <span className="tabular-nums text-slate-400">{Math.round(pct)}%</span>
+        </div>
+      )}
+      <div
+        role="progressbar"
+        aria-valuenow={Math.round(pct)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+      >
+        <motion.div
+          className="h-full rounded-full bg-brand-500"
+          initial={false}
+          animate={{ width: `${pct}%` }}
+          transition={SPRING}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
+// ProgressSteps — named checklist for multi-phase jobs
+// ─────────────────────────────────────────────
+export const ProgressSteps = ({
+  steps,
+  current,
+  className,
+}: {
+  steps: string[];
+  /** Index of the in-progress step; steps before it read as done. */
+  current: number;
+  className?: string;
+}) => (
+  <ol className={cn("space-y-1.5", className)}>
+    {steps.map((step, i) => {
+      const state = i < current ? "done" : i === current ? "active" : "pending";
+      return (
+        <li key={step} className="flex items-center gap-2.5 text-sm">
+          <span
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
+              state === "done" && "bg-emerald-500 text-white",
+              state === "active" && "bg-brand-500 text-white",
+              state === "pending" && "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+            )}
+          >
+            {state === "done" ? <Check className="h-3 w-3" /> : i + 1}
+          </span>
+          <span className={state === "pending" ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}>
+            {step}
+          </span>
+          {state === "active" && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-brand-500" />}
+        </li>
+      );
+    })}
+  </ol>
 );

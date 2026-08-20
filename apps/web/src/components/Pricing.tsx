@@ -46,7 +46,7 @@ export function PlanCards({
             <p className="mt-1 min-h-[2.5rem] text-sm text-slate-500 dark:text-slate-400">{p.tagline}</p>
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-3xl font-bold text-slate-900 dark:text-white">${p.priceMonthly}</span>
-              <span className="text-sm text-slate-500">/mo</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">/mo</span>
             </div>
             <ul className="mt-4 flex-1 space-y-2">
               {p.features.map((f) => (

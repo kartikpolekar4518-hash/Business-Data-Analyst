@@ -42,7 +42,7 @@ export default function DashboardBuilder() {
           <div>
             <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{k.label}</div>
             <div className="mt-2 text-[27px] font-bold leading-none tabular-nums text-slate-900 dark:text-white">{formatKpiValue(k.value, k.format)}</div>
-            <div className="mt-2 text-xs text-slate-500">{k.changePct != null ? `${k.changePct > 0 ? "+" : ""}${k.changePct}% vs last period` : "—"}</div>
+            <div className="mt-2 text-xs text-slate-500 dark:text-slate-400">{k.changePct != null ? `${k.changePct > 0 ? "+" : ""}${k.changePct}% vs last period` : "—"}</div>
           </div>
         ) : <p className="text-sm text-slate-400">No metric</p>;
       case "goal":
@@ -64,7 +64,7 @@ export default function DashboardBuilder() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard builder</h1>
-        <p className="text-sm text-slate-500">Compose your own view — drag to reorder, resize, duplicate, or remove widgets. Your layout is saved automatically.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Compose your own view — drag to reorder, resize, duplicate, or remove widgets. Your layout is saved automatically.</p>
       </div>
       <WidgetGrid storageKey="diq_widget_layout" initial={INITIAL} palette={PALETTE} renderBody={renderBody} />
     </div>

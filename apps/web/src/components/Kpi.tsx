@@ -94,7 +94,7 @@ export function KpiCard({
             {changePct}%
           </span>
         ) : (
-          <span className="text-xs text-slate-400 dark:text-slate-500">—</span>
+          <span className="text-xs text-slate-400 dark:text-slate-400">—</span>
         )}
         {spark && spark.length > 1 && (
           <div className="opacity-90">
