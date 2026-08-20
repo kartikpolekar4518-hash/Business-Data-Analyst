@@ -140,3 +140,36 @@ test("plan limits: the Free plan blocks the 3rd dataset with 402", async () => {
   assert.equal(third.status, 402, "3rd dataset exceeds the Free plan limit");
   assert.match(third.body.error, /plan limit/i);
 });
+
+test("activity feed: returns org actions newest-first with actor resolved, and paginates", async () => {
+  const admin = await signup("activity");
+  const token = `Bearer ${admin.body.token}`;
+  // Generate a few log entries on top of the org.created one from signup.
+  await request(app).post("/api/uploads/sample").set("Authorization", token);
+  await request(app).post("/api/uploads/sample").set("Authorization", token);
+
+  const first = await request(app).get("/api/organizations/activity?limit=2").set("Authorization", token);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.activity.length, 2, "respects the limit");
+  assert.ok(first.body.nextCursor, "more pages available -> a cursor is returned");
+  // Newest first: the two sample loads precede org.created.
+  assert.equal(first.body.activity[0].action, "dataset.sampleLoaded");
+  assert.ok(first.body.activity[0].actor?.name && first.body.activity[0].actor?.email, "actor name/email resolved from actorId");
+
+  const second = await request(app).get(`/api/organizations/activity?limit=2&cursor=${first.body.nextCursor}`).set("Authorization", token);
+  assert.equal(second.status, 200);
+  assert.ok(second.body.activity.some((a: any) => a.action === "org.created"), "the org.created entry appears on the next page");
+  // No overlap between pages.
+  const ids1 = new Set(first.body.activity.map((a: any) => a.id));
+  assert.ok(second.body.activity.every((a: any) => !ids1.has(a.id)), "cursor paging does not repeat rows");
+});
+
+test("activity feed: is tenant-scoped — org B never sees org A's actions", async () => {
+  const a = await signup("act-a");
+  const b = await signup("act-b");
+  await request(app).post("/api/uploads/sample").set("Authorization", `Bearer ${a.body.token}`);
+  const bView = await request(app).get("/api/organizations/activity").set("Authorization", `Bearer ${b.body.token}`);
+  assert.equal(bView.status, 200);
+  // Org B loaded no data, so it must see only its own org.created entry — never org A's sample-load.
+  assert.ok(bView.body.activity.every((x: any) => x.action !== "dataset.sampleLoaded"), "org B does not see org A's dataset activity");
+});

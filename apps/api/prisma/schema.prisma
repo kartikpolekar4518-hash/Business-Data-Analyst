@@ -84,6 +84,7 @@ model Organization {
   activity    ActivityLog[]
   scheduledReports ScheduledReport[]
   alertRules  AlertRule[]
+  reportTemplates ReportTemplate[]
 }
 
 model OrganizationMember {
@@ -167,6 +168,38 @@ model Report {
   organizationId String
   dataset        Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
   datasetId      String?
+  shares         ReportShare[]
+
+  @@index([organizationId])
+}
+
+// A public, revocable capability link to one report. Holding the token grants
+// read (and PDF) access with no login — see modules/share.ts.
+model ReportShare {
+  id             String    @id @default(uuid())
+  token          String    @unique
+  expiresAt      DateTime?  // null = never expires
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  createdById    String?
+  report         Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  reportId       String
+  organizationId String     // denormalized so the authed list/revoke can scope by org
+
+  @@index([reportId])
+  @@index([organizationId])
+}
+
+// A named, reusable selection of which report blocks to include when generating.
+// `include` is a { summary, kpis, sections, forecast, recommendations } boolean map.
+model ReportTemplate {
+  id             String       @id @default(uuid())
+  name           String
+  include        Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
 
   @@index([organizationId])
 }

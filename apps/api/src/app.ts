@@ -15,6 +15,7 @@ import { analyticsRouter } from "./modules/analytics.js";
 import { aiRouter } from "./modules/ai.js";
 import { forecastingRouter } from "./modules/forecasting.js";
 import { reportsRouter } from "./modules/reports.js";
+import { shareRouter } from "./modules/share.js";
 import { alertsRouter } from "./modules/alerts.js";
 import { schedulesRouter } from "./modules/schedules.js";
 import { billingRouter } from "./modules/billing.js";
@@ -69,6 +70,8 @@ app.get("/api/plans", (_req, res) => res.json({ plans: PLANS.map(({ stripePriceI
 // (Credential endpoints are rate-limited inside authRouter — /auth/me stays unthrottled
 // since every app load calls it and offices share NAT IPs.)
 app.use("/api/auth", authRouter);
+// Public capability links to a single report — no auth, rate-limited internally.
+app.use("/api/share", shareRouter);
 app.use("/api/organizations", organizationsRouter);
 app.use("/api/users", usersRouter);
 app.use("/api/uploads", uploadsRouter);

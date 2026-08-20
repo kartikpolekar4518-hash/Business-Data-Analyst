@@ -19,6 +19,25 @@ export interface ReportContent {
   recommendations: ReturnType<typeof deriveInsights>["recommendations"];
 }
 
+// Which report blocks a template includes. Missing/true = include; false = drop.
+export interface ReportInclude { summary?: boolean; kpis?: boolean; sections?: boolean; forecast?: boolean; recommendations?: boolean; }
+
+// Filter a composed report down to a template's selected blocks. Dropped blocks
+// keep their shape but go empty (""/[]/null) so every renderer stays happy and
+// simply skips them. Pure — unit-tested. An empty/absent include keeps everything.
+export function applyTemplate(content: ReportContent, include?: ReportInclude): ReportContent {
+  if (!include) return content;
+  const on = (k: keyof ReportInclude) => include[k] !== false;
+  return {
+    ...content,
+    summary: on("summary") ? content.summary : "",
+    kpis: on("kpis") ? content.kpis : [],
+    sections: on("sections") ? content.sections : [],
+    forecast: on("forecast") ? content.forecast : null,
+    recommendations: on("recommendations") ? content.recommendations : [],
+  };
+}
+
 export function fmtKpiValue(k: A.KpiResult): string {
   if (k.format === "money") return A.fmtMoney(k.value);
   if (k.format === "percent") return `${Math.round(k.value * 10) / 10}%`;

@@ -48,7 +48,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 10 | Alerts & monitoring | 🟡 | Alert list/banner/notification bell ✅. Gaps: alert rule builder, frequency/recipient selectors, alert history |
 | 11 | Data upload & sources | 🟡 | Drag-drop CSV/XLSX, quality checks, connectors modal ✅. Gaps: column mapper, schema viewer, sync status, per-source cards |
 | 12 | Data preparation | 🟡 | Quality panel, accept/reject cleaning ✅. Gaps: column profiling UI, transform/calculated columns, formula builder, join/union, undo/redo |
-| 13 | Reports | 🟡 | Generate + PDF export ✅. Gaps: report builder, templates, scheduled/email reports, sharing/permissions |
+| 13 | Reports | 🟡 | Generate + PDF export, scheduled/email reports, public share links, **report templates (block builder)** ✅. Gaps: per-viewer permissions, drag-order/custom-section builder |
 | 14 | BI dashboards | 🟡 | Industry-pack-driven overviews ✅. Gaps: dedicated funnel/cohort/retention screens |
 | 15 | Comparison | 🟡 | Period-over-period in KPIs ✅. Gaps: YoY/MoM/WoW toggles, target/budget-vs-actual, entity-vs-entity |
 | 16 | Status | ✅ | Badge (7 tones + dot), trend/success/warning/error, scores mostly covered |
@@ -57,7 +57,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 19 | Error states | 🟡 | `ErrorState` + boundary ✅; typed API/network/auth/parse variants to add |
 | 20 | Forms | 🟡 | Input/Select ✅; **this batch adds Checkbox, Switch, Textarea**. Gaps: combobox/multi-select, radio, time/color picker, tags, formula/expression |
 | 21 | Modal / overlay | 🟡 | Modal, Toast ✅; **this batch adds Tooltip, Dropdown**. Gaps: Drawer/Sheet, Popover, context menu, command palette |
-| 22 | User / workspace | 🟡 | User menu, roles, org ✅. Gaps: permission matrix, activity/audit log, invite modal polish |
+| 22 | User / workspace | 🟡 | User menu, roles, org, **activity/audit log** ✅. Gaps: permission matrix, invite modal polish |
 | 23 | Collaboration | ⬜ | Not started: share dialog, comments, mentions, activity feed, version history |
 | 24 | Settings | 🟡 | Tabbed settings, profile, API-key vault, theme ✅. Gaps: AI/notification/billing/integration panels |
 | 25 | Design-system primitives | 🟡 | Most exist; **this batch adds Checkbox/Switch/Tooltip/Dropdown/Pagination**. Gaps: Accordion, Popover, Sheet, Calendar, Command menu |

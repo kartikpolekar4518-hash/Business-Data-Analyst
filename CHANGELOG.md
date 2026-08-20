@@ -1,5 +1,66 @@
 # Changelog
 
+## Report templates (builder) — 2026-08-20
+
+Standardize what goes in a report. A saved **template** is a named selection of
+which blocks a generated report includes — Executive summary, Key metrics,
+Rankings, Forecast, Risks & recommendations — so an org can define e.g. a
+"Monthly board report" once and reuse it.
+
+- **Backend** — new `ReportTemplate` model (`include` boolean map). Pure
+  `applyTemplate(content, include)` in `engine/report.ts` filters a composed
+  report to the selected blocks (dropped blocks go empty, never break a render).
+  Template CRUD on `reportsRouter` (`/api/reports/templates`, writes gated
+  ADMIN/MANAGER); `POST /reports/generate` accepts an optional `templateId`. The
+  PDF renderer now skips empty blocks.
+- **Frontend** — a template picker beside Generate (defaults to "Full report")
+  and a Templates manager (create with per-block checkboxes, list, delete).
+- **Tests** — unit (`applyTemplate` keep/drop/mutation) + integration (CRUD,
+  templated generate drops blocks, unknown-template 404, RBAC, tenant isolation).
+
+## Share a report by public link — 2026-08-20
+
+Executive reports can now be handed to people without a NoPS login (board
+members, investors, clients). An ADMIN/MANAGER mints a **capability link** to one
+report; anyone with the link views it — and can download its PDF — with no
+account.
+
+- **Backend** — new `ReportShare` model (192-bit `randomBytes` token, optional
+  expiry, soft revoke). Authed, org-scoped management on `reportsRouter`:
+  `POST/GET/DELETE /api/reports/:id/shares` (create gated ADMIN/MANAGER; create &
+  revoke write `report.shared` / `report.shareRevoked` to the activity log). New
+  **public** `shareRouter` at `/api/share` (no auth, rate-limited 60/min):
+  `GET /:token` returns **only** the report content + org name; `GET /:token/pdf`
+  streams the PDF via the shared `renderReportPdf`. A pure `isShareLive` helper
+  gates expiry/revocation. No app.ts SPA change needed — the prod catch-all
+  already serves `/share/:token`.
+- **Frontend** — extracted the report renderer into a reusable `ReportView`
+  (shared by the authed modal and the public page). New public page
+  `SharedReport` at `/share/:token` (bare route, `noindex`, graceful
+  invalid/expired state). A **Share** action in Reports opens a panel to create
+  links (7/30/90 days or Never; default 30), copy, and revoke.
+- **Security** — link is a bearer capability: high-entropy token, optional/default
+  expiry, one-click revocation, rate-limited public surface, minimal public
+  payload (never org id, dataset rows, other reports, or user info), `noindex`.
+- **Tests** — unit (`isShareLive`) + integration: public view/PDF, expired &
+  revoked 404, unknown token 404, VIEWER 403, cross-org isolation, and the audit
+  entry.
+
+## Activity log — 2026-08-20
+
+Surfaces the workspace audit trail. `ActivityLog` was already written across the
+app (org creation, uploads, dataset cleaning, team/role changes, connections,
+billing) but had no read path — the data was invisible. Now it's a feature.
+
+- **Backend** — `GET /api/organizations/activity`, cursor-paginated (newest
+  first, `?limit` + `?cursor`), org-scoped. `ActivityLog` has no FK to `User`, so
+  actor names/emails are batch-resolved per page. Integration tests cover
+  newest-first ordering, actor resolution, cursor paging without overlap, and
+  tenant isolation.
+- **Frontend** — a new **Activity** tab in Settings renders the trail as a
+  timeline (per-action icon, actor, detail, relative time) with load-more paging
+  and the usual loading / empty / error states. Read-only for every role.
+
 ## Run scheduled reports & alert rules on demand — 2026-08-20
 
 Finishes the automation loop: users no longer wait for the timer to see a
