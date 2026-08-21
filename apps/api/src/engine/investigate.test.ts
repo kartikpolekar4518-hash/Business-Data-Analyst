@@ -22,6 +22,7 @@ test("uses the same periods as driver analysis for headline totals", () => {
   assert.equal(result.currentTotal, 530);
   assert.equal(result.totalDelta, 110);
   assert.equal(result.drivers[0].totalChange, result.totalDelta);
+  assert.equal(result.claims.find((claim) => claim.kind === "driver")?.rows, rows.length);
   assert.match(result.narrative, /Revenue increased by 110/);
 });
 

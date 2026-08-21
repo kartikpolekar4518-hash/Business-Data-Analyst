@@ -48,12 +48,13 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
 
   const correlation = analyzeCorrelations(rows);
   const anomalies = detectAnomalies(A.timeSeries(rows, s, metric), metric);
+  const periodRowCount = current.length + previous.length;
   const claims: EvidenceClaim[] = [];
 
   for (const driver of drivers.slice(0, 3)) {
     const top = driver.drivers[0];
     if (!top) continue;
-    claims.push({ kind: "driver", metric, period: "current vs previous half", dimension: driver.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: driver.drivers.length, value: top.contribution });
+    claims.push({ kind: "driver", metric, period: "current vs previous half", dimension: driver.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: periodRowCount, value: top.contribution });
   }
 
   for (const pair of correlation.pairs.slice(0, 3)) {
@@ -63,7 +64,7 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   }
 
   for (const anomaly of anomalies.anomalies.slice(0, 2)) {
-    claims.push({ kind: "anomaly", metric, period: anomaly.period, detail: `${anomaly.period} was a ${anomaly.direction} (actual ${fmt(anomaly.value)} vs expected ${fmt(anomaly.expected)}; deviation ${fmt(anomaly.deviation)})`, rows: rows.length, value: anomaly.deviation });
+    claims.push({ kind: "anomaly", metric, period: anomaly.period, detail: `${anomaly.period} was a ${anomaly.direction} (actual ${fmt(anomaly.value)} vs expected ${fmt(anomaly.expected)}; deviation ${fmt(anomaly.deviation)})`, rows: anomalies.points.length, value: anomaly.deviation });
   }
 
   const narrative = buildNarrative(metricLabel, currentTotal, totalDelta, changePct, comparisonAvailable, drivers, anomalies);
