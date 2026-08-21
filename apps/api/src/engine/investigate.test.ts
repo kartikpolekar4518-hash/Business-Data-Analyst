@@ -25,8 +25,15 @@ test("uses the same periods as driver analysis for headline totals", () => {
   assert.match(result.narrative, /Revenue increased by 110/);
 });
 
-test("falls back to revenue for a pack-specific KPI unsupported by analytics", () => {
-  const result = investigate(rows, schema, "prescriptions", "pharmacy");
-  assert.equal(result.metric, "revenue");
-  assert.equal(result.metricLabel, "Revenue");
+test("rejects a pack-specific KPI unsupported by driver attribution", () => {
+  assert.throws(() => investigate(rows, schema, "prescriptions", "pharmacy"), /Unsupported investigation metric: prescriptions/);
+});
+
+test("does not present a single period as a change", () => {
+  const result = investigate(rows.slice(0, 3), schema, "revenue", "retail");
+  assert.equal(result.comparisonAvailable, false);
+  assert.equal(result.totalDelta, 0);
+  assert.equal(result.changePct, null);
+  assert.equal(result.drivers.length, 0);
+  assert.match(result.narrative, /not enough dated history/);
 });
