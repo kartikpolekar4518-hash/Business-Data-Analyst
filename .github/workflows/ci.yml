@@ -6,6 +6,16 @@ on:
   pull_request:
 
 jobs:
+  # Flags dependency changes that introduce known-vulnerable versions on a PR.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
   build:
     runs-on: ubuntu-latest
     services:
@@ -33,6 +43,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Supply-chain gate: fail the build on a known high/critical advisory.
+      - run: npm audit --audit-level=high
       # Generate the Prisma client so @prisma/client resolves during typecheck + tests.
       - run: npm run prisma:generate --workspace apps/api
       - run: npm run typecheck
