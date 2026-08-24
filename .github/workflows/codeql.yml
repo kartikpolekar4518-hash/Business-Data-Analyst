@@ -13,6 +13,10 @@ jobs:
   analyze:
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
+    # CodeQL needs GitHub Advanced Security on a private repo. Until GHAS is
+    # enabled this job is a no-op that must not fail the check; it starts
+    # producing alerts automatically once GHAS is on. Remove once enabled.
+    continue-on-error: true
     permissions:
       actions: read
       contents: read

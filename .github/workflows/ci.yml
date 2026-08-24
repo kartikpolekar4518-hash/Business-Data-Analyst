@@ -7,9 +7,14 @@ on:
 
 jobs:
   # Flags dependency changes that introduce known-vulnerable versions on a PR.
+  # The dependency-review API needs GitHub Advanced Security on a private repo,
+  # so this is non-blocking until GHAS is enabled; the `npm audit` gate in the
+  # build job is the always-on supply-chain check. Remove continue-on-error once
+  # GHAS is on.
   dependency-review:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/dependency-review-action@v4
