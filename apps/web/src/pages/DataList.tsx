@@ -34,7 +34,7 @@ export default function DataList() {
   // Guard against progress/completion updates landing after the page unmounts
   // (the upload itself finishes server-side; we just stop touching dead state).
   const mounted = useRef(true);
-  const completeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const completeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => {
     mounted.current = false;
     if (completeTimer.current) clearTimeout(completeTimer.current);

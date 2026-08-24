@@ -181,7 +181,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
   // (or reaching for Undo) is never raced by the auto-dismiss.
   const remaining = useRef(toast.duration);
   const startedAt = useRef(0);
-  const timer = useRef<ReturnType<typeof setTimeout>>();
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const resume = () => {
     startedAt.current = Date.now();
