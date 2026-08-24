@@ -18,15 +18,19 @@ test("uses the same periods as driver analysis for headline totals", () => {
   const result = investigate(rows, schema, "revenue", "retail");
   assert.equal(result.metric, "revenue");
   assert.equal(result.pack, "retail");
+  assert.equal(result.comparisonAvailable, true);
   assert.equal(result.previousTotal, 420);
   assert.equal(result.currentTotal, 530);
   assert.equal(result.totalDelta, 110);
+  // Headline reconciles with driver attribution by construction.
   assert.equal(result.drivers[0].totalChange, result.totalDelta);
-  assert.equal(result.claims.find((claim) => claim.kind === "driver")?.rows, rows.length);
+  assert.equal(result.claims.find((claim) => claim.kind === "driver")?.metric, "revenue");
   assert.match(result.narrative, /Revenue increased by 110/);
 });
 
-test("rejects a pack-specific KPI unsupported by driver attribution", () => {
+test("rejects a metric the pack does not define", () => {
+  // "prescriptions" is a pharmacy KPI, not an analyzable pack metric — investigating
+  // it would silently answer about revenue instead, so it is rejected outright.
   assert.throws(() => investigate(rows, schema, "prescriptions", "pharmacy"), /Unsupported investigation metric: prescriptions/);
 });
 

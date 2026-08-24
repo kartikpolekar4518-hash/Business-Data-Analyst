@@ -1,5 +1,11 @@
 # Changelog
 
+## Integration hardening — 2026-08-21
+
+- Restored compatibility between the any-industry deterministic analyst engine and existing analytics APIs.
+- Fixed strict TypeScript contracts for industry semantics, driver/anomaly/correlation results, investigator calls, sample generators, and AI intent dimensions.
+- Preserved deterministic pack-metric bucket aggregation, forecast goal/what-if support, and root-cause evidence.
+
 ## Report templates (builder) — 2026-08-20
 
 Standardize what goes in a report. A saved **template** is a named selection of
@@ -43,8 +49,8 @@ account.
   expiry, one-click revocation, rate-limited public surface, minimal public
   payload (never org id, dataset rows, other reports, or user info), `noindex`.
 - **Tests** — unit (`isShareLive`) + integration: public view/PDF, expired &
-  revoked 404, unknown token 404, VIEWER 403, cross-org isolation, and the audit
-  entry.
+  revoked 404, unknown token 404, VIEWER 403, cross-org isolation, and the
+  audit entry.
 
 ## Activity log — 2026-08-20
 
@@ -97,8 +103,8 @@ system so fixes propagate to every surface. Highlights:
 
 ### Viewport-aware tooltips
 - Rewrote the `Tooltip` primitive to render in a portal with fixed positioning.
-  It measures the trigger and its own box against the viewport, **flips to the
-  opposite side** when the preferred side would overflow, then clamps on-screen —
+  It measures the trigger and its own box against the viewport, flips to the
+  opposite side when the preferred side would overflow, then clamps on-screen —
   so edge tooltips never clip or spawn a horizontal scrollbar. Scroll/resize
   listeners are cleaned up on close and unmount.
 
@@ -112,8 +118,8 @@ system so fixes propagate to every surface. Highlights:
 - **Data tables** — Comfortable/Compact density toggle (persisted) and a
   "Clear search" action on empty results.
 - **Navigation & power-user** — global command palette (⌘/Ctrl-K, `/`) and a
-  keyboard-shortcuts reference (`?`); URL state sync for Forecasts filters and the
-  Chart Library category filter (shareable, reload-stable).
+  keyboard-shortcuts reference (`?`); URL state sync for Forecasts filters and
+  the Chart Library category filter (shareable, reload-stable).
 - **Feedback** — Undo toasts for clearing filters/search; toast stacking capped at
   3 with hover-to-pause auto-dismiss and physics-based enter/exit.
 - **Motion** — heavy entrance animations and KPI count-ups now play once per

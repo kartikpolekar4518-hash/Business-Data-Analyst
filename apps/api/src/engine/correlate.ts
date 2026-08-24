@@ -1,113 +1,17 @@
-// Correlation analysis across numeric columns. Pure, deterministic. Pearson's r on
-// the rows where both columns have a usable number. Reports association ONLY — never
-// causation; the wording and the top-level caveat are deliberately non-causal.
-
 import type { Row } from "./parse.js";
+import type { SchemaMap } from "./schema.js";
+import * as A from "./analytics.js";
+import { pearsonCorrelation, spearmanCorrelation } from "./statistics.js";
 
-export interface CorrelationPair {
-  a: string;
-  b: string;
-  coefficient: number;          // Pearson r in [-1, 1]
-  sampleSize: number;           // rows where both a and b were numeric
-  strength: "negligible" | "weak" | "moderate" | "strong" | "very strong";
-  direction: "positive" | "negative" | "none";
-  interpretation: string;
-}
-
-export interface CorrelationResult {
-  columns: string[];            // numeric columns actually analysed
-  pairs: CorrelationPair[];     // sorted by |coefficient| desc
-  caveat: string;               // association-not-causation reminder
-}
-
-const MIN_SAMPLE = 5;           // fewer shared rows than this: not enough to trust
-const NUMERIC_FRACTION = 0.6;   // a column counts as numeric if ≥60% of values parse
-
-// Parse to a number or null. Unlike analytics.num (which coerces junk to 0), this
-// returns null for anything non-numeric so blanks/"Unknown" don't poison the stats.
-function toNum(v: unknown): number | null {
-  if (typeof v === "number") return isFinite(v) ? v : null;
-  if (typeof v === "string") {
-    // Accounting style wraps negatives in parentheses, e.g. "(1,234)" = -1234. Detect
-    // that before stripping the parens, otherwise the sign is silently lost.
-    const negative = /^\s*[$€£₹]?\s*\(.*\)\s*%?\s*$/.test(v);
-    const t = v.replace(/[$€£₹,()%\s]/g, "");
-    if (t === "") return null;
-    const n = Number(t);
-    return isFinite(n) ? (negative ? -n : n) : null;
-  }
-  return null;
-}
-
-function numericColumns(rows: Row[], candidates: string[]): string[] {
-  return candidates.filter((c) => {
-    let present = 0, numeric = 0;
-    for (const r of rows) {
-      const v = r[c];
-      if (v === null || v === undefined || v === "") continue;
-      present++;
-      if (toNum(v) !== null) numeric++;
-    }
-    return present >= MIN_SAMPLE && numeric / present >= NUMERIC_FRACTION;
-  });
-}
-
-function strengthOf(abs: number): CorrelationPair["strength"] {
-  if (abs >= 0.8) return "very strong";
-  if (abs >= 0.6) return "strong";
-  if (abs >= 0.4) return "moderate";
-  if (abs >= 0.2) return "weak";
-  return "negligible";
-}
-
-// Pearson r over paired samples, or null when either column has no variance.
-function pearson(xs: number[], ys: number[]): number | null {
-  const n = xs.length;
-  if (n < 2) return null;
-  const mx = xs.reduce((a, b) => a + b, 0) / n;
-  const my = ys.reduce((a, b) => a + b, 0) / n;
-  let sxy = 0, sxx = 0, syy = 0;
-  for (let i = 0; i < n; i++) {
-    const dx = xs[i] - mx, dy = ys[i] - my;
-    sxy += dx * dy; sxx += dx * dx; syy += dy * dy;
-  }
-  if (sxx === 0 || syy === 0) return null; // a flat column can't correlate
-  const r = sxy / Math.sqrt(sxx * syy);
-  return Math.max(-1, Math.min(1, r)); // clamp float drift
-}
-
-function round(n: number): number { return Math.round(n * 1000) / 1000; }
-
-// Analyse correlations. `columns` restricts the candidate set (e.g. schema measures);
-// omit it to consider every column present on the rows.
-export function analyzeCorrelations(rows: Row[], columns?: string[]): CorrelationResult {
-  const caveat = "Correlation measures how two figures move together — it does not mean one causes the other.";
-  const candidates = columns ?? Object.keys(rows[0] ?? {});
-  const cols = numericColumns(rows, candidates);
-
-  const pairs: CorrelationPair[] = [];
-  for (let i = 0; i < cols.length; i++) {
-    for (let j = i + 1; j < cols.length; j++) {
-      const a = cols[i], b = cols[j];
-      const xs: number[] = [], ys: number[] = [];
-      for (const r of rows) {
-        const x = toNum(r[a]), y = toNum(r[b]);
-        if (x === null || y === null) continue;
-        xs.push(x); ys.push(y);
-      }
-      if (xs.length < MIN_SAMPLE) continue;
-      const r = pearson(xs, ys);
-      if (r === null) continue;
-      const abs = Math.abs(r);
-      const direction: CorrelationPair["direction"] = abs < 0.2 ? "none" : r > 0 ? "positive" : "negative";
-      const strength = strengthOf(abs);
-      const interpretation = direction === "none"
-        ? `${a} and ${b} show no meaningful association.`
-        : `${a} and ${b} tend to ${direction === "positive" ? "rise and fall together" : "move in opposite directions"} (${strength} association).`;
-      pairs.push({ a, b, coefficient: round(r), sampleSize: xs.length, strength, direction, interpretation });
-    }
-  }
-
-  pairs.sort((p, q) => Math.abs(q.coefficient) - Math.abs(p.coefficient));
-  return { columns: cols, pairs, caveat };
-}
+export interface CorrelatedFactor { column:string; pearson:number; spearman:number; direction:"positive"|"negative"; strength:"strong"|"moderate"|"weak"; }
+export interface CorrelationPair { a:string;b:string;coefficient:number;sampleSize:number;strength:string;direction:string;interpretation:string; }
+export interface CorrelationResult { metric:string; factors:CorrelatedFactor[]; columns:string[]; pairs:CorrelationPair[]; caveat?:string; }
+function strength(r:number):"strong"|"moderate"|"weak"{const a=Math.abs(r);return a>=.7?"strong":a>=.4?"moderate":"weak";}
+export function correlateMetric(rows:Row[],s:SchemaMap,metric:string|{id:string;compute:(rows:Row[],s:SchemaMap)=>number}):CorrelationResult{const id=typeof metric==="object"?metric.id:metric;if(!s.date)return{metric:id,factors:[],columns:[],pairs:[]};const series=A.timeSeries(rows,s,metric as any);if(series.length<3)return{metric:id,factors:[],columns:[],pairs:[]};const by=new Map(series.map(p=>[p.period,p.value]));const exclude=new Set<string>([s.revenue,s.sales,s.profit,s.cost,s.quantity,s.unit_price].filter(Boolean) as string[]);const cols=rows[0]?Object.keys(rows[0]).filter(c=>!exclude.has(c)):[];const factors:CorrelatedFactor[]=[];for(const col of cols){const cb=new Map<string,number>();for(const r of rows){const d=A.parseDate(r[s.date!]);if(!d)continue;const k=A.monthKey(d);cb.set(k,(cb.get(k)??0)+A.num(r[col]));}const xs:number[]=[],ys:number[]=[];for(const[m,v]of by){const cv=cb.get(m);if(cv!==undefined){xs.push(v);ys.push(cv);}}if(xs.length<3)continue;const p=pearsonCorrelation(xs,ys),sp=spearmanCorrelation(xs,ys);if(!isFinite(p)||!isFinite(sp))continue;factors.push({column:col,pearson:Math.round(p*1000)/1000,spearman:Math.round(sp*1000)/1000,direction:p>=0?"positive":"negative",strength:strength(p)});}factors.sort((a,b)=>Math.abs(b.pearson)-Math.abs(a.pearson));return{metric:id,factors:factors.slice(0,10),columns:[],pairs:[]};}
+const MIN_SAMPLE=5,NUMERIC_FRACTION=0.6;
+// Null-aware parse: currency symbols, thousands separators and accounting-style
+// parenthesised negatives are numbers; anything else is null (never coerced to 0,
+// so blanks and text do not poison the statistics).
+function toNum(v:unknown):number|null{if(typeof v==="number")return isFinite(v)?v:null;if(typeof v==="string"){const neg=/^\s*[$€£₹]?\s*\(.*\)\s*%?\s*$/.test(v);const t=v.replace(/[$€£₹,()%\s]/g,"");if(t==="")return null;const n=Number(t);return isFinite(n)?(neg?-n:n):null;}return null;}
+function numericColumns(rows:Row[],candidates:string[]):string[]{return candidates.filter(c=>{let present=0,numeric=0;for(const r of rows){const v=r[c];if(v===null||v===undefined||v==="")continue;present++;if(toNum(v)!==null)numeric++;}return present>0&&numeric/present>=NUMERIC_FRACTION;});}
+export function analyzeCorrelations(rows:Row[],columns?:string[]):CorrelationResult{const cols=numericColumns(rows,columns??Object.keys(rows[0]??{}));const pairs:CorrelationPair[]=[];for(let i=0;i<cols.length;i++){for(let j=i+1;j<cols.length;j++){const a=cols[i]!,b=cols[j]!,xs:number[]=[],ys:number[]=[];for(const r of rows){const x=toNum(r[a]),y=toNum(r[b]);if(x!==null&&y!==null){xs.push(x);ys.push(y);}}if(xs.length<MIN_SAMPLE)continue;if(!xs.some(v=>v!==xs[0])||!ys.some(v=>v!==ys[0]))continue;const p=pearsonCorrelation(xs,ys);if(!isFinite(p))continue;const abs=Math.abs(p),dir=abs<.2?"none":p>0?"positive":"negative",st=abs>=.8?"very strong":abs>=.6?"strong":abs>=.4?"moderate":abs>=.2?"weak":"negligible";pairs.push({a,b,coefficient:Math.round(p*1000)/1000,sampleSize:xs.length,strength:st,direction:dir,interpretation:dir==="none"?`${a} and ${b} show no meaningful association.`:`${a} and ${b} tend to ${dir==="negative"?"move in opposite directions":"move together"}.`});}}pairs.sort((a,b)=>Math.abs(b.coefficient)-Math.abs(a.coefficient));return{metric:"columns",factors:[],columns:cols,pairs,caveat:"Correlation measures association only; it does not mean one causes the other."};}

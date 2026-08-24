@@ -1,183 +1,25 @@
-// Industry packs — the single place a business type is defined.
-// A pack is data, not code paths: it declares the extra vocabulary to recognise,
-// which KPIs matter (and how to compute them from detected columns), and how the
-// dashboard should be labelled. Adding a new industry = adding one entry here.
 import type { Row } from "./parse.js";
 import type { ColumnProfile } from "./profile.js";
-import { detectSchema, type SchemaMap, type Semantic, type SemanticRule } from "./schema.js";
-import { rowRevenue, rowProfit, str } from "./analytics.js";
-
-export interface KpiDef {
-  key: string;
-  label: string;
-  icon: string; // frontend icon key (mapped to a lucide icon in the dashboard)
-  format: "money" | "number" | "percent";
-  tooltip?: string;
-  noChange?: boolean; // derived ratios (margin, ARPU) have no meaningful period-over-period pill
-  value: (rows: Row[], s: SchemaMap) => number;
-}
-
-export interface RankSectionDef {
-  dimension: Semantic;
-  metric: "revenue" | "profit" | "quantity" | "orders";
-  title: string;
-  subtitle: string;
-  emptyText: string;
-  format: "money" | "number";
-  limit: number;
-}
-
-export interface CompositionDef {
-  dimension: Semantic;
-  fallback?: Semantic;
-  title: string;
-  subtitle: string;
-  centerLabel: string;
-}
-
-export interface IndustryPack {
-  key: string;
-  label: string;
-  rules: SemanticRule[]; // extra detection vocabulary, runs before the base retail rules
-  signals: Semantic[]; // distinctive semantics used to auto-suggest this industry
-  minSignals: number; // how many signals must be present for auto-suggestion to pick this pack
-  priority: number; // tie-breaker when scores match (higher wins); specialised packs sit above retail
-  kpis: KpiDef[];
-  trend: { title: string; subtitle: string };
-  composition: CompositionDef;
-  ranking: RankSectionDef;
-  secondary: RankSectionDef;
-}
-
-// ── KPI value helpers (all reuse the deterministic analytics primitives) ──
-const sumRevenue = (rows: Row[], s: SchemaMap) => rows.reduce((a, r) => a + rowRevenue(r, s), 0);
-const sumProfit = (rows: Row[], s: SchemaMap) => rows.reduce((a, r) => a + rowProfit(r, s), 0);
-const distinct = (sem: Semantic) => (rows: Row[], s: SchemaMap) =>
-  s[sem] ? new Set(rows.map((r) => str(r[s[sem]!])).filter(Boolean)).size : 0;
-const distinctOrCount = (sem: Semantic) => (rows: Row[], s: SchemaMap) =>
-  s[sem] ? new Set(rows.map((r) => str(r[s[sem]!])).filter(Boolean)).size : rows.length;
-const distinctCustomers = (rows: Row[], s: SchemaMap) =>
-  (s.customer_id ? distinct("customer_id") : distinct("customer_name"))(rows, s);
-const marginPct = (rows: Row[], s: SchemaMap) => {
-  const rev = sumRevenue(rows, s);
-  return rev ? (sumProfit(rows, s) / rev) * 100 : 0;
-};
-const ratio = (top: (r: Row[], s: SchemaMap) => number, bottom: (r: Row[], s: SchemaMap) => number) =>
-  (rows: Row[], s: SchemaMap) => { const d = bottom(rows, s); return d ? top(rows, s) / d : 0; };
-
-const RETAIL: IndustryPack = {
-  key: "retail",
-  label: "Retail / Sales",
-  rules: [],
-  signals: ["order_id", "product_name", "region", "category"],
-  minSignals: 3, // retail signals are common, so require more of them before auto-picking
-  priority: 0,
-  kpis: [
-    { key: "revenue", label: "Revenue", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Sum of revenue (or quantity × unit price) across all rows." },
-    { key: "profit", label: "Profit", icon: "profit", format: "money", value: sumProfit, tooltip: "Revenue minus cost." },
-    { key: "orders", label: "Orders", icon: "orders", format: "number", value: distinctOrCount("order_id"), tooltip: "Distinct order IDs (or row count if no order ID column)." },
-    { key: "customers", label: "Customers", icon: "customers", format: "number", value: distinctCustomers, tooltip: "Distinct customers detected in the dataset." },
-    { key: "margin", label: "Margin", icon: "margin", format: "percent", noChange: true, value: marginPct, tooltip: "Profit as a share of revenue." },
-  ],
-  trend: { title: "Performance Overview", subtitle: "Revenue & profit over time" },
-  composition: { dimension: "category", fallback: "region", title: "Revenue Composition", subtitle: "Share by category", centerLabel: "Revenue" },
-  ranking: { dimension: "product_name", metric: "revenue", title: "Top Products", subtitle: "Ranked by revenue", emptyText: "No product column detected", format: "money", limit: 8 },
-  secondary: { dimension: "region", metric: "revenue", title: "Region Performance", subtitle: "By revenue", emptyText: "No region column detected", format: "money", limit: 10 },
-};
-
-const PHARMACY: IndustryPack = {
-  key: "pharmacy",
-  label: "Pharmacy",
-  rules: [
-    { semantic: "prescription_id", patterns: [/prescription/, /rx[_ ]?(no|id)/, /^rx$/] },
-    { semantic: "medicine_name", patterns: [/medicine/, /drug/, /^med(icine)?[_ ]?name$/, /^med$/] },
-    { semantic: "patient_id", patterns: [/patient/, /^mrn$/] },
-    // `/amount/` is deliberately broad. Detection is per-column first-match-wins, so
-    // if a file has both an explicit "revenue" column and an "amount" column, the one
-    // that appears first is mapped; name the intended revenue column unambiguously.
-    { semantic: "revenue", patterns: [/bill[_ ]?amount/, /total[_ ]?price/, /net[_ ]?amount/, /amount/] },
-  ],
-  signals: ["prescription_id", "medicine_name", "patient_id"],
-  minSignals: 2,
-  priority: 10, // specialised vocabulary; prefer over retail on a tie
-  kpis: [
-    { key: "prescriptions", label: "Prescriptions", icon: "prescriptions", format: "number", value: distinctOrCount("prescription_id"), tooltip: "Distinct prescriptions filled (or row count)." },
-    { key: "revenue", label: "Revenue", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Total sales value across all rows." },
-    { key: "patients", label: "Patients", icon: "patients", format: "number", value: distinct("patient_id"), tooltip: "Distinct patients served." },
-    { key: "medicines", label: "Medicines", icon: "medicines", format: "number", value: distinct("medicine_name"), tooltip: "Distinct medicines dispensed." },
-    { key: "avg_patient", label: "Avg / Patient", icon: "revenue", format: "money", noChange: true, value: ratio(sumRevenue, distinct("patient_id")), tooltip: "Average revenue per patient." },
-  ],
-  trend: { title: "Sales Overview", subtitle: "Revenue over time" },
-  composition: { dimension: "category", fallback: "medicine_name", title: "Sales by Category", subtitle: "Share by drug category", centerLabel: "Revenue" },
-  ranking: { dimension: "medicine_name", metric: "revenue", title: "Top Medicines", subtitle: "Ranked by revenue", emptyText: "No medicine column detected", format: "money", limit: 8 },
-  secondary: { dimension: "medicine_name", metric: "quantity", title: "Most Dispensed", subtitle: "By units dispensed", emptyText: "No medicine column detected", format: "number", limit: 10 },
-};
-
-const SAAS: IndustryPack = {
-  key: "saas",
-  label: "Tech / SaaS",
-  rules: [
-    { semantic: "subscription_id", patterns: [/subscription/, /^sub[_ ]?id/] },
-    { semantic: "plan", patterns: [/plan/, /tier/, /^package$/] },
-    { semantic: "revenue", patterns: [/mrr/, /arr/, /monthly[_ ]?recurring/, /recurring[_ ]?revenue/, /amount/] },
-    { semantic: "customer_name", patterns: [/account[_ ]?name/, /^account$/, /company/, /^org(anization)?$/] },
-    { semantic: "customer_id", patterns: [/account[_ ]?id/, /^user[_ ]?id$/] },
-  ],
-  signals: ["subscription_id", "plan"],
-  minSignals: 2,
-  priority: 10, // specialised vocabulary; prefer over retail on a tie
-  kpis: [
-    { key: "revenue", label: "MRR", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Monthly recurring revenue (sum of subscription amounts)." },
-    { key: "subscriptions", label: "Subscriptions", icon: "subscriptions", format: "number", value: distinctOrCount("subscription_id"), tooltip: "Distinct subscriptions (or row count)." },
-    { key: "customers", label: "Accounts", icon: "customers", format: "number", value: distinctCustomers, tooltip: "Distinct customer accounts." },
-    { key: "arpu", label: "ARPU", icon: "revenue", format: "money", noChange: true, value: ratio(sumRevenue, distinctCustomers), tooltip: "Average revenue per account." },
-    { key: "plans", label: "Plans", icon: "plan", format: "number", value: distinct("plan"), tooltip: "Distinct plans / tiers." },
-  ],
-  trend: { title: "Recurring Revenue", subtitle: "MRR over time" },
-  composition: { dimension: "plan", fallback: "category", title: "Revenue by Plan", subtitle: "Share by plan", centerLabel: "MRR" },
-  ranking: { dimension: "plan", metric: "revenue", title: "Top Plans", subtitle: "Ranked by revenue", emptyText: "No plan column detected", format: "money", limit: 8 },
-  secondary: { dimension: "customer_name", metric: "revenue", title: "Top Accounts", subtitle: "By revenue", emptyText: "No account column detected", format: "money", limit: 10 },
-};
-
-const GENERIC: IndustryPack = {
-  key: "generic",
-  label: "Other / General",
-  rules: [],
-  signals: [],
-  minSignals: Number.POSITIVE_INFINITY, // never auto-suggested; it is the fallback
-  priority: -1,
-  kpis: [
-    { key: "records", label: "Records", icon: "records", format: "number", value: (rows) => rows.length, tooltip: "Total rows in your dataset." },
-    { key: "revenue", label: "Revenue", icon: "revenue", format: "money", value: sumRevenue, tooltip: "Total revenue detected (0 if none)." },
-    { key: "customers", label: "Customers", icon: "customers", format: "number", value: distinctCustomers, tooltip: "Distinct customers detected." },
-  ],
-  trend: { title: "Overview", subtitle: "Revenue over time" },
-  composition: { dimension: "category", fallback: "region", title: "Breakdown by Category", subtitle: "Share by category", centerLabel: "Total" },
-  ranking: { dimension: "product_name", metric: "revenue", title: "Top Items", subtitle: "Ranked by revenue", emptyText: "No item column detected", format: "money", limit: 8 },
-  secondary: { dimension: "region", metric: "revenue", title: "By Group", subtitle: "By revenue", emptyText: "No group column detected", format: "money", limit: 10 },
-};
-
-export const PACKS: Record<string, IndustryPack> = { retail: RETAIL, pharmacy: PHARMACY, saas: SAAS, generic: GENERIC };
-export const INDUSTRIES = Object.values(PACKS).map((p) => ({ key: p.key, label: p.label }));
-
-export function getPack(key?: string | null): IndustryPack {
-  return (key && PACKS[key]) || GENERIC;
-}
-
-// Suggest an industry from a dataset's columns, independent of what pack detected
-// it. Every pack (except the signal-less generic fallback) is scored by how many
-// of its signature semantics its own rules find; the best score that clears the
-// pack's `minSignals` wins, breaking ties by `priority` then specificity (fewer
-// total signals = more specific). Adding a pack needs no change here.
-export function suggestIndustry(columns: ColumnProfile[]): string {
-  const ranked = Object.values(PACKS)
-    .filter((p) => p.signals.length > 0)
-    .map((p) => ({ pack: p, score: p.signals.filter((s) => detectSchema(columns, p.rules).map[s]).length }))
-    .filter((c) => c.score >= c.pack.minSignals)
-    .sort((a, b) =>
-      b.score - a.score ||
-      b.pack.priority - a.pack.priority ||
-      a.pack.signals.length - b.pack.signals.length,
-    );
-  return ranked[0]?.pack.key ?? "generic";
-}
+import type { SchemaMap, Semantic, SemanticRule } from "./schema.js";
+import { detectSchema } from "./schema.js";
+import * as A from "./analytics.js";
+export type MetricKind="sum"|"ratio"|"distinct"|"count"|"avg";
+export interface PackMetric{id:string;label:string;kind:MetricKind;compute:(rows:Row[],s:SchemaMap)=>number;words:string[];format:"money"|"number"|"percent";builtin?:boolean;}
+export interface KpiDef{key:string;label:string;icon:string;format:"money"|"number"|"percent";tooltip?:string;noChange?:boolean;value:(rows:Row[],s:SchemaMap)=>number;}
+export interface RankSectionDef{dimension:Semantic;metric:"revenue"|"profit"|"quantity"|"orders";title:string;subtitle:string;emptyText:string;format:"money"|"number";limit:number;}
+export interface CompositionDef{dimension:Semantic;fallback?:Semantic;title:string;subtitle:string;centerLabel:string;}
+export interface IndustryPack{id:string;name:string;key:string;label:string;metrics:PackMetric[];defaultDimensions:Semantic[];keyMetrics:string[];thresholds?:Record<string,number>;rules:SemanticRule[];signals:Semantic[];minSignals:number;priority:number;kpis:KpiDef[];trend:{title:string;subtitle:string};composition:CompositionDef;ranking:RankSectionDef;secondary:RankSectionDef;}
+const sumRevenue=(r:Row[],s:SchemaMap)=>r.reduce((a,x)=>a+A.rowRevenue(x,s),0),sumProfit=(r:Row[],s:SchemaMap)=>r.reduce((a,x)=>a+A.rowProfit(x,s),0),distinct=(sem:Semantic)=>(r:Row[],s:SchemaMap)=>s[sem]?new Set(r.map(x=>A.str(x[s[sem]!])).filter(Boolean)).size:0,distinctOrCount=(sem:Semantic)=>(r:Row[],s:SchemaMap)=>s[sem]?new Set(r.map(x=>A.str(x[s[sem]!])).filter(Boolean)).size:r.length,distinctCustomers=(r:Row[],s:SchemaMap)=>(s.customer_id?distinct("customer_id"):distinct("customer_name"))(r,s),marginPct=(r:Row[],s:SchemaMap)=>{const rev=sumRevenue(r,s);return rev?sumProfit(r,s)/rev*100:0;};
+const builtinMetrics:PackMetric[]=[{id:"revenue",label:"Revenue",kind:"sum",format:"money",builtin:true,words:["revenue","sales","income","turnover","gross"],compute:sumRevenue},{id:"profit",label:"Profit",kind:"sum",format:"money",builtin:true,words:["profit","margin","earnings","net income","net"],compute:sumProfit},{id:"quantity",label:"Quantity",kind:"sum",format:"number",builtin:true,words:["quantity","units","volume","items sold","count"],compute:(r,s)=>r.reduce((a,x)=>a+(s.quantity?A.num(x[s.quantity]):1),0)},{id:"orders",label:"Orders",kind:"distinct",format:"number",builtin:true,words:["orders","order","transactions","invoices"],compute:(r,s)=>s.order_id?new Set(r.map(x=>A.str(x[s.order_id!]))).size:r.length}];
+const saasMetrics:PackMetric[]=[{id:"mrr",label:"MRR",kind:"sum",format:"money",words:["mrr","monthly recurring","recurring revenue","subscription revenue"],compute:(r,s)=>{const c=r[0]?Object.keys(r[0]).find(k=>/^mrr$|monthly.*recurr|subscription.*revenue/i.test(k)):undefined;return c?r.reduce((a,x)=>a+A.num(x[c]),0):sumRevenue(r,s);}},{id:"churn",label:"Churn",kind:"ratio",format:"percent",words:["churn","cancellations","lost customers","attrition"],compute:(r,s)=>{if(!s.date||!s.customer_id)return 0;const d=r.map(x=>({r:x,d:A.parseDate(x[s.date!])})).filter(x=>x.d) as {r:Row;d:Date}[];if(d.length<4)return 0;d.sort((a,b)=>a.d.getTime()-b.d.getTime());const mid=d[Math.floor(d.length/2)].d.getTime(),first=d.filter(x=>x.d.getTime()<mid),second=d.filter(x=>x.d.getTime()>=mid),ids=new Set(first.map(x=>A.str(x.r[s.customer_id!]))),churned=[...ids].filter(id=>!second.some(x=>A.str(x.r[s.customer_id!])===id)).length;return ids.size?Math.round(churned/ids.size*1000)/10:0;}},{id:"arpu",label:"ARPU",kind:"ratio",format:"money",words:["arpu","average revenue per user","average revenue per customer","per customer","per user"],compute:(r,s)=>{const rev=sumRevenue(r,s),c=s.customer_id?new Set(r.map(x=>A.str(x[s.customer_id!]))).size:s.customer_name?new Set(r.map(x=>A.str(x[s.customer_name!]))).size:0;return c?Math.round(rev/c*100)/100:0;}}];
+const pharmacyMetrics:PackMetric[]=[{id:"expiry_risk",label:"Expiry Risk",kind:"ratio",format:"percent",words:["expiry","expiring","expiration","about to expire","expiring soon"],compute:(r,s)=>{const c=r[0]?Object.keys(r[0]).find(k=>/expir|expiry/i.test(k)):undefined;if(!c||!r.length||!s.date)return 0;const ds=r.map(x=>A.parseDate(x[s.date!])).filter(Boolean) as Date[];if(!ds.length)return 0;const latest=Math.max(...ds.map(d=>d.getTime()));const risk=r.filter(x=>{const d=A.parseDate(x[c]);return !!d&&d.getTime()<=latest&&d.getTime()>=latest-90*86_400_000;}).length;return Math.round(risk/r.length*1000)/10;}}];
+const servicesMetrics:PackMetric[]=[{id:"utilization",label:"Utilization",kind:"ratio",format:"percent",words:["utilization","billable","utilised","utilized","capacity"],compute:r=>{const b=r[0]?Object.keys(r[0]).find(k=>/billable/i.test(k)):undefined,t=r[0]?Object.keys(r[0]).find(k=>/^hours?$|total.*hours/i.test(k)):undefined;if(!b||!t)return 0;const bv=r.reduce((a,x)=>a+A.num(x[b]),0),tv=r.reduce((a,x)=>a+A.num(x[t]),0);return tv?Math.round(bv/tv*1000)/10:0;}},{id:"avg_rate",label:"Avg Rate",kind:"ratio",format:"money",words:["rate","hourly rate","billing rate","per hour"],compute:(r,s)=>{const b=r[0]?Object.keys(r[0]).find(k=>/billable/i.test(k)):undefined;if(!b)return 0;const h=r.reduce((a,x)=>a+A.num(x[b]),0);return h?Math.round(sumRevenue(r,s)/h*100)/100:0;}}];
+const manufacturingMetrics:PackMetric[]=[{id:"defect_rate",label:"Defect Rate",kind:"ratio",format:"percent",words:["defect","defective","rework","scrap","quality"],compute:(r,s)=>{const c=r[0]?Object.keys(r[0]).find(k=>/defect|rework|scrap/i.test(k)):undefined;if(!c)return 0;const defects=r.reduce((a,x)=>a+A.num(x[c]),0),total=s.quantity?r.reduce((a,x)=>a+A.num(x[s.quantity!]),0):r.length;return total?Math.round(defects/total*1000)/10:0;}}];
+const retailRules:SemanticRule[]=[];const pharmacyRules:SemanticRule[]=[{semantic:"prescription_id",patterns:[/prescription/,/rx[_ ]?(no|id)/,/^rx$/]},{semantic:"medicine_name",patterns:[/medicine/,/drug/,/^med(icine)?[_ ]?name$/,/^med$/]},{semantic:"patient_id",patterns:[/patient/,/^mrn$/]},{semantic:"revenue",patterns:[/bill[_ ]?amount/,/total[_ ]?price/,/net[_ ]?amount/,/amount/]}];const saasRules:SemanticRule[]=[{semantic:"subscription_id",patterns:[/subscription/,/^sub[_ ]?id/]},{semantic:"plan",patterns:[/plan/,/tier/,/^package$/]},{semantic:"revenue",patterns:[/mrr/,/arr/,/monthly[_ ]?recurring/,/recurring[_ ]?revenue/,/amount/]},{semantic:"customer_name",patterns:[/account[_ ]?name/,/^account$/,/company/,/^org(anization)?$/]},{semantic:"customer_id",patterns:[/account[_ ]?id/,/^user[_ ]?id$/]}];const servicesRules:SemanticRule[]=[{semantic:"customer_name",patterns:[/client/,/customer/]},{semantic:"department",patterns:[/service[_ ]?line/,/practice/]},{semantic:"date",patterns:[/work[_ ]?date/,/service[_ ]?date/]},{semantic:"revenue",patterns:[/revenue/,/billing/,/billings/]},{semantic:"quantity",patterns:[/billable[_ ]?hours/,/hours/] }];const manufacturingRules:SemanticRule[]=[{semantic:"product_name",patterns:[/product/,/sku/]},{semantic:"quantity",patterns:[/units/,/quantity/,/produced/]},{semantic:"date",patterns:[/production[_ ]?date/,/manufacture[_ ]?date/,/date/]},{semantic:"category",patterns:[/line/,/machine/,/plant/]},{semantic:"revenue",patterns:[/revenue/,/sales/] }];
+function kpis():KpiDef[]{return[{key:"revenue",label:"Revenue",icon:"revenue",format:"money",value:sumRevenue},{key:"profit",label:"Profit",icon:"profit",format:"money",value:sumProfit},{key:"orders",label:"Orders",icon:"orders",format:"number",value:distinctOrCount("order_id")},{key:"customers",label:"Customers",icon:"customers",format:"number",value:distinctCustomers},{key:"margin",label:"Margin",icon:"margin",format:"percent",noChange:true,value:marginPct}];}
+function makePack(id:string,name:string,metrics:PackMetric[],rules:SemanticRule[],signals:Semantic[],defaults:Semantic[],keyMetrics:string[],thresholds:Record<string,number>):IndustryPack{const kk=kpis();return{id,name,key:id,label:name,metrics,defaultDimensions:defaults,keyMetrics,thresholds,rules,signals,minSignals:id==="generic"?Infinity:2,priority:id==="generic"?-1:10,kpis:kk,trend:{title:"Performance Overview",subtitle:"Revenue & profit over time"},composition:{dimension:"category",fallback:"region",title:"Revenue Composition",subtitle:"Share by category",centerLabel:"Revenue"},ranking:{dimension:"product_name",metric:"revenue",title:"Top Products",subtitle:"Ranked by revenue",emptyText:"No product column detected",format:"money",limit:8},secondary:{dimension:"region",metric:"revenue",title:"Region Performance",subtitle:"By revenue",emptyText:"No region column detected",format:"money",limit:10}};}
+const genericPack=makePack("generic","Generic",builtinMetrics,[],[],["product_name","customer_name","region","category","department"],["revenue","profit","orders"],{revenue:-5,profit_margin:10});const retailPack=makePack("retail","Retail",builtinMetrics,retailRules,["order_id","product_name","region","category"],["product_name","customer_name","region","category","state","department"],["revenue","profit","orders"],{revenue:-5,profit_margin:10});const saasPack=makePack("saas","SaaS",[...builtinMetrics,...saasMetrics],saasRules,["subscription_id","plan"],["customer_name","product_name","region","category"],["mrr","churn","arpu","revenue"],{churn:5,revenue:-10,arpu:-10});const pharmacyPack=makePack("pharmacy","Pharmacy",[...builtinMetrics,...pharmacyMetrics],pharmacyRules,["prescription_id","medicine_name","patient_id"],["product_name","category","region","department"],["revenue","expiry_risk","profit"],{expiry_risk:5,revenue:-5});const servicesPack=makePack("services","Services",[...builtinMetrics,...servicesMetrics],servicesRules,["billable_hours","total_hours"],["customer_name","product_name","category","region","department"],["revenue","utilization","avg_rate"],{utilization:60,revenue:-5});const manufacturingPack=makePack("manufacturing","Manufacturing",[...builtinMetrics,...manufacturingMetrics],manufacturingRules,["defect","production","machine"],["product_name","category","region","state","department"],["revenue","defect_rate","profit"],{defect_rate:2,revenue:-5});
+export const PACKS:Record<string,IndustryPack>={generic:genericPack,retail:retailPack,saas:saasPack,pharmacy:pharmacyPack,services:servicesPack,manufacturing:manufacturingPack};export const DEFAULT_PACK_ID="generic";export const INDUSTRIES=Object.values(PACKS).map(p=>({key:p.id,label:p.name}));export function getPack(id?:string|null):IndustryPack{return(id&&PACKS[id])||genericPack;}export function packMetrics(pack:IndustryPack){return pack.metrics;}export function packMetric(pack:IndustryPack,id:string){return pack.metrics.find(m=>m.id===id);}
+export function resolveMetricFromWords(pack:IndustryPack,q:string):PackMetric|undefined{const lower=q.toLowerCase();const words=pack.metrics.flatMap(m=>m.words.map(w=>({m,w}))).sort((a,b)=>b.w.length-a.w.length);for(const{m,w}of words){const escaped=w.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");if(new RegExp(`\\b${escaped}\\b`,"i").test(lower))return m;}return undefined;}
+export function detectPack(s:SchemaMap,columns:string[]=[],datasetName=""):IndustryPack{const words=`${datasetName} ${[...columns,...Object.values(s)].join(" ")}`.toLowerCase();if(/monthly recurring|subscription|churn|plan|license seat|seat/.test(words))return saasPack;if(/prescription|pharmacy|drug|medication|expiry/.test(words))return pharmacyPack;if(/billable|timesheet|utilization|consulting|service level/.test(words))return servicesPack;if(/defect|rework|scrap|production|batch|machine|shift/.test(words))return manufacturingPack;if(/customer|order|product|category|region|retail|store/.test(words))return retailPack;return genericPack;}
+export function suggestIndustry(columns:ColumnProfile[]):string{const ranked=Object.values(PACKS).filter(p=>p.signals.length).map(p=>({p,score:p.signals.filter(s=>detectSchema(columns,p.rules).map[s]).length})).filter(x=>x.score>=x.p.minSignals).sort((a,b)=>b.score-a.score||b.p.priority-a.p.priority);return ranked[0]?.p.id??"generic";}

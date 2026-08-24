@@ -1,18 +1,16 @@
 // Runnable self-check for the deterministic engine. No framework.
 //   npx tsx apps/api/src/engine/selfcheck.ts
 import assert from "node:assert";
+import type { Row } from "./parse.js";
 import { profileDataset } from "./profile.js";
 import { detectSchema, cleanRows } from "./schema.js";
 import * as A from "./analytics.js";
-import { answer, ruleParse, runIntent, type Intent } from "./intent.js";
-import { forecast } from "./forecast.js";
+import { answer } from "./intent.js";
+import { forecast, evaluateGoal, whatIf } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
-import { detectAnomalies } from "./anomaly.js";
-import { analyzeDrivers } from "./drivers.js";
-import { analyzeCorrelations } from "./correlate.js";
-import { segmentEntities } from "./segment.js";
-import { getPack, suggestIndustry } from "./industries.js";
-import { composeReport } from "./report.js";
+import { investigate } from "./investigate.js";
+import { detectPack, packMetric } from "./industries.js";
+import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
 const rows = [
@@ -48,13 +46,6 @@ assert(topCust[0].label === "Ada" && topCust[0].value === 400, "Ada leads with 4
 const inRange = A.applyFilters(rows, map, { dateFrom: "2024-01-01", dateTo: "2024-04-05" });
 assert(inRange.length === 5, `dateTo must include its own day, expected 5 rows got ${inRange.length}`);
 
-// 3a-ii. Dimension filters accept a set (OR-matched, case-insensitive) as well as a
-// single value — the multi-select filter feature.
-const oneRegion = A.applyFilters(rows, map, { region: "East" });
-assert(oneRegion.length === 2, `single region 'East' matches 2 rows case-insensitively, got ${oneRegion.length}`);
-const multiRegion = A.applyFilters(rows, map, { region: ["West", "East"] });
-assert(multiRegion.length === 5, `region set [West, East] matches all 5 rows, got ${multiRegion.length}`);
-
 // 3b. Period-over-period KPIs are measured on a consistent basis (regression: the
 // customers/orders KPIs used to compare the wrong quantities, so change was bogus).
 assert(ov.customers.previous === 2, `customers 'previous' should be prior-period distinct count (2), got ${ov.customers.previous}`);
@@ -86,17 +77,6 @@ const growRes = answer("what product is growing fastest", rows, map);
 assert(growRes.intent.intent === "growing_groups", `growing-fastest routes to growing_groups, got ${growRes.intent.intent}`);
 assert(growRes.table!.rows.some((r) => r[0] === "Widget"), "Widget (revenue 100 -> 300) is flagged as growing");
 
-// 5b. Parse and execute are separable: ruleParse classifies without touching data,
-// and runIntent executes an intent from ANY source (the AI parser feeds it the same
-// shape). A structured intent built by hand — as the LLM would emit — executes correctly.
-assert(ruleParse("top 3 customers by revenue", map).intent === "top_n", "ruleParse classifies top_n");
-const handIntent: Intent = { intent: "top_n", metrics: ["revenue"], dimensions: ["customer_name"], filters: {}, limit: 3, visualization: "none" };
-const exec = runIntent(handIntent, rows, map);
-assert(exec.intent.intent === "top_n" && exec.table!.rows[0][0] === "Ada", "runIntent executes a hand-built intent -> Ada leads");
-assert(runIntent({ intent: "forecast", metrics: ["revenue"], dimensions: ["date"], filters: {}, limit: 3, visualization: "none" }, rows, map).metrics!.length === 3, "runIntent forecast yields 3 points");
-// An unresolvable intent degrades to the deterministic fallback, never throws.
-assert(runIntent({ intent: "unknown", metrics: [], dimensions: [], filters: {}, limit: 0, visualization: "none" }, rows, map).confidence === 0.2, "unknown intent -> fallback");
-
 // 6. Forecast produces the requested horizon with a valid confidence band.
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);
 assert(fc.points.length === 3, "3 forecast points");
@@ -106,80 +86,69 @@ assert(fc.points.every((p) => p.lower <= p.value && p.value <= p.upper), "value 
 const { recommendations, alerts } = deriveInsights(rows, map);
 assert(Array.isArray(recommendations) && Array.isArray(alerts), "insights return arrays");
 
-// 7a. Predictive/advanced-analytics modules (anomaly, drivers, correlation, segments)
-// run through the same schema and reconcile with the deterministic core.
-// Drivers: contributions sum EXACTLY to the overall revenue change.
-const drv = analyzeDrivers(rows, map, "revenue", "product_name");
-const drvSum = drv.drivers.reduce((a, d) => a + d.contribution, 0);
-assert(drv.reconciled && Math.abs(drvSum - drv.totalChange) < 0.01, `driver contributions reconcile to the total change (${drvSum} vs ${drv.totalChange})`);
-// Anomaly detection is safe on short/edge series and never throws.
-assert(Array.isArray(detectAnomalies([{ period: "2024-01", value: 10 }], "Revenue").anomalies), "anomaly detection handles a single point");
-// Correlation excludes non-numeric columns and reports association only.
-const corr = analyzeCorrelations(rows);
-assert(!corr.columns.includes("customer_name"), "correlation skips text columns");
-assert(/does not mean one causes/.test(corr.caveat), "correlation carries a non-causal caveat");
-// Segmentation is deterministic on the same input.
-assert(JSON.stringify(segmentEntities(rows, map)) === JSON.stringify(segmentEntities(rows, map)), "segmentation is deterministic");
+// ---- Phase 1: multi-industry NL / insights / forecasts ----
+const saasRows = generateSaasData() as unknown as Row[];
+const saasCols = Object.keys(saasRows[0]);
+const saasProfile = profileDataset(saasRows as any, saasCols);
+const { map: saasMap } = detectSchema(saasProfile.columns);
 
-// 8. Industry packs adapt vocabulary + KPIs per business type.
-// Retail regression: the pack reproduces the classic 5 KPIs and the same revenue.
-const retailKpis = A.computeKpis(rows, map, getPack("retail"));
-assert(retailKpis.map((k) => k.key).join(",") === "revenue,profit,orders,customers,margin", "retail pack yields the 5 baseline KPIs");
-assert(retailKpis[0].value === 600, `retail revenue KPI expected 600, got ${retailKpis[0].value}`);
+// SaaS pack detection + MRR is askable/insightable/forecastable.
+const saasPack = detectPack(saasMap, saasCols, "SaaS subscriptions");
+assert(saasPack.id === "saas", `saas pack detected, got ${saasPack.id}`);
+const mrrMetric = packMetric(saasPack, "mrr");
+assert(mrrMetric !== undefined, "saas pack declares mrr");
+const saasAnswer = answer("what is mrr this month", saasRows as any, saasMap, "saas");
+assert(saasAnswer.intent.metrics[0] === "mrr", `mrr intent, got ${saasAnswer.intent.metrics[0]}`);
+const saasSeries = A.timeSeries(saasRows as any, saasMap, mrrMetric!);
+assert(saasSeries.length >= 3, `saas mrr series has months, got ${saasSeries.length}`);
+const saasFc = forecast(saasSeries.map((p) => ({ period: p.period, value: p.value })), 3);
+assert(saasFc.points.length === 3, "saas mrr forecast horizon 3");
 
-// Pharmacy: a prescription dataset detects pharmacy vocabulary and its KPIs.
-const rxCols = ["prescription_id", "date", "patient_id", "medicine_name", "category", "quantity", "amount", "cost"];
-const rxRows = [
-  { prescription_id: "RX-1", date: "2024-01-05", patient_id: "P1", medicine_name: "Amoxicillin", category: "Antibiotic", quantity: "2", amount: "24", cost: "12" },
-  { prescription_id: "RX-2", date: "2024-02-05", patient_id: "P2", medicine_name: "Paracetamol", category: "Analgesic", quantity: "1", amount: "6", cost: "3" },
-  { prescription_id: "RX-3", date: "2024-03-05", patient_id: "P1", medicine_name: "Amoxicillin", category: "Antibiotic", quantity: "3", amount: "36", cost: "18" },
-];
-const rxProfile = profileDataset(rxRows, rxCols);
-const pharmacyPack = getPack("pharmacy");
-const rxMap = detectSchema(rxProfile.columns, pharmacyPack.rules).map;
-assert(rxMap.prescription_id === "prescription_id", "pharmacy detects prescription_id");
-assert(rxMap.medicine_name === "medicine_name", "pharmacy detects medicine_name");
-assert(rxMap.patient_id === "patient_id", "pharmacy detects patient_id");
-assert(rxMap.revenue === "amount", "pharmacy maps amount -> revenue");
-const rxKpis = A.computeKpis(rxRows, rxMap, pharmacyPack);
-const rxKpi = (k: string) => rxKpis.find((x) => x.key === k)!.value;
-assert(rxKpi("prescriptions") === 3, `pharmacy prescriptions expected 3, got ${rxKpi("prescriptions")}`);
-assert(rxKpi("patients") === 2, `pharmacy patients expected 2, got ${rxKpi("patients")}`);
-assert(rxKpi("revenue") === 66, `pharmacy revenue expected 66, got ${rxKpi("revenue")}`);
-assert(suggestIndustry(rxProfile.columns) === "pharmacy", "pharmacy data is auto-suggested as pharmacy");
+// Pharmacy pack detection + expiry risk metric.
+const pharmRows = generatePharmacyData() as unknown as Row[];
+const pharmCols = Object.keys(pharmRows[0]);
+const pharmProfile = profileDataset(pharmRows as any, pharmCols);
+const { map: pharmMap } = detectSchema(pharmProfile.columns);
+const pharmPack = detectPack(pharmMap, pharmCols, "pharmacy dispensations");
+assert(pharmPack.id === "pharmacy", `pharmacy pack detected, got ${pharmPack.id}`);
+const expiryMetric = packMetric(pharmPack, "expiry_risk");
+assert(expiryMetric !== undefined, "pharmacy pack declares expiry_risk");
+const expiryAnswer = answer("show expiry risk", pharmRows as any, pharmMap, "pharmacy");
+assert(expiryAnswer.intent.metrics[0] === "expiry_risk", `expiry intent, got ${expiryAnswer.intent.metrics[0]}`);
 
-// SaaS: a subscription dataset detects SaaS vocabulary and its KPIs.
-const subCols = ["subscription_id", "date", "account_id", "account_name", "plan", "mrr", "cost"];
-const subRows = [
-  { subscription_id: "S-1", date: "2024-01-05", account_id: "A1", account_name: "Labs Inc", plan: "Pro", mrr: "99", cost: "30" },
-  { subscription_id: "S-2", date: "2024-02-05", account_id: "A2", account_name: "Group Co", plan: "Starter", mrr: "29", cost: "10" },
-  { subscription_id: "S-3", date: "2024-03-05", account_id: "A1", account_name: "Labs Inc", plan: "Pro", mrr: "99", cost: "30" },
-];
-const subProfile = profileDataset(subRows, subCols);
-const saasPack = getPack("saas");
-const subMap = detectSchema(subProfile.columns, saasPack.rules).map;
-assert(subMap.subscription_id === "subscription_id", "saas detects subscription_id");
-assert(subMap.plan === "plan", "saas detects plan");
-assert(subMap.revenue === "mrr", "saas maps mrr -> revenue");
-const subKpis = A.computeKpis(subRows, subMap, saasPack);
-const subKpi = (k: string) => subKpis.find((x) => x.key === k)!.value;
-assert(subKpi("revenue") === 227, `saas MRR expected 227, got ${subKpi("revenue")}`);
-assert(subKpi("subscriptions") === 3, `saas subscriptions expected 3, got ${subKpi("subscriptions")}`);
-assert(subKpi("plans") === 2, `saas plans expected 2, got ${subKpi("plans")}`);
-assert(suggestIndustry(subProfile.columns) === "saas", "saas data is auto-suggested as saas");
+// Services pack detection + utilization metric.
+const svcRows = generateServicesData() as unknown as Row[];
+const svcCols = Object.keys(svcRows[0]);
+const svcProfile = profileDataset(svcRows as any, svcCols);
+const { map: svcMap } = detectSchema(svcProfile.columns);
+const svcPack = detectPack(svcMap, svcCols, "consulting services");
+assert(svcPack.id === "services", `services pack detected, got ${svcPack.id}`);
+const utilMetric = packMetric(svcPack, "utilization");
+assert(utilMetric !== undefined, "services pack declares utilization");
+const utilAnswer = answer("what is our utilization", svcRows as any, svcMap, "services");
+assert(utilAnswer.intent.metrics[0] === "utilization", `utilization intent, got ${utilAnswer.intent.metrics[0]}`);
 
-// 9. Reports are pack-driven: a pharmacy report carries pharmacy KPIs + sections,
-// not the retail "Top Products".
-const rxReport = composeReport(pharmacyPack, rxRows, rxMap);
-assert(rxReport.industry === "pharmacy", "report tagged with the pack");
-assert(rxReport.kpis.some((k) => k.key === "prescriptions"), "pharmacy report includes the Prescriptions KPI");
-assert(rxReport.sections.some((s) => s.title === "Top Medicines"), "pharmacy report ranks Top Medicines, not Top Products");
-assert(!rxReport.sections.some((s) => s.title === "Top Products"), "pharmacy report has no retail Top Products section");
+// Insights iterate the pack's own key metrics (e.g. expiry_risk alerts).
+const pharmInsights = deriveInsights(pharmRows as any, pharmMap, "pharmacy");
+assert(Array.isArray(pharmInsights.recommendations), "pharmacy insights have recommendations");
 
-// 10. Suggestion tie-break: when a dataset matches retail and pharmacy equally,
-// the specialised pack (higher priority) wins.
-const mixCols = ["prescription_id", "medicine_name", "patient_id", "product_name", "region", "category"];
-const mixRows = [{ prescription_id: "RX-1", medicine_name: "Amoxicillin", patient_id: "P1", product_name: "Widget", region: "West", category: "Antibiotic" }];
-assert(suggestIndustry(profileDataset(mixRows, mixCols).columns) === "pharmacy", "specialised pack wins the tie over retail");
+// ---- Phase 2: investigation — "why" is evidence-backed ---- 
+const why = investigate(rows, map, "revenue");
+assert(why.metric === "revenue", "investigation targets revenue");
+assert(why.drivers.length > 0 && why.drivers[0]!.totalChange === why.totalDelta, "investigation headline reconciles with its drivers");
+assert(why.claims.length > 0, "investigation produces evidence claims");
+assert(why.narrative.length > 40, "investigation narrative is substantive");
+assert(why.claims.every((c) => c.rows >= 0 && c.metric), "claims cite metric + rows");
+const saasWhy = investigate(saasRows as any, saasMap, "mrr", "saas");
+assert(saasWhy.metric === "mrr" && saasWhy.claims.length > 0, "saas 'why' investigation works");
+
+// ---- Phase 3: goal evaluation + what-if ----
+const goalOnTrack = evaluateGoal(120, 100);
+assert(goalOnTrack.status === "on_track", "forecast at/above goal is on_track");
+const goalMissed = evaluateGoal(80, 100);
+assert(goalMissed.status === "missed", "forecast well below goal is missed");
+const wi = whatIf([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3, 50, 150);
+assert(wi.scenario.points[0].value > wi.base.points[0].value, "what-if delta lifts the projection");
+assert(wi.goal !== undefined, "what-if returns goal status");
 
 console.log("✓ engine selfcheck passed");

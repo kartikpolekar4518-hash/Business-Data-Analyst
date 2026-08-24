@@ -1,0 +1,7 @@
+export function mean(xs:number[]):number{return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:0;}
+export function stdDev(xs:number[]):number{if(xs.length<2)return 0;const m=mean(xs);return Math.sqrt(xs.reduce((a,x)=>a+(x-m)**2,0)/xs.length);}
+export function pearsonCorrelation(xs:number[],ys:number[]):number{const n=Math.min(xs.length,ys.length);if(n<2)return 0;const mx=mean(xs.slice(0,n)),my=mean(ys.slice(0,n));let xy=0,xx=0,yy=0;for(let i=0;i<n;i++){const dx=xs[i]! - mx,dy=ys[i]! - my;xy+=dx*dy;xx+=dx*dx;yy+=dy*dy;}return xx&&yy?xy/Math.sqrt(xx*yy):0;}
+export function spearmanCorrelation(xs:number[],ys:number[]):number{const rank=(v:number[])=>{const a=v.map((x,i)=>({x,i})).sort((p,q)=>p.x-q.x);const r=new Array<number>(v.length);for(let i=0;i<a.length;i++)r[a[i]!.i]=i+1;return r;};return pearsonCorrelation(rank(xs),rank(ys));}
+export function quartiles(xs:number[]):{q1:number;q2:number;q3:number}{if(!xs.length)return{q1:0,q2:0,q3:0};const a=[...xs].sort((x,y)=>x-y);const q=(p:number)=>{const i=(a.length-1)*p,lo=Math.floor(i),hi=Math.ceil(i);return lo===hi?a[lo]!:a[lo]!+(a[hi]!-a[lo]!)*(i-lo);};return{q1:q(.25),q2:q(.5),q3:q(.75)};}
+export function outliersByIQR(xs:number[],k=1.5):number[]{const{q1,q3}=quartiles(xs),iqr=q3-q1,lower=q1-k*iqr,upper=q3+k*iqr;return xs.map((x,index)=>x<lower||x>upper?index:-1).filter(index=>index>=0);}
+export function outliersByZScore(xs:number[],threshold=3):number[]{const m=mean(xs),s=stdDev(xs);return s?xs.map((x,i)=>Math.abs((x-m)/s)>=threshold?i:-1).filter(i=>i>=0):[];}

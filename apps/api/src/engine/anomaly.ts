@@ -1,118 +1,18 @@
-// Deterministic anomaly detection on a time series. Pure — no I/O, no randomness.
-// A point is flagged when it departs from the fitted trend by more than the normal
-// variation, judged two robust ways that a single wild point cannot mask: a
-// MAD-based modified z-score (Iglewicz–Hoaglin) on the residuals, and an IQR fence
-// on them. Both use medians, so one outlier does not inflate the "normal" spread and
-// hide itself. Same input always yields the same anomalies; the model never sees
-// anything but the numbers.
-
-import { linearFit } from "./forecast.js";
-import { quartiles } from "./quantiles.js";
-
-function median(xs: number[]): number {
-  if (!xs.length) return 0;
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
-}
-
-export interface SeriesPoint { period: string; value: number; }
-
-export interface AnomalyPoint {
-  period: string;
-  value: number;
-  expected: number;          // trend-fit value for this period
-  lower: number;             // expected "normal" range
-  upper: number;
-  deviation: number;         // signed z-score (residual / std); 0 when std is 0
-  direction: "spike" | "drop";
-  severity: "LOW" | "MEDIUM" | "HIGH";
-  method: "zscore" | "iqr" | "both";
-  reason: string;            // human-readable explanation
-}
-
-export interface AnnotatedPoint extends SeriesPoint {
-  expected: number;
-  lower: number;
-  upper: number;
-  isAnomaly: boolean;
-}
-
-export interface AnomalyResult {
-  method: string;
-  metric: string;
-  anomalies: AnomalyPoint[];
-  points: AnnotatedPoint[];  // whole series, annotated — for charting the band
-}
-
-// Modified-z thresholds (Iglewicz–Hoaglin): >= FLAG is anomalous, >= SEVERE is severe.
-const Z_FLAG = 3.5;
-const Z_SEVERE = 5;
-const IQR_K = 1.5;
-const MAD_SCALE = 1.4826; // makes MAD a consistent estimator of the std-dev for normal data
-const MIN_POINTS = 4;     // below this, "normal variation" isn't defined — report nothing.
-
-function round(n: number): number { return Math.round(n * 100) / 100; }
-function fmt(n: number): string { return Math.round(n).toLocaleString("en-US"); }
-
-// Detect anomalies in a period/value series. `metric` only shapes the wording.
-export function detectAnomalies(series: SeriesPoint[], metric = "value"): AnomalyResult {
-  const clean = series.filter((p) => isFinite(p.value));
-  const method = "residual_modz+iqr";
-  if (clean.length < MIN_POINTS) {
-    return {
-      method, metric, anomalies: [],
-      points: clean.map((p) => ({ ...p, expected: p.value, lower: p.value, upper: p.value, isAnomaly: false })),
-    };
-  }
-
-  const ys = clean.map((p) => p.value);
-  const { a, b } = linearFit(ys);
-  const resid = ys.map((y, i) => y - (a + b * i));
-
-  // Robust spread of the residuals — medians, so one outlier can't inflate it.
-  const medR = median(resid);
-  const rstd = MAD_SCALE * median(resid.map((r) => Math.abs(r - medR)));
-  const { q1, q3 } = quartiles(resid);
-  const iqr = q3 - q1;
-  const iqrLo = q1 - IQR_K * iqr;
-  const iqrHi = q3 + IQR_K * iqr;
-
-  // Normal band on residuals = the INTERSECTION of the active envelopes (modified-z and
-  // IQR fence). Detection flags a point outside EITHER envelope, so the intersection is
-  // exactly the region no method flags — a point outside the drawn band is then exactly
-  // a flagged one. An inactive method (zero spread) doesn't constrain the band.
-  const modzActive = rstd > 0;
-  const iqrActive = iqr > 0;
-  let resLo = Math.max(modzActive ? medR - Z_FLAG * rstd : -Infinity, iqrActive ? iqrLo : -Infinity);
-  let resHi = Math.min(modzActive ? medR + Z_FLAG * rstd : Infinity, iqrActive ? iqrHi : Infinity);
-  if (!isFinite(resLo) || !isFinite(resHi)) { resLo = medR; resHi = medR; } // no spread defined at all
-
-  const anomalies: AnomalyPoint[] = [];
-  const points: AnnotatedPoint[] = clean.map((p, i) => {
-    const expected = a + b * i;
-    const r = resid[i];
-    const modz = rstd > 0 ? (r - medR) / rstd : 0;
-    const lower = round(expected + resLo);
-    const upper = round(expected + resHi);
-
-    const byZ = rstd > 0 && Math.abs(modz) >= Z_FLAG;
-    const byIqr = iqr > 0 && (r < iqrLo || r > iqrHi);
-    const isAnomaly = byZ || byIqr;
-
-    if (isAnomaly) {
-      const direction: "spike" | "drop" = r >= medR ? "spike" : "drop";
-      const severity = Math.abs(modz) >= Z_SEVERE ? "HIGH" : byZ ? "MEDIUM" : "LOW";
-      const m: AnomalyPoint["method"] = byZ && byIqr ? "both" : byZ ? "zscore" : "iqr";
-      const magnitude = rstd > 0 ? `${round(Math.abs(modz))}× the normal variation` : "well outside the typical range";
-      anomalies.push({
-        period: p.period, value: round(p.value), expected: round(expected),
-        lower, upper, deviation: round(modz), direction, severity, method: m,
-        reason: `${metric} was ${fmt(p.value)} in ${p.period} — ${magnitude} ${direction === "spike" ? "above" : "below"} the expected ${fmt(expected)} (normal range ${fmt(lower)}–${fmt(upper)}).`,
-      });
-    }
-    return { period: p.period, value: round(p.value), expected: round(expected), lower, upper, isAnomaly };
-  });
-
-  return { method, metric, anomalies, points };
-}
+import type { Row } from "./parse.js";
+import type { SchemaMap } from "./schema.js";
+import * as A from "./analytics.js";
+import { stdDev } from "./statistics.js";
+export interface SeriesPoint{period:string;value:number;}
+export interface AnomalyPoint{period:string;value:number;expected:number;deviation:number;zScore:number|null;method:"iqr"|"zscore";direction?:"spike"|"drop";severity?:"LOW"|"MEDIUM"|"HIGH";reason?:string;lower:number;upper:number;isAnomaly:boolean;}
+export interface AnnotatedPoint extends SeriesPoint{expected:number;lower:number;upper:number;isAnomaly:boolean;}
+export interface AnomalyResult{metric:string;points:AnomalyPoint[];anomalies:AnomalyPoint[];method?:string;}
+function median(xs:number[]):number{if(!xs.length)return 0;const a=[...xs].sort((p,q)=>p-q),m=Math.floor(a.length/2);return a.length%2?a[m]!:(a[m-1]!+a[m]!)/2;}
+// A point is anomalous when its Iglewicz–Hoaglin modified z-score (median/MAD based,
+// so a single wild point cannot inflate the "normal" spread and hide itself) exceeds
+// the 3.5 threshold. The drawn band is expected ± 3.5 units of normal variation, so a
+// flagged point always sits outside its band by construction. MAD falls back to the
+// standard deviation only when every deviation-from-median is zero-but-not-flat.
+function detectSeries(series:SeriesPoint[],metric:string):AnomalyResult{if(series.length<4)return{metric,points:[],anomalies:[],method:"mad-zscore"};const values=series.map(p=>p.value),med=median(values),mad=median(values.map(v=>Math.abs(v-med))),sd=stdDev(values),T=3.5,scale=mad>0?mad/0.6745:sd,lower=Math.round((med-T*scale)*100)/100,upper=Math.round((med+T*scale)*100)/100;const points:AnomalyPoint[]=[],anomalies:AnomalyPoint[]=[];for(const p of series){const z=scale>0?(p.value-med)/scale:0,isAnomaly=Math.abs(z)>=T,deviation=Math.round((p.value-med)*100)/100;const point:AnomalyPoint={period:p.period,value:p.value,expected:med,deviation,zScore:isAnomaly?Math.round(z*100)/100:null,method:"zscore",direction:p.value>=med?"spike":"drop",severity:isAnomaly?(Math.abs(z)>=5?"HIGH":Math.abs(z)>=T?"MEDIUM":"LOW"):undefined,reason:isAnomaly?`${metric} was ${p.value} in ${p.period}, versus an expected ~${Math.round(med)} (${Math.abs(z).toFixed(1)}σ from normal).`:undefined,lower,upper,isAnomaly};points.push(point);if(isAnomaly)anomalies.push(point);}return{metric,points,anomalies,method:"mad-zscore"};}
+export function detectAnomalies(rows:Row[],s:SchemaMap,metric:string|{id:string;compute:(rows:Row[],s:SchemaMap)=>number}):AnomalyResult;
+export function detectAnomalies(series:SeriesPoint[],metric?:string):AnomalyResult;
+export function detectAnomalies(a:Row[]|SeriesPoint[],b:SchemaMap|string="revenue",metric?:string|{id:string;compute:(rows:Row[],s:SchemaMap)=>number}):AnomalyResult{if(typeof b==="string")return detectSeries(a as SeriesPoint[],b);const m=typeof metric==="object"?metric.id:(metric??"revenue");return detectSeries(A.timeSeries(a as Row[],b,metric as any),m);}

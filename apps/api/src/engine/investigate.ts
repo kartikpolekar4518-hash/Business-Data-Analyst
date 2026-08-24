@@ -1,87 +1,136 @@
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
-import { analyzeDrivers, type DriverMetric, type DriverResult } from "./drivers.js";
-import { analyzeCorrelations, type CorrelationResult } from "./correlate.js";
+import { analyzeDrivers, decomposePriceVolumeMix, type DriverResult, type Decomposition } from "./drivers.js";
+import { correlateMetric, type CorrelationResult } from "./correlate.js";
 import { detectAnomalies, type AnomalyResult } from "./anomaly.js";
-import { getPack } from "./industries.js";
+import { detectPack, getPack, packMetric, type PackMetric } from "./industries.js";
 
-export interface EvidenceClaim { kind: "driver" | "correlation" | "anomaly"; metric: string; period: string; dimension?: string; detail: string; rows: number; value: number; }
-export interface Investigation { metric: DriverMetric; metricLabel: string; pack: string; comparisonAvailable: boolean; totalDelta: number; currentTotal: number; previousTotal: number; changePct: number | null; drivers: DriverResult[]; correlation: CorrelationResult; anomalies: AnomalyResult; claims: EvidenceClaim[]; narrative: string; }
+// Root-cause "why" investigation. Pure and deterministic: it orchestrates the
+// existing evidence tools (driver attribution, price/volume/mix decomposition,
+// correlation, anomaly detection) into one narrative. It never invents a number —
+// every claim is computed by those tools and cites the rows it came from.
+//
+// Two guarantees carried over from the hardened engine:
+//  - Period totals use the SAME median split as driver analysis (A.splitPeriods),
+//    so the headline delta reconciles with the driver claims by construction.
+//  - A single-period dataset is never presented as a change.
 
-const CANDIDATE_DIMENSIONS: Semantic[] = ["product_name", "medicine_name", "plan", "customer_name", "region", "category", "state", "department"];
-
-// Driver attribution is currently defined only for revenue and profit. Rejecting
-// another KPI is safer than silently returning a revenue investigation for a
-// question about prescriptions, customers, or another unrelated measure.
-function supportedMetric(metricId: string): DriverMetric | null {
-  return metricId === "revenue" || metricId === "profit" ? metricId : null;
+export interface EvidenceClaim {
+  kind: "driver" | "decomposition" | "correlation" | "anomaly";
+  metric: string;
+  period: string;
+  dimension?: string;
+  detail: string;
+  rows: number;
+  value: number;
 }
+
+export interface Investigation {
+  metric: string;
+  metricLabel: string;
+  pack: string;
+  comparisonAvailable: boolean;
+  totalDelta: number;
+  currentTotal: number;
+  previousTotal: number;
+  changePct: number | null;
+  drivers: DriverResult[];
+  decomposition: Decomposition | null;
+  correlation: CorrelationResult | null;
+  anomalies: AnomalyResult | null;
+  claims: EvidenceClaim[];
+  narrative: string;
+}
+
+const CANDIDATE_DIMENSIONS: Semantic[] = ["product_name", "customer_name", "region", "category", "state", "department"];
 
 export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?: string): Investigation {
-  const pack = getPack(packId);
-  const metric = supportedMetric(metricId);
+  const pack = packId ? getPack(packId) : detectPack(s, [], "");
+  const metric = packMetric(pack, metricId);
+  // Silently investigating "revenue" when the caller asked about a metric this
+  // pack does not define would produce a confident answer to the wrong question.
   if (!metric) throw new RangeError(`Unsupported investigation metric: ${metricId}`);
-  const metricLabel = pack.kpis.find((kpi) => kpi.key === metric)?.label ?? metric[0].toUpperCase() + metric.slice(1);
-  // Use the same median-based periods as driver analysis. Comparing the last two
-  // months here would make the headline disagree with every driver claim.
+
+  // Same periods as analyzeDrivers, so the headline and the driver claims agree.
   const { current, previous } = A.splitPeriods(rows, s);
   const comparisonAvailable = previous.length > 0;
+  const currentTotal = round(metric.compute(current, s));
+  const previousTotal = comparisonAvailable ? round(metric.compute(previous, s)) : 0;
+  const totalDelta = comparisonAvailable ? round(currentTotal - previousTotal) : 0;
+  const changePct = comparisonAvailable && previousTotal !== 0 ? round((totalDelta / Math.abs(previousTotal)) * 100) : null;
+
+  // Driver attribution only makes sense for additive metrics — summing a ratio
+  // (churn, ARPU) or a distinct count across dimension members is meaningless. For
+  // those we still investigate via correlation and anomalies, just not drivers.
+  const attributable = metric.kind === "sum";
   const drivers: DriverResult[] = [];
-  if (comparisonAvailable) {
+  if (comparisonAvailable && attributable) {
     for (const dim of CANDIDATE_DIMENSIONS) {
       if (!s[dim]) continue;
-      const result = analyzeDrivers(rows, s, metric, dim, {}, 5);
-      if (result.drivers.length) drivers.push(result);
+      const d = analyzeDrivers(rows, s, metric, dim, {}, 5);
+      if (d.drivers.length) drivers.push(d);
     }
+    drivers.sort((a, b) => Math.abs(b.totalChange) - Math.abs(a.totalChange));
   }
-  drivers.sort((a, b) => Math.abs(b.totalChange) - Math.abs(a.totalChange));
 
-  const total = (periodRows: Row[]) => {
-    if (metric === "revenue") return periodRows.reduce((sum, row) => sum + A.rowRevenue(row, s), 0);
-    return periodRows.reduce((sum, row) => sum + A.rowProfit(row, s), 0);
-  };
-  const currentTotal = total(current);
-  const previousTotal = total(previous);
-  const totalDelta = comparisonAvailable ? currentTotal - previousTotal : 0;
-  const changePct = comparisonAvailable && previousTotal !== 0 ? (totalDelta / Math.abs(previousTotal)) * 100 : null;
-
-  const correlation = analyzeCorrelations(rows);
-  const anomalies = detectAnomalies(A.timeSeries(rows, s, metric), metric);
-  const periodRowCount = current.length + previous.length;
+  const decomposition = metric.id === "revenue" ? decomposePriceVolumeMix(rows, s) : null;
+  const correlation = correlateMetric(rows, s, metric);
+  const anomalies = detectAnomalies(rows, s, metric);
   const claims: EvidenceClaim[] = [];
 
-  for (const driver of drivers.slice(0, 3)) {
-    const top = driver.drivers[0];
+  for (const d of drivers.slice(0, 3)) {
+    const top = d.drivers[0];
     if (!top) continue;
-    claims.push({ kind: "driver", metric, period: "current vs previous half", dimension: driver.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: periodRowCount, value: top.contribution });
+    claims.push({ kind: "driver", metric: metric.id, period: "current vs previous half", dimension: d.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: d.drivers.length, value: top.contribution });
   }
 
-  for (const pair of correlation.pairs.slice(0, 3)) {
-    if (pair.strength === "weak" || pair.strength === "negligible") continue;
-    const movement = pair.direction === "negative" ? "move in opposite directions" : "move together";
-    claims.push({ kind: "correlation", metric, period: "all records", dimension: pair.b, detail: `${pair.a} and ${pair.b} ${movement} (${pair.coefficient})`, rows: pair.sampleSize, value: pair.coefficient });
+  if (decomposition?.canDecompose) {
+    const parts: string[] = [];
+    if (Math.abs(decomposition.volumeDelta) > 0.01) parts.push(`volume ${fmt(decomposition.volumeDelta)}`);
+    if (Math.abs(decomposition.priceDelta) > 0.01) parts.push(`price ${fmt(decomposition.priceDelta)}`);
+    if (Math.abs(decomposition.mixDelta) > 0.01) parts.push(`mix ${fmt(decomposition.mixDelta)}`);
+    if (parts.length) claims.push({ kind: "decomposition", metric: metric.id, period: "current vs previous half", detail: `Revenue change: ${parts.join(", ")}`, rows: rows.length, value: totalDelta });
   }
 
-  for (const anomaly of anomalies.anomalies.slice(0, 2)) {
-    claims.push({ kind: "anomaly", metric, period: anomaly.period, detail: `${anomaly.period} was a ${anomaly.direction} (actual ${fmt(anomaly.value)} vs expected ${fmt(anomaly.expected)}; deviation ${fmt(anomaly.deviation)})`, rows: anomalies.points.length, value: anomaly.deviation });
+  for (const f of (correlation?.factors ?? []).slice(0, 3)) {
+    if (f.strength === "weak") continue;
+    claims.push({ kind: "correlation", metric: metric.id, period: "monthly", dimension: f.column, detail: `${f.column} moves with ${metric.id} (r=${f.pearson.toFixed(2)})`, rows: rows.length, value: f.pearson });
   }
 
-  const narrative = buildNarrative(metricLabel, currentTotal, totalDelta, changePct, comparisonAvailable, drivers, anomalies);
-  return { metric, metricLabel, pack: pack.key, comparisonAvailable, totalDelta, currentTotal, previousTotal, changePct, drivers, correlation, anomalies, claims, narrative };
+  for (const a of (anomalies?.anomalies ?? []).slice(0, 2)) {
+    claims.push({ kind: "anomaly", metric: metric.id, period: a.period, detail: `${a.period} was anomalous (${fmt(a.deviation)} vs expected ${fmt(a.expected)})`, rows: rows.length, value: a.deviation });
+  }
+
+  const narrative = buildNarrative(metric, comparisonAvailable, currentTotal, totalDelta, changePct, drivers, decomposition, correlation, anomalies);
+  return { metric: metric.id, metricLabel: metric.label, pack: pack.id, comparisonAvailable, totalDelta, currentTotal, previousTotal, changePct, drivers, decomposition, correlation, anomalies, claims, narrative };
 }
 
-function buildNarrative(metricLabel: string, currentTotal: number, totalDelta: number, changePct: number | null, comparisonAvailable: boolean, drivers: DriverResult[], anomalies: AnomalyResult): string {
-  if (!comparisonAvailable) return `${metricLabel} is ${fmt(currentTotal)}. There is not enough dated history for a period-over-period comparison.`;
-  const direction = totalDelta > 0 ? "increased" : totalDelta < 0 ? "decreased" : "was unchanged";
-  const change = changePct === null ? fmt(totalDelta) : `${fmt(totalDelta)} (${Math.round(changePct * 10) / 10}%)`;
-  const lead = drivers[0]?.drivers[0];
-  const driverText = lead ? ` The largest contribution came from ${lead.label} (${fmt(lead.contribution)}).` : "";
-  const anomalyText = anomalies.anomalies.length ? ` ${anomalies.anomalies.length} anomalous period${anomalies.anomalies.length === 1 ? " was" : "s were"} detected.` : "";
-  return `${metricLabel} ${direction} by ${change}.${driverText}${anomalyText}`;
+function buildNarrative(metric: PackMetric, comparisonAvailable: boolean, currentTotal: number, totalDelta: number, changePct: number | null, drivers: DriverResult[], decomposition: Decomposition | null, correlation: CorrelationResult | null, anomalies: AnomalyResult | null): string {
+  if (!comparisonAvailable) return `${metric.label} is ${fmt(currentTotal)}. There is not enough dated history for a period-over-period comparison.`;
+  const direction = totalDelta > 0 ? "increased" : totalDelta < 0 ? "decreased" : "was flat";
+  const change = changePct === null ? fmt(totalDelta) : `${fmt(totalDelta)} (${Math.abs(changePct).toFixed(1)}%)`;
+  const parts = [`${metric.label} ${direction} by ${change}.`];
+
+  const top = drivers[0]?.drivers[0];
+  if (top) parts.push(`${top.label} was the largest identified driver, contributing ${fmt(top.contribution)} to the change.`);
+
+  if (decomposition?.canDecompose) {
+    const components = [["volume", decomposition.volumeDelta], ["price", decomposition.priceDelta], ["mix", decomposition.mixDelta]] as const;
+    const major = components.reduce((best, item) => Math.abs(item[1]) > Math.abs(best[1]) ? item : best, components[0]);
+    if (Math.abs(major[1]) > 0.01) parts.push(`${major[0]} was the largest component of the revenue change in the available decomposition.`);
+  }
+
+  const corr = correlation?.factors?.find((f) => f.strength !== "weak");
+  if (corr) parts.push(`${corr.column} showed a ${corr.strength} ${corr.direction} association with ${metric.id}; this is correlation, not causation.`);
+
+  const anomalyCount = anomalies?.anomalies?.length ?? 0;
+  if (anomalyCount) parts.push(`${anomalyCount} anomalous period${anomalyCount === 1 ? " was" : "s were"} detected.`);
+  return parts.join(" ");
 }
 
+function round(n: number): number { return Math.round(A.num(n) * 100) / 100; }
 function fmt(n: number): string {
-  const value = A.num(n);
-  return Math.abs(value) >= 1000 ? value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(Math.round(value * 100) / 100);
+  const v = A.num(n);
+  return Math.abs(v) >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(Math.round(v * 100) / 100);
 }

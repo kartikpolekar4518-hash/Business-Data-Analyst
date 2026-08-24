@@ -20,6 +20,22 @@ export interface ForecastResult {
   points: ForecastPoint[];
 }
 
+// Goal evaluation: is the forecast on track vs a target?
+export interface GoalStatus {
+  goal: number;
+  forecastValue: number;
+  status: "on_track" | "at_risk" | "missed";
+  gap: number;            // goal - forecastValue (positive = shortfall)
+  gapPct: number;         // gap / goal, as a percentage
+}
+
+export interface WhatIfResult {
+  base: ForecastResult;
+  scenario: ForecastResult;
+  driverDelta: number;    // the applied driver change
+  goal?: GoalStatus;
+}
+
 function nextPeriod(last: string): string {
   // periods look like "YYYY-MM"
   const m = /^(\d{4})-(\d{2})$/.exec(last);
@@ -172,3 +188,38 @@ export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
 }
 
 function round(n: number): number { return Math.round(n * 100) / 100; }
+
+/**
+ * Evaluate a forecast against a goal/target. Deterministic band-based judgement:
+ * - on_track: forecast value is at/above the goal
+ * - at_risk:  forecast is within 10% below the goal
+ * - missed:   forecast is more than 10% below the goal
+ */
+export function evaluateGoal(forecastValue: number, goal: number): GoalStatus {
+  const gap = goal - forecastValue;
+  const gapPct = goal === 0 ? 0 : Math.round((gap / Math.abs(goal)) * 1000) / 10;
+  let status: GoalStatus["status"];
+  if (forecastValue >= goal) status = "on_track";
+  else if (gapPct <= 10) status = "at_risk";
+  else status = "missed";
+  return { goal, forecastValue, status, gap: round(gap), gapPct };
+}
+
+/**
+ * What-if / driver-based projection: re-run the forecast with a driver delta
+ * applied to the most recent history value (e.g. "what if we add 5% more volume?").
+ * The scenario shifts the trend's intercept so the whole fan moves with the lever.
+ */
+export function whatIf(history: HistoryPoint[], horizon: number, driverDelta: number, goal?: number): WhatIfResult {
+  const base = forecast(history, horizon);
+  // Apply the driver delta to the last history point, then re-forecast.
+  const last = history[history.length - 1];
+  const shifted = last ? [...history.slice(0, -1), { period: last.period, value: last.value + driverDelta }] : history;
+  const scenario = forecast(shifted, horizon);
+  return {
+    base,
+    scenario,
+    driverDelta,
+    goal: goal === undefined ? undefined : evaluateGoal(scenario.points[0]?.value ?? 0, goal),
+  };
+}
