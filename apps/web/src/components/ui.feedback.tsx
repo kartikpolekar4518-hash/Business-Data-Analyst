@@ -184,11 +184,14 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const resume = () => {
+    if (timer.current) return;
     startedAt.current = Date.now();
     timer.current = setTimeout(() => onDismiss(toast.id), remaining.current);
   };
   const pause = () => {
-    if (timer.current) clearTimeout(timer.current);
+    if (!timer.current) return;
+    clearTimeout(timer.current);
+    timer.current = undefined;
     remaining.current -= Date.now() - startedAt.current;
   };
   useEffect(() => {
