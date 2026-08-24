@@ -16,6 +16,13 @@ export interface DbConfig { host: string; port?: number; database: string; user:
 export interface SheetConfig { sheetUrl: string; }
 
 const QUERY_TIMEOUT_MS = 15_000;
+
+// Skipping TLS cert verification is only honored alongside the same escape hatch
+// that permits private hosts — otherwise an admin could self-service disable cert
+// checks on a public connector (MITM). Off by default: certs are verified.
+function insecureTlsAllowed(cfg: DbConfig): boolean {
+  return !!cfg.allowInsecureTls && env.allowPrivateConnectorHosts;
+}
 // Table/column identifiers: letters, digits, underscore, and a single dot for
 // schema-qualified names. Anything else is rejected so we never interpolate
 // attacker-controlled SQL. Free-form queries are intentionally unsupported.
@@ -72,7 +79,7 @@ async function fetchPostgres(cfg: DbConfig, password: string): Promise<ParsedFil
   const { default: pg } = await import("pg");
   const client = new pg.Client({
     host: cfg.host, port: cfg.port ?? 5432, database: cfg.database, user: cfg.user, password,
-    ssl: cfg.ssl ? { rejectUnauthorized: !cfg.allowInsecureTls } : undefined,
+    ssl: cfg.ssl ? { rejectUnauthorized: !insecureTlsAllowed(cfg) } : undefined,
     connectionTimeoutMillis: QUERY_TIMEOUT_MS, statement_timeout: QUERY_TIMEOUT_MS,
   });
   await client.connect();
@@ -87,7 +94,7 @@ async function fetchMysql(cfg: DbConfig, password: string): Promise<ParsedFile> 
   const mysql = await import("mysql2/promise");
   const conn = await mysql.createConnection({
     host: cfg.host, port: cfg.port ?? 3306, database: cfg.database, user: cfg.user, password,
-    ssl: cfg.ssl ? { rejectUnauthorized: !cfg.allowInsecureTls } : undefined,
+    ssl: cfg.ssl ? { rejectUnauthorized: !insecureTlsAllowed(cfg) } : undefined,
     connectTimeout: QUERY_TIMEOUT_MS,
   });
   try {
@@ -102,7 +109,7 @@ async function fetchSqlServer(cfg: DbConfig, password: string): Promise<ParsedFi
   const { default: sql } = await import("mssql");
   const pool = await sql.connect({
     server: cfg.host, port: cfg.port ?? 1433, database: cfg.database, user: cfg.user, password,
-    options: { encrypt: cfg.ssl !== false, trustServerCertificate: !!cfg.allowInsecureTls },
+    options: { encrypt: cfg.ssl !== false, trustServerCertificate: insecureTlsAllowed(cfg) },
     connectionTimeout: QUERY_TIMEOUT_MS, requestTimeout: QUERY_TIMEOUT_MS,
   });
   try {

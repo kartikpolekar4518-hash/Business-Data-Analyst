@@ -9,6 +9,8 @@ export interface AuthContext {
   userId: string;
   organizationId: string;
   role: Role;
+  // Bumped on password reset / logout-all to invalidate previously issued tokens.
+  tokenVersion: number;
 }
 
 declare global {
@@ -18,8 +20,9 @@ declare global {
   }
 }
 
-export function signToken(payload: AuthContext): string {
-  return jwt.sign(payload, env.jwtSecret, { expiresIn: env.jwtExpiresIn } as jwt.SignOptions);
+export function signToken(payload: Omit<AuthContext, "tokenVersion"> & { tokenVersion?: number }): string {
+  const claims: AuthContext = { ...payload, tokenVersion: payload.tokenVersion ?? 0 };
+  return jwt.sign(claims, env.jwtSecret, { expiresIn: env.jwtExpiresIn, algorithm: "HS256" } as jwt.SignOptions);
 }
 
 // Verifies the JWT and confirms the membership still exists (org isolation source of truth).
@@ -28,12 +31,15 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     const auth = req.headers.authorization;
     const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
     if (!token) throw new HttpError(401, "Not authenticated");
-    const decoded = jwt.verify(token, env.jwtSecret) as AuthContext;
+    const decoded = jwt.verify(token, env.jwtSecret, { algorithms: ["HS256"] }) as AuthContext;
     const member = await prisma.organizationMember.findFirst({
       where: { userId: decoded.userId, organizationId: decoded.organizationId },
+      include: { user: { select: { tokenVersion: true } } },
     });
     if (!member) throw new HttpError(401, "Membership not found");
-    req.auth = { userId: member.userId, organizationId: member.organizationId, role: member.role };
+    // Reject tokens issued before the last password reset / logout-all.
+    if ((decoded.tokenVersion ?? 0) !== member.user.tokenVersion) throw new HttpError(401, "Token has been revoked");
+    req.auth = { userId: member.userId, organizationId: member.organizationId, role: member.role, tokenVersion: member.user.tokenVersion };
     next();
   } catch (e) {
     if (e instanceof HttpError) return next(e);

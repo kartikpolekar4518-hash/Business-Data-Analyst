@@ -57,6 +57,8 @@ model User {
   email        String               @unique
   name         String
   passwordHash String
+  // Incremented to invalidate all previously issued JWTs (password reset / logout-all).
+  tokenVersion Int                  @default(0)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   memberships  OrganizationMember[]
