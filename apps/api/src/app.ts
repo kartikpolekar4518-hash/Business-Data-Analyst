@@ -59,6 +59,17 @@ app.use((req, res, next) => {
   next();
 });
 
+// Lenient global floor under the tighter per-route limiters. Generous so NAT'd
+// offices aren't throttled; /auth/me and /health are exempt (they fire on every
+// page load — same rationale as the per-route limiter placement below).
+app.use(rateLimit({
+  windowMs: 60_000,
+  limit: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === "/api/health" || req.path === "/api/auth/me",
+}));
+
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // Public: the industry list is the single source of truth for signup + settings.

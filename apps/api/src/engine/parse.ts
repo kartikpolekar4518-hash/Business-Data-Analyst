@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import * as XLSX from "@e965/xlsx";
+import { env } from "../env.js";
 
 export type Row = Record<string, unknown>;
 
@@ -27,9 +28,14 @@ export function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: stri
     throw new Error(`File exceeds maximum size of 50MB (got ${(buffer.length / 1024 / 1024).toFixed(1)}MB)`);
   }
   const lower = fileName.toLowerCase();
-  if (lower.endsWith(".csv") || lower.endsWith(".txt")) return parseCsv(buffer);
-  if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) return parseXlsx(buffer);
-  throw new Error("Unsupported file type. Upload a .csv, .xlsx or .xls file.");
+  let parsed: ParsedFile;
+  if (lower.endsWith(".csv") || lower.endsWith(".txt")) parsed = parseCsv(buffer);
+  else if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) parsed = parseXlsx(buffer);
+  else throw new Error("Unsupported file type. Upload a .csv, .xlsx or .xls file.");
+  // Bound row count (the byte limit alone lets a narrow-column file blow past the
+  // ~100k-row JSON-storage assumption). Mirrors the connector maxSyncRows cap.
+  if (parsed.rows.length > env.maxSyncRows) parsed.rows = parsed.rows.slice(0, env.maxSyncRows);
+  return parsed;
 }
 
 function parseCsv(buffer: Buffer): ParsedFile {

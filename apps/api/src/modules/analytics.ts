@@ -35,16 +35,12 @@ const filterSchema = z.object({
 });
 
 function filtersFrom(query: any): A.Filters {
-  try {
-    const validated = filterSchema.parse(query);
-    return Object.fromEntries(
-      Object.entries(validated).filter(([, v]) => v !== undefined)
-    ) as A.Filters;
-  } catch (e) {
-    // Return empty filters if validation fails — don't break the query
-    console.warn("[analytics] Filter validation failed", e);
-    return {};
-  }
+  // Fail closed: let a ZodError propagate to the central handler (400) rather than
+  // silently discarding malformed filters and returning an unfiltered result set.
+  const validated = filterSchema.parse(query);
+  return Object.fromEntries(
+    Object.entries(validated).filter(([, v]) => v !== undefined)
+  ) as A.Filters;
 }
 
 const timeSeries = (metric: "revenue" | "profit") =>
