@@ -135,7 +135,7 @@ assert(Array.isArray(pharmInsights.recommendations), "pharmacy insights have rec
 // ---- Phase 2: investigation — "why" is evidence-backed ---- 
 const why = investigate(rows, map, "revenue");
 assert(why.metric === "revenue", "investigation targets revenue");
-assert(why.totalDelta !== 0, "investigation sees a revenue delta");
+assert(why.drivers.length > 0 && why.drivers[0]!.totalChange === why.totalDelta, "investigation headline reconciles with its drivers");
 assert(why.claims.length > 0, "investigation produces evidence claims");
 assert(why.narrative.length > 40, "investigation narrative is substantive");
 assert(why.claims.every((c) => c.rows >= 0 && c.metric), "claims cite metric + rows");
