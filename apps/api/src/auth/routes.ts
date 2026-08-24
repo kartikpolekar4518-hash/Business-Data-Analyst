@@ -55,7 +55,7 @@ authRouter.post("/login", wrap(async (req, res) => {
   }
   const membership = user.memberships[0];
   if (!membership) throw new HttpError(403, "No organization membership");
-  const token = signToken({ userId: user.id, organizationId: membership.organizationId, role: membership.role });
+  const token = signToken({ userId: user.id, organizationId: membership.organizationId, role: membership.role, tokenVersion: user.tokenVersion });
   res.json({ token, user: publicUser(user), organization: membership.organization, role: membership.role });
 }));
 
@@ -63,6 +63,13 @@ authRouter.post("/logout", (_req, res) => {
   // Stateless JWT: client discards the token. Endpoint exists for symmetry/audit.
   res.json({ ok: true });
 });
+
+// Revoke every token for the current user (e.g. after a suspected compromise).
+// Bumps tokenVersion so all previously issued JWTs fail requireAuth immediately.
+authRouter.post("/logout-all", requireAuth, wrap(async (req, res) => {
+  await prisma.user.update({ where: { id: req.auth!.userId }, data: { tokenVersion: { increment: 1 } } });
+  res.json({ ok: true });
+}));
 
 const forgotSchema = z.object({ email: z.string().email() });
 
@@ -94,7 +101,8 @@ authRouter.post("/reset-password", wrap(async (req, res) => {
   }
   const passwordHash = await bcrypt.hash(password, 10);
   await prisma.$transaction([
-    prisma.user.update({ where: { id: record.userId }, data: { passwordHash } }),
+    // Bump tokenVersion so any JWT issued before this reset is rejected by requireAuth.
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash, tokenVersion: { increment: 1 } } }),
     prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } }),
   ]);
   res.json({ ok: true });

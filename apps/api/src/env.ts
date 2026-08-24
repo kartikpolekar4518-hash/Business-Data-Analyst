@@ -37,19 +37,19 @@ export const env = {
   schedulerIntervalMs: Number(process.env.SCHEDULER_INTERVAL_MS ?? 60_000),
 };
 
-// Fail fast: never sign tokens with a secret that is published in this repo.
+// Fail fast: never sign tokens or encrypt credentials with a secret that is
+// published in this repo. The weak defaults are permitted ONLY in an explicit
+// local dev/test environment — anything else (production, staging, or an unset
+// NODE_ENV) fails closed rather than silently running on the public default.
+const isLocalDev = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 const KNOWN_WEAK_SECRETS = new Set(["dev-insecure-secret-change-me", "change-me-in-production"]);
-if (isProd && KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
-  throw new Error("JWT_SECRET must be set to a real secret in production (the default is public)");
-}
 if (KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
+  if (!isLocalDev) throw new Error("JWT_SECRET must be set to a real secret (the default is public). Set NODE_ENV=development for local demos.");
   console.warn("[security] JWT_SECRET is the public default — fine for local demos, never for production.");
 }
 
 const WEAK_CONNECTOR_KEY = "dev-insecure-connector-key-change-me";
-if (isProd && env.connectorEncryptionKey === WEAK_CONNECTOR_KEY) {
-  throw new Error("CONNECTOR_ENCRYPTION_KEY must be set to a real secret in production (connector credentials are encrypted with it)");
-}
 if (env.connectorEncryptionKey === WEAK_CONNECTOR_KEY) {
+  if (!isLocalDev) throw new Error("CONNECTOR_ENCRYPTION_KEY must be set to a real secret (connector credentials are encrypted with it). Set NODE_ENV=development for local demos.");
   console.warn("[security] CONNECTOR_ENCRYPTION_KEY is the public default — fine for local demos, never for production.");
 }

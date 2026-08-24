@@ -16,14 +16,14 @@ function capture() {
 }
 
 test("requireRole calls next() with no error when the role is allowed", () => {
-  const req = fakeReq({ auth: { userId: "u", organizationId: "o", role: "ADMIN" as Role } });
+  const req = fakeReq({ auth: { userId: "u", organizationId: "o", role: "ADMIN" as Role, tokenVersion: 0 } });
   const c = capture();
   requireRole("ADMIN", "MANAGER")(req, {} as Response, c.next);
   assert.equal(c.get(), undefined);
 });
 
 test("requireRole rejects a disallowed role with 403", () => {
-  const req = fakeReq({ auth: { userId: "u", organizationId: "o", role: "VIEWER" as Role } });
+  const req = fakeReq({ auth: { userId: "u", organizationId: "o", role: "VIEWER" as Role, tokenVersion: 0 } });
   const c = capture();
   requireRole("ADMIN")(req, {} as Response, c.next);
   const err = c.get();
@@ -49,7 +49,19 @@ test("signToken produces a verifiable token round-trip", async () => {
   const jwt = (await import("jsonwebtoken")).default;
   const { env } = await import("../env.js");
   const token = signToken({ userId: "u1", organizationId: "o1", role: "MANAGER" as Role });
-  const decoded = jwt.verify(token, env.jwtSecret) as { userId: string; role: string };
+  const decoded = jwt.verify(token, env.jwtSecret) as { userId: string; role: string; tokenVersion: number };
   assert.equal(decoded.userId, "u1");
   assert.equal(decoded.role, "MANAGER");
+  assert.equal(decoded.tokenVersion, 0);
+});
+
+test("requireAuth rejects an alg:none token (algorithm confusion)", async () => {
+  const jwt = (await import("jsonwebtoken")).default;
+  // A token signed with alg:"none" (no signature) must not be accepted.
+  const forged = jwt.sign({ userId: "u1", organizationId: "o1", role: "ADMIN", tokenVersion: 0 }, "", { algorithm: "none" });
+  const c = capture();
+  await requireAuth(fakeReq({ headers: { authorization: `Bearer ${forged}` } }), {} as Response, c.next);
+  const err = c.get();
+  assert.ok(err instanceof HttpError);
+  assert.equal((err as HttpError).status, 401);
 });
