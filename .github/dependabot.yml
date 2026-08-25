@@ -11,7 +11,7 @@ updates:
       minor-and-patch:
         update-types: [minor, patch]
 
-  # Keep the GitHub Actions used in CI/CodeQL patched too.
+  # Keep the GitHub Actions used in CI (build, secret-scan) patched too.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

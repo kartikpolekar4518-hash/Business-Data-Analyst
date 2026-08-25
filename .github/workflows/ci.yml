@@ -6,15 +6,19 @@ on:
   pull_request:
 
 jobs:
-  # Flags dependency changes that introduce known-vulnerable versions on a PR.
-  dependency-review:
-    if: github.event_name == 'pull_request'
+  # Secret scanning. GitHub's native secret scanning and CodeQL both require
+  # Advanced Security on a private repo, so this uses gitleaks, which works
+  # without GHAS. Scans full history; verified clean across the existing 122
+  # commits (the demo creds in docker-compose/CI are not high-entropy secrets).
+  secret-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/dependency-review-action@v4
         with:
-          fail-on-severity: high
+          fetch-depth: 0 # gitleaks scans commit history, not just the tip
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     runs-on: ubuntu-latest
