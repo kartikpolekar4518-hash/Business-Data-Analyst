@@ -16,9 +16,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # gitleaks scans commit history, not just the tip
-      - uses: gitleaks/gitleaks-action@v2
+      # Run the gitleaks binary directly rather than gitleaks-action: the action
+      # calls the pull-request commits API (which needs pull-requests: read, and
+      # 403s without it) and gates on an organisation licence. Neither is needed
+      # to scan a checkout, so this drops both failure modes. Version pinned.
+      - name: Scan commit history for secrets
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: "8.21.2"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" -o gitleaks.tar.gz
+          tar -xzf gitleaks.tar.gz gitleaks
+          # `gitleaks detect` exits 0 even when the git scan itself fails (e.g. no
+          # .git), which would be a silent pass. Assert a real repo first so the
+          # step fails loudly instead of falsely reporting "no leaks found".
+          git rev-parse --is-inside-work-tree > /dev/null
+          ./gitleaks detect --source . --no-banner --redact --exit-code 1
 
   build:
     runs-on: ubuntu-latest
