@@ -18,7 +18,7 @@ const ROW_CACHE_MAX = 8;
 // The schema map is kept pack-correct at write time (upload + industry change),
 // so every reader here can trust it without re-detecting.
 export async function loadDataset(organizationId: string, datasetId?: string) {
-  const meta = { select: { id: true, name: true, rowCount: true, updatedAt: true, schemaMap: true } };
+  const meta = { select: { id: true, name: true, fileName: true, rowCount: true, updatedAt: true, schemaMap: true, rawFileHash: true, datasetHash: true, engineVersion: true, cleaningLog: true } };
   const dataset = datasetId
     ? await prisma.dataset.findFirst({ where: { id: datasetId, organizationId }, ...meta })
     : await prisma.dataset.findFirst({ where: { organizationId }, orderBy: { createdAt: "desc" }, ...meta });

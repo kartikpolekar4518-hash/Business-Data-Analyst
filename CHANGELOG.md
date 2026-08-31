@@ -1,5 +1,53 @@
 # Changelog
 
+## Unreleased
+
+### Deterministic evidence — "Why this number"
+
+- **Every KPI now explains itself.** A new evidence panel shows the formula that ran,
+  the source column and the schema-detection rule that mapped it, rows evaluated vs.
+  included with per-reason exclusion counts, the exact comparison window, driver
+  attribution with a reconciliation check, and the dataset hash / engine version /
+  calculation fingerprint. Backed by `GET /api/analytics/explain` and
+  `engine/explain.ts`, which is a *reporter*: it calls the same public functions the
+  dashboard calls and never re-implements a metric, so the panel cannot drift from the
+  number it explains. A cross-pack invariant test and a selfcheck assertion enforce
+  `explain(metric).value === dashboard KPI(metric).value` for every KPI in every pack.
+- **Replaced the placeholder explain popover**, which rendered fixed prose ("Revenue is
+  totalled directly from your dataset", "Computed deterministically") that inspected
+  neither the schema nor the data — it asserted the product's central claim while
+  showing no evidence for it.
+
+### Comparison periods — behaviour change
+
+- **`previous period` is now the interval of equal duration immediately preceding the
+  current one**, replacing a median split of the sorted rows. Exact boundaries are
+  surfaced; when the data cannot support the comparison, KPIs report *comparison
+  unavailable* instead of a manufactured percentage. **Period-over-period percentages
+  will change** for datasets with uneven date coverage, and some previously-shown
+  percentages will now correctly read as unavailable. Custom alert rules that threshold
+  on a change percentage re-evaluate against the new boundaries on their next run.
+- **Deduplicated three independent implementations of the period split** — `analytics.ts`,
+  a private copy in `drivers.ts`, and a third (`halfSplit`) in `insights.ts`. The third
+  drove the "which products are declining/growing" chat answers and the decline/growth
+  recommendation cards, which could therefore reason from *different* period boundaries
+  than the KPI cards above them. All three now share one implementation.
+- `analyzeDrivers` now honours the filters it is passed (its filter argument was
+  previously accepted and ignored) and reports no delta when no comparison exists.
+
+### Dataset identity and provenance
+
+- `Dataset` records `rawFileHash`, `datasetHash` (canonical analytical rows),
+  `engineVersion`, and a count-level `cleaningLog` of what cleaning changed — the
+  pre-clean issue counts were previously computed and then discarded on every clean.
+- Newly generated `Report` and `Forecast` records are stamped with `datasetHash`,
+  `engineVersion` and (for reports) the industry key in effect at generation. This is
+  *identification* metadata, not replay: existing records keep null provenance and are
+  never backfilled with fabricated values.
+- `detectSchema` now reports which regex mapped each column, so the evidence panel can
+  cite the rule rather than asserting the mapping.
+
+
 ## Integration hardening — 2026-08-21
 
 - Restored compatibility between the any-industry deterministic analyst engine and existing analytics APIs.

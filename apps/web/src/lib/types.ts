@@ -49,3 +49,37 @@ export interface ChatMessage {
   chart?: { type: "bar" | "line"; data: Rank[]; xKey: string; yKey: string };
   metrics?: Rank[];
 }
+
+// ─── Deterministic evidence ("Why this number") — mirrors engine/explain.ts ───
+export interface Explanation {
+  metric: { key: string; label: string; format: KpiResult["format"]; kind: string; value: number; changePct: number | null };
+  formula: { expression: string; sources: { column: string; detectedBy: string | null }[]; derived: boolean };
+  inputs: {
+    kind: string; rowsInDataset: number; rowsAfterFilters: number; rowsIncluded: number;
+    exclusions: { reason: string; count: number }[]; note: string;
+  };
+  filters: Record<string, string | string[]>;
+  comparison: {
+    basis: "trailing_equal_period" | "unavailable";
+    reason: string | null; currentSource: string | null;
+    currentRange: [string, string] | null; previousRange: [string, string] | null;
+    currentValue: number | null; previousValue: number | null; changePct: number | null;
+    description: string;
+  };
+  drivers: {
+    dimension: string | null; totalChange: number; reconciled: boolean;
+    otherCount: number; otherContribution: number;
+    drivers: { label: string; contribution: number; shareOfChange: number | null; direction: "up" | "down" | "flat" }[];
+  } | null;
+  provenance: {
+    datasetId: string; datasetName: string; fileName: string; rowCount: number;
+    datasetHash: string | null; rawFileHash: string | null;
+    engineVersion: string | null; industryKey: string;
+    cleaning: { type: string; column: string | null; affectedRows: number }[];
+    calculationFingerprint: string;
+  };
+  claims: {
+    deterministic: true; reconciles: boolean | null; reproducibleFromCurrentData: boolean;
+    historicallyReproducible: false; independentlyVerified: false;
+  };
+}

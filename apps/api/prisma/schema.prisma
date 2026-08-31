@@ -130,6 +130,11 @@ model Dataset {
   profile        Json          // per-column profiling stats
   rows           Json          // original parsed rows
   cleanedRows    Json?         // rows after accepted cleaning suggestions
+  // ─── Identity/provenance (see engine/identity.ts) ───
+  rawFileHash    String?       // sha256 of the uploaded bytes: "what file was uploaded?"
+  datasetHash    String?       // sha256 of the canonical analytical rows: "what was analysed?"
+  engineVersion  String?       // engine that ingested/cleaned these rows
+  cleaningLog    Json?         // [{ type, column, affectedRows }] applied during cleaning
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
   organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -165,6 +170,12 @@ model Report {
   id             String       @id @default(uuid())
   title          String
   content        Json         // structured report sections
+  // Identification metadata for the computational context that produced this report.
+  // NOT a replay capability: a stored hash identifies the inputs, it does not let the
+  // engine reconstruct this report after the dataset or engine has changed.
+  datasetHash             String?
+  engineVersion           String?
+  industryKeyAtGeneration String?
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
@@ -208,6 +219,9 @@ model ReportTemplate {
 
 model Forecast {
   id             String       @id @default(uuid())
+  // Identification metadata (see Report) — identifies inputs, does not enable replay.
+  datasetHash    String?
+  engineVersion  String?
   metric         String
   horizon        Int
   method         String

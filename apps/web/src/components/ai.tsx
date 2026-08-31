@@ -145,44 +145,8 @@ export const followUpsFor = (): string[] => [
 // ─────────────────────────────────────────────
 // Explain this metric — deterministic KPI explanation ("Why did this change?")
 // ─────────────────────────────────────────────
-export const ExplainMetric = ({ label, value, format, changePct }: { label: string; value: number; format: KpiFormat; changePct?: number | null }) => {
-  const up = (changePct ?? 0) > 0;
-  const down = (changePct ?? 0) < 0;
-  const Arrow = up ? ArrowUpRight : down ? ArrowDownRight : Minus;
-  return (
-    <Dropdown
-      align="right"
-      trigger={
-        <button
-          type="button"
-          aria-label={`Explain ${label}`}
-          onClick={(e) => e.stopPropagation()}
-          className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/10 dark:hover:text-brand-300"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-        </button>
-      }
-    >
-      <div className="w-72 space-y-2 p-2 text-[13px]">
-        <div className="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
-          <BrainCircuit className="h-4 w-4 text-brand-500" /> Explain: {label}
-        </div>
-        <p className="text-slate-600 dark:text-slate-400">
-          {label} is totalled directly from your dataset over the selected period.
-        </p>
-        <p className="text-slate-700 dark:text-slate-200">
-          Current value: <span className="font-semibold">{formatKpiValue(value, format)}</span>
-        </p>
-        <p className={cn("flex items-center gap-1.5 font-medium", up ? "text-emerald-600 dark:text-emerald-400" : down ? "text-red-600 dark:text-red-400" : "text-slate-500 dark:text-slate-400")}>
-          <Arrow className="h-4 w-4" />
-          {changePct == null
-            ? "No prior period to compare against yet."
-            : `${up ? "Up" : down ? "Down" : "Flat"} ${Math.abs(changePct)}% vs the previous period${up ? " — an improvement." : down ? " — a decline." : "."}`}
-        </p>
-        <div className="border-t border-border pt-1.5 text-[11px] text-slate-400 dark:border-white/[0.06] dark:text-slate-400">
-          Computed deterministically — this figure is reproducible from your data, not an estimate.
-        </div>
-      </div>
-    </Dropdown>
-  );
-};
+// ExplainMetric moved to components/explain.tsx. The version that lived here
+// rendered fixed prose ("Revenue is totalled directly from your dataset...",
+// "Computed deterministically") that inspected neither the schema nor the data — it
+// asserted the product's central claim while showing no evidence for it. The
+// replacement renders only values the engine actually computed.

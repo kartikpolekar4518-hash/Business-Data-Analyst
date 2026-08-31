@@ -36,20 +36,28 @@ const RULES: SemanticRule[] = [
 
 export type SchemaMap = Partial<Record<Semantic, string>>;
 
-export function detectSchema(columns: ColumnProfile[], extraRules: SemanticRule[] = []): { map: SchemaMap; columns: (ColumnProfile & { semantic: Semantic })[] } {
+// Which regex actually mapped a column to its business meaning. Recorded so the
+// evidence layer can state "detected using /revenue|^amount$/" instead of asserting
+// the mapping without showing its basis. Keyed by column name.
+export type DetectionRules = Record<string, string>;
+
+export function detectSchema(columns: ColumnProfile[], extraRules: SemanticRule[] = []): { map: SchemaMap; columns: (ColumnProfile & { semantic: Semantic })[]; rules: DetectionRules } {
   const rules = extraRules.length ? [...extraRules, ...RULES] : RULES;
   const map: SchemaMap = {};
+  const matchedBy: DetectionRules = {};
   const annotated = columns.map((c) => {
     const norm = c.name.toLowerCase().trim();
     let semantic: Semantic = "none";
+    let pattern: RegExp | undefined;
     for (const rule of rules) {
-      if (rule.patterns.some((p) => p.test(norm))) { semantic = rule.semantic; break; }
+      pattern = rule.patterns.find((p) => p.test(norm));
+      if (pattern) { semantic = rule.semantic; break; }
     }
-    if (semantic === "date" && c.type !== "date") semantic = "none";
-    if (semantic !== "none" && !map[semantic]) map[semantic] = c.name;
+    if (semantic === "date" && c.type !== "date") { semantic = "none"; pattern = undefined; }
+    if (semantic !== "none" && !map[semantic]) { map[semantic] = c.name; if (pattern) matchedBy[c.name] = String(pattern); }
     return { ...c, semantic };
   });
-  return { map, columns: annotated };
+  return { map, columns: annotated, rules: matchedBy };
 }
 
 export function cleanRows(rows: Row[], columns: string[], acceptedTypes: string[], issues: QualityIssue[], numericColumns: Set<string> = new Set()): Row[] {
