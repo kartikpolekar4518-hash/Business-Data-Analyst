@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { wrap } from "../errors.js";
+import { wrap, HttpError } from "../errors.js";
 import { prisma } from "../prisma.js";
 import { requireAuth } from "../auth/middleware.js";
 import { loadDataset } from "./context.js";
@@ -11,6 +11,8 @@ import { analyzeDrivers, type DriverMetric } from "../engine/drivers.js";
 import { detectAnomalies } from "../engine/anomaly.js";
 import { analyzeCorrelations } from "../engine/correlate.js";
 import { segmentEntities, type SegmentEntity } from "../engine/segment.js";
+import { explainKpi } from "../engine/explain.js";
+import { detectSchema } from "../engine/schema.js";
 import type { Semantic } from "../engine/schema.js";
 
 export const analyticsRouter = Router();
@@ -112,6 +114,35 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
       customer: A.distinctValues(rows, schema, "customer_name"),
     },
   });
+}));
+
+// Deterministic evidence for one KPI: the formula that ran, the rows it consumed,
+// the comparison window, and the dataset/engine identity behind it. Recomputed on
+// demand from the SAME functions the dashboard calls (never a second implementation)
+// and scoped to the caller's organization by loadDataset, like every other read.
+analyticsRouter.get("/explain", wrap(async (req, res) => {
+  const orgId = req.auth!.organizationId;
+  const { dataset, rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
+  const pack = getPack(org?.industry);
+  const metricKey = typeof req.query.metric === "string" ? req.query.metric : "revenue";
+  if (!pack.kpis.some((k) => k.key === metricKey)) throw new HttpError(400, `Unknown metric '${metricKey}' for this industry.`);
+
+  // Detection rules are re-derived from the stored profile (cheap: regex over column
+  // names) so the panel can cite the rule that mapped each column.
+  const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
+  const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
+  const detectionRules = cols.length ? detectSchema(cols, pack.rules).rules : {};
+
+  res.json(explainKpi({
+    rows, schema, pack, metricKey, filters: filtersFrom(req.query), detectionRules,
+    industryKey: pack.key,
+    dataset: {
+      id: dataset.id, name: dataset.name, fileName: dataset.fileName, rowCount: dataset.rowCount,
+      datasetHash: dataset.datasetHash, rawFileHash: dataset.rawFileHash, engineVersion: dataset.engineVersion,
+      cleaning: (dataset.cleaningLog as { type: string; column: string | null; affectedRows: number }[] | null) ?? [],
+    },
+  }));
 }));
 
 analyticsRouter.get("/revenue", timeSeries("revenue"));

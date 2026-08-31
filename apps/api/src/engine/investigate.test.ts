@@ -11,7 +11,7 @@ const rows: Row[] = [
   { date: "2024-03-01", order: "3", product: "Widget", revenue: 120, cost: 90 },
   { date: "2024-04-01", order: "4", product: "Gadget", revenue: 180, cost: 150 },
   { date: "2024-05-01", order: "5", product: "Widget", revenue: 300, cost: 220 },
-  { date: "2024-06-01", order: "6", product: "Gadget", revenue: 50, cost: 40 },
+  { date: "2024-06-02", order: "6", product: "Gadget", revenue: 50, cost: 40 },
 ];
 
 test("uses the same periods as driver analysis for headline totals", () => {

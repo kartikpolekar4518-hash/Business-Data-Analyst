@@ -46,6 +46,7 @@ forecastingRouter.post("/", requireRole("ADMIN", "MANAGER"), wrap(async (req, re
       organizationId: auth.organizationId,
       datasetId: dataset.id,
       metric: metricDef.id, horizon, method: result.method,
+      datasetHash: dataset.datasetHash, engineVersion: dataset.engineVersion,
       history: result.history as object,
       points: result.points as object,
     },

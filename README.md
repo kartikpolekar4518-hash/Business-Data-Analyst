@@ -18,6 +18,48 @@ role-based, works out of the box with sample retail data.
 
 ---
 
+## What "reproducible" means here
+
+These are not synonyms, and NoPS only claims the levels it can support:
+
+| Level | Meaning | Supported |
+|---|---|---|
+| **Deterministic** | Same code + same inputs → same result | **Yes** |
+| **Explainable** | The formula, source columns, rows and comparison window can be shown | **Yes** — the "Why this number" panel |
+| **Reproducible from current data** | Re-running against the current dataset/config/engine gives the identical number | **Yes** — dataset hash + engine version + calculation fingerprint identify the inputs |
+| **Historically reproducible** | An old saved report can be reconstructed after the dataset, configuration or engine has changed | **No.** Saved reports and forecasts record *which* inputs produced them; that identifies the computational context, it does not replay it |
+| **Independently verified** | A separate execution or external party confirms the result | **No.** Nothing in NoPS is "verified" or "audited" |
+
+Determinism proves **repeatability, not correctness**: a deterministic engine will
+consistently compute the wrong thing if the schema was interpreted wrongly. The
+evidence panel exists so that interpretation is visible and checkable.
+
+### Comparison periods
+
+"Previous period" means one specific thing: **the interval of equal duration
+immediately preceding the current one**. With a date filter applied, August 1–31
+compares against July 1–31. With no filter, the most recent half of the available
+span compares against the equally long half before it. Exact boundaries are always
+shown. There is no calendar/fiscal/retail-week inference and no seasonality
+adjustment; when the data cannot support that comparison, NoPS shows **"comparison
+unavailable — insufficient historical data"** rather than manufacturing a percentage.
+
+Windows are equal in *duration*, never in row count. That distinction matters: a
+comparison that took an equal number of rows from each side cannot express a change in
+transaction volume at all — at a constant price per row, equal row counts means equal
+revenue by construction.
+
+### What the dataset hashes mean
+
+`rawFileHash` is the SHA-256 of the uploaded bytes ("what file was uploaded?").
+`datasetHash` is the SHA-256 of the canonical analytical rows actually computed over,
+after parsing and any accepted cleaning ("what was analysed?"). Canonicalisation sorts
+each row's keys, so column order cannot change the hash; row order is preserved and
+*is* significant. Known limitation, deliberately not papered over: the CSV reader
+yields strings while the Excel reader yields native numbers and dates, so the same
+business data uploaded as `.csv` and as `.xlsx` may hash differently. The hash means
+"these are the same analytical rows" — **not** "this is the same business data".
+
 ## Why deterministic
 
 - **Auditable.** Every KPI, forecast, and recommendation has a code path you can read, step through, and unit-test. There is no model that produced the answer — the answer *is* the code path.
@@ -33,6 +75,7 @@ role-based, works out of the box with sample retail data.
 - **Data-quality engine** — detects missing values, duplicates, empty columns, numeric-in-text, statistical outliers, whitespace, inconsistent case/dates, suspicious column names. Accept/reject cleaning suggestions; the **original file is never modified**.
 - **Schema detection** — rule-based mapping of columns to business meaning (revenue, cost, profit, customer, product, region, date, inventory, …).
 - **Auto dashboards** — KPIs (revenue, profit, margin, orders, customers) with period-over-period comparison, plus revenue/profit trends and product/customer/region/category rankings. Generated dynamically from the detected schema — never hardcoded to one dataset.
+- **"Why this number"** — every KPI opens an evidence panel showing the formula that ran, the column it read and the detection rule that mapped it, how many rows were included/excluded and why, the exact comparison window, what moved the number (with a reconciliation check), and the dataset hash / engine version / calculation fingerprint behind it. Rendered entirely from engine output — no model writes a word of it.
 - **Analytics** — filter by date range, region, state, category, department, product, customer; filters live in the URL so a view is shareable. Data table + CSV export.
 - **Natural-language queries** — ask in plain English ("top 10 customers", "which month had the highest sales", "which products are declining"). Questions are mapped to a **structured intent** — by GPT when `OPENAI_API_KEY` is set, otherwise by rules and regex — then executed through a controlled analytics layer. The intent is always validated against a closed vocabulary and every number is computed deterministically; the model never runs SQL/code or sees your data rows.
 - **Forecasting** — linear-regression trend with a residual-based 95% confidence band that widens with horizon.

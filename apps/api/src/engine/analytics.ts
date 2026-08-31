@@ -20,6 +20,21 @@ export function rowRevenue(r: Row, s: SchemaMap): number {
   if (s.revenue) return num(r[s.revenue]); if (s.sales) return num(r[s.sales]);
   if (s.quantity && s.unit_price) return num(r[s.quantity]) * num(r[s.unit_price]); return 0;
 }
+
+// Which branch rowRevenue takes, as data, so the evidence layer can state the actual
+// formula instead of guessing. Deliberately NOT called from rowRevenue: that runs per
+// row over every metric and would allocate an object each time. The branch order here
+// mirrors rowRevenue's and analytics.test.ts asserts the two agree for every shape.
+export type RevenueSource =
+  | { kind: "column"; semantic: "revenue" | "sales"; columns: string[]; expression: string }
+  | { kind: "derived"; semantic: "quantity_x_unit_price"; columns: string[]; expression: string }
+  | { kind: "unavailable"; semantic: null; columns: []; expression: string };
+export function revenueSource(s: SchemaMap): RevenueSource {
+  if (s.revenue) return { kind: "column", semantic: "revenue", columns: [s.revenue], expression: `SUM(${s.revenue})` };
+  if (s.sales) return { kind: "column", semantic: "sales", columns: [s.sales], expression: `SUM(${s.sales})` };
+  if (s.quantity && s.unit_price) return { kind: "derived", semantic: "quantity_x_unit_price", columns: [s.quantity, s.unit_price], expression: `SUM(${s.quantity} × ${s.unit_price})` };
+  return { kind: "unavailable", semantic: null, columns: [], expression: "0 (no revenue column detected)" };
+}
 export function rowProfit(r: Row, s: SchemaMap): number { if (s.profit) return num(r[s.profit]); if (s.cost) return rowRevenue(r, s) - num(r[s.cost]); return 0; }
 
 export function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
@@ -39,16 +54,98 @@ export function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
 
 export interface Kpi { value: number; previous: number; changePct: number | null; }
 function pctChange(cur: number, prev: number): number | null { if (!prev) return null; return Math.round(((cur - prev) / Math.abs(prev)) * 1000) / 10; }
-export function splitPeriods(rows: Row[], s: SchemaMap): { current: Row[]; previous: Row[] } {
-  if (!s.date) return { current: rows, previous: [] };
-  const dated = rows.map((r) => ({ r, d: parseDate(r[s.date!]) })).filter((x) => x.d) as { r: Row; d: Date }[];
-  if (dated.length < 4) return { current: rows, previous: [] };
-  dated.sort((a, b) => a.d.getTime() - b.d.getTime()); const mid = dated[Math.floor(dated.length / 2)].d.getTime();
-  const current: Row[] = [], previous: Row[] = []; for (const x of dated) (x.d.getTime() >= mid ? current : previous).push(x.r); return { current, previous };
+// ─── Comparison period ───────────────────────────────────────────────────────
+// V1 policy, deliberately narrow and calendar-agnostic:
+//
+//   previous = the interval of EQUAL DURATION immediately preceding the current one.
+//
+// No calendar-month/fiscal-year/retail-week inference, no seasonality adjustment,
+// no hidden fallback. When the data cannot support that comparison the basis is
+// "unavailable" and callers must show "comparison unavailable" rather than a
+// manufactured percentage.
+//
+// `rows` must be the un-date-filtered set: the previous window lies OUTSIDE any
+// date filter, so date bounds are applied here rather than by the caller. Dimension
+// filters bound the whole comparison universe; date filters bound only `current`.
+export type ComparisonBasis = "trailing_equal_period" | "unavailable";
+export type ComparisonReason = "no_date_column" | "insufficient_history" | "no_prior_data";
+// How `current` was chosen: from an explicit date filter, or — with no date filter —
+// the trailing half of the available span (by duration, never by row count).
+export type CurrentSource = "filter" | "trailing_half";
+export interface PeriodSplit {
+  current: Row[]; previous: Row[];
+  basis: ComparisonBasis; reason: ComparisonReason | null; currentSource: CurrentSource | null;
+  currentRange: [string, string] | null;   // inclusive ISO dates
+  previousRange: [string, string] | null;
+}
+const DAY = 86_400_000;
+const MIN_DATED_ROWS = 4;
+const floorDay = (t: number) => Math.floor(t / DAY) * DAY;
+const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
+
+export function splitPeriods(rows: Row[], s: SchemaMap, f: Filters = {}): PeriodSplit {
+  const none = (reason: ComparisonReason, current: Row[]): PeriodSplit =>
+    ({ current, previous: [], basis: "unavailable", reason, currentSource: null, currentRange: null, previousRange: null });
+  if (!s.date) return none("no_date_column", applyFilters(rows, s, f));
+
+  const { dateFrom, dateTo, ...dims } = f;
+  const scope = applyFilters(rows, s, dims);      // comparison universe
+  const filtered = applyFilters(scope, s, f);     // caller's current view
+  const times: number[] = [];
+  for (const r of filtered) { const d = parseDate(r[s.date!]); if (d) times.push(d.getTime()); }
+
+  let startMs: number, endExclMs: number, currentSource: CurrentSource;
+  if (dateFrom || dateTo) {
+    // Any date bound defines the current window; the missing side comes from the data.
+    // A partial bound must NOT fall through to the trailing-half path — that would
+    // derive a window from the filtered rows and then draw `previous` from outside the
+    // user's own filter.
+    if ((!dateFrom || !dateTo) && !times.length) return none("insufficient_history", filtered);
+    let dataMin = times[0], dataMax = times[0];
+    for (const t of times) { if (t < dataMin) dataMin = t; if (t > dataMax) dataMax = t; }
+    startMs = floorDay(dateFrom ? new Date(dateFrom).getTime() : dataMin);
+    endExclMs = floorDay(dateTo ? new Date(dateTo).getTime() : dataMax) + DAY;
+    currentSource = "filter";
+    // The window is the caller's; row count is not a precondition for comparing
+    // against it. One day of current data against a populated prior day is valid.
+  } else {
+    if (times.length < MIN_DATED_ROWS) return none("insufficient_history", filtered);
+    let min = times[0], max = times[0];
+    for (const t of times) { if (t < min) min = t; if (t > max) max = t; }
+    min = floorDay(min); max = floorDay(max) + DAY;
+    // Halve the span in WHOLE DAYS. Rounding up here would make `previous` reach past
+    // the first row and cover one more day than `current`, which reports growth on
+    // perfectly flat data. An odd leftover day is dropped from the oldest end instead,
+    // so both windows cover exactly the same duration and both sit inside the data.
+    const half = Math.floor((max - min) / DAY / 2) * DAY;
+    if (half <= 0) return none("insufficient_history", filtered);
+    endExclMs = max; startMs = max - half;
+    currentSource = "trailing_half";
+  }
+  // filterSchema accepts YYYY-MM-DD *shapes* that are not real dates ("2026-13-45"),
+  // which parse to NaN. NaN comparisons are all false, so this would otherwise reach a
+  // safe answer by accident and report the wrong reason for it.
+  if (!isFinite(startMs) || !isFinite(endExclMs)) return none("insufficient_history", filtered);
+  const duration = endExclMs - startMs;
+  if (duration <= 0) return none("insufficient_history", filtered);
+
+  const inWindow = (from: number, toExcl: number) => (r: Row) => {
+    const d = parseDate(r[s.date!]); if (!d) return false;
+    const t = d.getTime(); return t >= from && t < toExcl;
+  };
+  const current = filtered.filter(inWindow(startMs, endExclMs));
+  const previous = scope.filter(inWindow(startMs - duration, startMs));
+  if (!previous.length) return none("no_prior_data", current.length ? current : filtered);
+
+  return {
+    current, previous, basis: "trailing_equal_period", reason: null, currentSource,
+    currentRange: [isoDay(startMs), isoDay(endExclMs - DAY)],
+    previousRange: [isoDay(startMs - duration), isoDay(startMs - DAY)],
+  };
 }
 
 export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
-  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(filtered, s);
+  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(rows, s, f);
   const sum = (rs: Row[], fn: (r: Row) => number) => rs.reduce((a, r) => a + fn(r), 0);
   const orderCount = (rs: Row[]) => s.order_id ? new Set(rs.map((r) => str(r[s.order_id!]))).size : rs.length;
   const customerCount = (rs: Row[]) => s.customer_id ? new Set(rs.map((r) => str(r[s.customer_id!]))).size : s.customer_name ? new Set(rs.map((r) => str(r[s.customer_name!]))).size : 0;
@@ -60,7 +157,7 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
 
 export interface KpiResult { key: string; label: string; icon: string; format: "money" | "number" | "percent"; value: number; changePct: number | null; tooltip?: string; spark?: number[]; }
 export function computeKpis(rows: Row[], s: SchemaMap, pack: IndustryPack, f: Filters = {}): KpiResult[] {
-  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(filtered, s);
+  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(rows, s, f);
   return pack.kpis.map((def) => ({ key: def.key, label: def.label, icon: def.icon, format: def.format, tooltip: def.tooltip, value: round(def.value(filtered, s)), changePct: def.noChange ? null : pctChange(def.value(current, s), def.value(previous, s)) }));
 }
 

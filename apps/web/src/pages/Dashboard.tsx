@@ -235,6 +235,7 @@ export default function Dashboard() {
                 accentColor={ACCENTS[i % ACCENTS.length]}
                 spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
                 tooltip={k.tooltip}
+                metricKey={k.key}
                 explain
               />
             ))}

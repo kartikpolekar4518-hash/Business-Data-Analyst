@@ -22,7 +22,12 @@ export async function buildReport(organizationId: string, datasetId?: string) {
   const { dataset, rows, schema } = await loadDataset(organizationId, datasetId);
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
   const content = composeReport(getPack(org?.industry), rows, schema);
-  return { datasetId: dataset.id, datasetName: dataset.name, ...content };
+  // Identification metadata for the computational context (not a replay capability).
+  const provenance = {
+    datasetHash: dataset.datasetHash, engineVersion: dataset.engineVersion,
+    industryKeyAtGeneration: org?.industry ?? "generic",
+  };
+  return { datasetId: dataset.id, datasetName: dataset.name, ...content, provenance };
 }
 
 const genSchema = z.object({ datasetId: z.string().optional(), title: z.string().optional(), templateId: z.string().optional() });
@@ -38,12 +43,16 @@ reportsRouter.post("/generate", requireRole("ADMIN", "MANAGER"), wrap(async (req
     include = tpl.include as ReportInclude;
   }
   const content = applyTemplate(await buildReport(req.auth!.organizationId, datasetId), include);
+  const prov = (content as any).provenance ?? {};
   const report = await prisma.report.create({
     data: {
       organizationId: req.auth!.organizationId,
       datasetId: (content as any).datasetId,
       title: title || `Executive Report — ${(content as any).datasetName}`,
       content: content as object,
+      datasetHash: prov.datasetHash ?? null,
+      engineVersion: prov.engineVersion ?? null,
+      industryKeyAtGeneration: prov.industryKeyAtGeneration ?? null,
     },
   });
   res.status(201).json({ report });

@@ -9,7 +9,8 @@ import { answer } from "./intent.js";
 import { forecast, evaluateGoal, whatIf } from "./forecast.js";
 import { deriveInsights } from "./insights.js";
 import { investigate } from "./investigate.js";
-import { detectPack, packMetric } from "./industries.js";
+import { detectPack, packMetric, PACKS } from "./industries.js";
+import { explainKpi } from "./explain.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -81,6 +82,21 @@ assert(growRes.table!.rows.some((r) => r[0] === "Widget"), "Widget (revenue 100 
 const fc = forecast([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3);
 assert(fc.points.length === 3, "3 forecast points");
 assert(fc.points.every((p) => p.lower <= p.value && p.value <= p.upper), "value within band");
+
+// 6b. Evidence agrees with the dashboard, for every KPI in every pack. This is the
+// guardrail behind recompute-on-demand: explain never re-implements a metric, and a
+// KPI added without an evidence path fails here rather than shipping a lying panel.
+for (const pack of Object.values(PACKS)) {
+  const dashboard = A.computeKpis(rows, map, pack, {});
+  for (const kpi of dashboard) {
+    const ev = explainKpi({
+      rows, schema: map, pack, metricKey: kpi.key, filters: {}, industryKey: pack.id,
+      dataset: { id: "selfcheck", name: "selfcheck", fileName: "selfcheck.csv", rowCount: rows.length, datasetHash: null, rawFileHash: null, engineVersion: null, cleaning: [] },
+    });
+    assert(ev.metric.value === kpi.value, `${pack.id}/${kpi.key}: evidence ${ev.metric.value} != dashboard ${kpi.value}`);
+    assert(ev.metric.changePct === kpi.changePct, `${pack.id}/${kpi.key}: evidence change != dashboard change`);
+  }
+}
 
 // 7. Insights separate observation from recommendation.
 const { recommendations, alerts } = deriveInsights(rows, map);

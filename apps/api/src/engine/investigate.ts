@@ -12,8 +12,9 @@ import { detectPack, getPack, packMetric, type PackMetric } from "./industries.j
 // every claim is computed by those tools and cites the rows it came from.
 //
 // Two guarantees carried over from the hardened engine:
-//  - Period totals use the SAME median split as driver analysis (A.splitPeriods),
-//    so the headline delta reconciles with the driver claims by construction.
+//  - Period totals use the SAME comparison policy as driver analysis (A.splitPeriods:
+//    the equal-duration interval immediately preceding the current one), so the
+//    headline delta reconciles with the driver claims by construction.
 //  - A single-period dataset is never presented as a change.
 
 export interface EvidenceClaim {
@@ -45,6 +46,12 @@ export interface Investigation {
 
 const CANDIDATE_DIMENSIONS: Semantic[] = ["product_name", "customer_name", "region", "category", "state", "department"];
 
+function comparisonLabel(split: A.PeriodSplit): string {
+  return split.currentRange && split.previousRange
+    ? `${split.currentRange[0]}..${split.currentRange[1]} vs ${split.previousRange[0]}..${split.previousRange[1]}`
+    : "no comparison period";
+}
+
 export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?: string): Investigation {
   const pack = packId ? getPack(packId) : detectPack(s, [], "");
   const metric = packMetric(pack, metricId);
@@ -53,8 +60,9 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   if (!metric) throw new RangeError(`Unsupported investigation metric: ${metricId}`);
 
   // Same periods as analyzeDrivers, so the headline and the driver claims agree.
-  const { current, previous } = A.splitPeriods(rows, s);
-  const comparisonAvailable = previous.length > 0;
+  const split = A.splitPeriods(rows, s);
+  const { current, previous } = split;
+  const comparisonAvailable = split.basis === "trailing_equal_period";
   const currentTotal = round(metric.compute(current, s));
   const previousTotal = comparisonAvailable ? round(metric.compute(previous, s)) : 0;
   const totalDelta = comparisonAvailable ? round(currentTotal - previousTotal) : 0;
@@ -82,7 +90,7 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   for (const d of drivers.slice(0, 3)) {
     const top = d.drivers[0];
     if (!top) continue;
-    claims.push({ kind: "driver", metric: metric.id, period: "current vs previous half", dimension: d.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: d.drivers.length, value: top.contribution });
+    claims.push({ kind: "driver", metric: metric.id, period: comparisonLabel(split), dimension: d.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: d.drivers.length, value: top.contribution });
   }
 
   if (decomposition?.canDecompose) {
@@ -90,7 +98,7 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
     if (Math.abs(decomposition.volumeDelta) > 0.01) parts.push(`volume ${fmt(decomposition.volumeDelta)}`);
     if (Math.abs(decomposition.priceDelta) > 0.01) parts.push(`price ${fmt(decomposition.priceDelta)}`);
     if (Math.abs(decomposition.mixDelta) > 0.01) parts.push(`mix ${fmt(decomposition.mixDelta)}`);
-    if (parts.length) claims.push({ kind: "decomposition", metric: metric.id, period: "current vs previous half", detail: `Revenue change: ${parts.join(", ")}`, rows: rows.length, value: totalDelta });
+    if (parts.length) claims.push({ kind: "decomposition", metric: metric.id, period: comparisonLabel(split), detail: `Revenue change: ${parts.join(", ")}`, rows: rows.length, value: totalDelta });
   }
 
   for (const f of (correlation?.factors ?? []).slice(0, 3)) {

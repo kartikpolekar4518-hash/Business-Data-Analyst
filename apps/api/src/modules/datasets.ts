@@ -8,6 +8,8 @@ import { cleanRows, detectSchema } from "../engine/schema.js";
 import { stripRows } from "./context.js";
 import { refreshAlerts } from "./alerts.js";
 import type { Row } from "../engine/parse.js";
+import { canonicalDatasetHash } from "../engine/identity.js";
+import { ENGINE_VERSION } from "../engine/version.js";
 
 export const datasetsRouter = Router();
 datasetsRouter.use(requireAuth);
@@ -67,6 +69,15 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
   const numericColumns = new Set(columnsList
     .filter((c: any) => c.type === "number" || c.type === "currency").map((c: any) => c.name));
   const cleaned = cleanRows(originalRows, columns, acceptedTypes, issues as any, numericColumns);
+
+  // Cleaning provenance: the pre-clean issue rows are the record of WHAT was fixed,
+  // and the transaction below replaces them with post-clean issues. Snapshot the
+  // accepted ones first (count level only — no cell-level before/after diffs) so the
+  // question "why did my uploaded data change before analytics ran?" stays answerable.
+  const accepted = new Set(acceptedTypes);
+  const cleaningLog = issues
+    .filter((i) => accepted.has(i.type))
+    .map((i) => ({ type: i.type, column: i.column, affectedRows: i.affectedRows }));
   const newColumns = Object.keys(cleaned[0] ?? {});
   const profile = profileDataset(cleaned, newColumns.length ? newColumns : columns);
   const { map, columns: annotated } = detectSchema(profile.columns);
@@ -86,6 +97,11 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
         columns: annotated as object,
         schemaMap: map as object,
         profile: profile as object,
+        // The analytical rows changed, so the analytical identity changes with them.
+        // rawFileHash is untouched: the uploaded file is still the same file.
+        datasetHash: canonicalDatasetHash(cleaned),
+        engineVersion: ENGINE_VERSION,
+        cleaningLog: cleaningLog as object,
       },
     }),
     prisma.dataQualityIssue.deleteMany({ where: { datasetId: d.id } }),

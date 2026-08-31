@@ -5,6 +5,8 @@ import { getPack, suggestIndustry } from "./industries.js";
 import { refreshAlerts } from "../modules/alerts.js";
 import { stripRows } from "../modules/context.js";
 import type { Row } from "./parse.js";
+import { canonicalDatasetHash } from "./identity.js";
+import { ENGINE_VERSION } from "./version.js";
 
 interface IngestInput {
   organizationId: string;
@@ -16,6 +18,7 @@ interface IngestInput {
   rows: Row[];
   columns: string[];
   sourceType: "upload" | "sample" | "connector";
+  rawFileHash?: string;
   connectionId?: string;
   activityAction: string; // e.g. "dataset.uploaded"
   activityDetail: string;
@@ -48,6 +51,9 @@ export async function ingestRows(input: IngestInput) {
       schemaMap: map as object,
       profile: profile as object,
       rows: input.rows as object,
+      rawFileHash: input.rawFileHash ?? null,
+      datasetHash: canonicalDatasetHash(input.rows),
+      engineVersion: ENGINE_VERSION,
       issues: { create: profile.issues.map((i) => ({ ...i })) },
     },
     include: { issues: true },
