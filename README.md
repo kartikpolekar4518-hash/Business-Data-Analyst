@@ -44,6 +44,11 @@ shown. There is no calendar/fiscal/retail-week inference and no seasonality
 adjustment; when the data cannot support that comparison, NoPS shows **"comparison
 unavailable — insufficient historical data"** rather than manufacturing a percentage.
 
+Windows are equal in *duration*, never in row count. That distinction matters: a
+comparison that took an equal number of rows from each side cannot express a change in
+transaction volume at all — at a constant price per row, equal row counts means equal
+revenue by construction.
+
 ### What the dataset hashes mean
 
 `rawFileHash` is the SHA-256 of the uploaded bytes ("what file was uploaded?").

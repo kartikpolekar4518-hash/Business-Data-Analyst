@@ -101,3 +101,29 @@ test("dimension filters bound the comparison universe on both sides", () => {
   assert.ok(split.previous.every((r) => r.region === "West"), "prior period respects dimension filters too");
   assert.equal(split.previous.length, 10);
 });
+
+// Why the median split had to go, as an executable proof. It took an equal NUMBER OF
+// ROWS on each side, so for a business whose transaction VOLUME changes over time the
+// change was suppressed by construction: with a constant price per row, equal row
+// counts means equal revenue, always. On the fixture below — volume doubling at a
+// constant price — the old policy reported 0% for a business whose revenue doubled.
+// Equal DURATION windows are what make volume-driven change visible at all.
+test("volume-driven change is visible: equal-duration windows, not equal row counts", () => {
+  const rows: Row[] = [];
+  let n = 0;
+  for (let d = 0; d < 180; d++) { const day = new Date(Date.UTC(2026, 0, 1 + d)).toISOString().slice(0, 10); for (let i = 0; i < 2; i++) rows.push({ date: day, revenue: 100, order: `A${n++}` }); }
+  for (let d = 0; d < 180; d++) { const day = new Date(Date.UTC(2026, 6, 1 + d)).toISOString().slice(0, 10); for (let i = 0; i < 4; i++) rows.push({ date: day, revenue: 100, order: `B${n++}` }); }
+  const schema: SchemaMap = { date: "date", revenue: "revenue", order_id: "order" };
+
+  const split = splitPeriods(rows, schema);
+  assert.equal(split.basis, "trailing_equal_period");
+  assert.notEqual(split.current.length, split.previous.length, "row counts must NOT be forced equal");
+
+  const sum = (rs: Row[]) => rs.reduce((a, r) => a + Number(r.revenue), 0);
+  const changePct = Math.round(((sum(split.current) - sum(split.previous)) / sum(split.previous)) * 1000) / 10;
+  assert.equal(changePct, 100, "doubled volume at constant price must read as +100%, not 0%");
+
+  // Both windows still cover the same amount of time — that is the actual invariant.
+  const days = (r: [string, string]) => (Date.parse(r[1]) - Date.parse(r[0])) / 86_400_000;
+  assert.equal(days(split.currentRange!), days(split.previousRange!));
+});

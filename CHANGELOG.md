@@ -23,10 +23,20 @@
 - **`previous period` is now the interval of equal duration immediately preceding the
   current one**, replacing a median split of the sorted rows. Exact boundaries are
   surfaced; when the data cannot support the comparison, KPIs report *comparison
-  unavailable* instead of a manufactured percentage. **Period-over-period percentages
-  will change** for datasets with uneven date coverage, and some previously-shown
-  percentages will now correctly read as unavailable. Custom alert rules that threshold
-  on a change percentage re-evaluate against the new boundaries on their next run.
+  unavailable* instead of a manufactured percentage.
+
+  **Period-over-period percentages will change, and in many cases they were previously
+  wrong.** The median split took an equal *number of rows* on each side, so for a
+  business whose transaction volume changes over time the change was suppressed by
+  construction — with a constant price per row, equal row counts means equal revenue,
+  always. On a fixture where volume doubles at a constant price, the old policy
+  reported **0%** for a business whose revenue had doubled; the new one reports +100%
+  (`comparison.test.ts`). Against the bundled sample datasets, retail revenue change
+  moves from +0.6% to +20.3% and order-count change from +0.6% to +20% for the same
+  reason: real volume growth that equal-row-count windows could not express. Expect
+  headline growth numbers to move materially on real data. Custom alert rules that
+  threshold on a change percentage re-evaluate against the new boundaries on their
+  next run.
 - **Deduplicated three independent implementations of the period split** — `analytics.ts`,
   a private copy in `drivers.ts`, and a third (`halfSplit`) in `insights.ts`. The third
   drove the "which products are declining/growing" chat answers and the decline/growth
