@@ -6,16 +6,17 @@ import type { SchemaMap } from "./schema.js";
 
 const schema: SchemaMap = { date: "date", product_name: "product", region: "region", revenue: "revenue" };
 
-// Two periods (median split lands between them): Widget grows, Gadget falls.
+// Two periods, an even span so both equal-duration windows are fully populated:
+// Widget grows, Gadget falls.
 const rows: Row[] = [
   { date: "2024-01-01", product: "Widget", region: "West", revenue: 100 },
   { date: "2024-01-01", product: "Gadget", region: "East", revenue: 200 },
   { date: "2024-02-01", product: "Widget", region: "West", revenue: 100 },
   { date: "2024-02-01", product: "Gadget", region: "East", revenue: 200 },
-  { date: "2024-06-01", product: "Widget", region: "West", revenue: 300 },
-  { date: "2024-06-01", product: "Gadget", region: "East", revenue: 50 },
   { date: "2024-07-01", product: "Widget", region: "West", revenue: 300 },
   { date: "2024-07-01", product: "Gadget", region: "East", revenue: 50 },
+  { date: "2024-08-01", product: "Widget", region: "West", revenue: 300 },
+  { date: "2024-08-01", product: "Gadget", region: "East", revenue: 50 },
 ];
 
 test("contributions reconcile exactly with the overall change", () => {

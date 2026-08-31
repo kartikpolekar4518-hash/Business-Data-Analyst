@@ -100,16 +100,15 @@ const FILTER_STEPS: { key: keyof A.Filters | "date"; reason: ExclusionReason }[]
 
 function cascadeFilters(rows: Row[], s: SchemaMap, f: A.Filters): { rows: Row[]; exclusions: Exclusion[] } {
   const exclusions: Exclusion[] = [];
-  let acc: A.Filters = {};
   let cur = rows;
   for (const step of FILTER_STEPS) {
-    const next: A.Filters = { ...acc };
-    if (step.key === "date") { if (!f.dateFrom && !f.dateTo) continue; next.dateFrom = f.dateFrom; next.dateTo = f.dateTo; }
-    else { const v = f[step.key as keyof A.Filters]; if (v === undefined) continue; (next as Record<string, unknown>)[step.key] = v; }
-    const after = A.applyFilters(rows, s, next);
+    const only: A.Filters = {};
+    if (step.key === "date") { if (!f.dateFrom && !f.dateTo) continue; only.dateFrom = f.dateFrom; only.dateTo = f.dateTo; }
+    else { const v = f[step.key as keyof A.Filters]; if (v === undefined) continue; (only as Record<string, unknown>)[step.key] = v; }
+    const after = A.applyFilters(cur, s, only);
     const dropped = cur.length - after.length;
     if (dropped > 0) exclusions.push({ reason: step.reason, count: dropped });
-    acc = next; cur = after;
+    cur = after;
   }
   return { rows: cur, exclusions };
 }
@@ -118,8 +117,12 @@ function cascadeFilters(rows: Row[], s: SchemaMap, f: A.Filters): { rows: Row[];
 // rows whose source values are usable; a DISTINCT reports rows carrying a value.
 // Neither is described as "rows contributing a non-zero value" — a legitimate 0 is
 // included data, not an exclusion.
-function valueInputs(kind: MetricKind, rows: Row[], sources: string[]): { included: number; exclusions: Exclusion[]; note: string } {
-  if (!sources.length) return { included: rows.length, exclusions: [], note: "No source column detected for this metric; it evaluates to 0." };
+function valueInputs(kind: MetricKind, rows: Row[], sources: string[], countsRowsWhenUnmapped: boolean): { included: number; exclusions: Exclusion[]; note: string } {
+  if (!sources.length) {
+    return countsRowsWhenUnmapped
+      ? { included: rows.length, exclusions: [], note: `No distinct key column detected, so every row counts as one: ${rows.length.toLocaleString()} rows.` }
+      : { included: 0, exclusions: [], note: "No source column detected for this metric, so it evaluates to 0." };
+  }
   let missing = 0, nonNumeric = 0;
   if (kind === "sum" || kind === "avg" || kind === "ratio") {
     for (const r of rows) {
@@ -213,7 +216,7 @@ export function explainKpi(input: ExplainInput): Explanation {
   const sources = def.sources(s);
   const split = A.splitPeriods(rows, s, filters);
   const { rows: filtered, exclusions: filterExclusions } = cascadeFilters(rows, s, filters);
-  const value = valueInputs(def.kind, filtered, sources);
+  const value = valueInputs(def.kind, filtered, sources, def.countsRowsWhenUnmapped === true);
 
   const comparable = split.basis === "trailing_equal_period";
   const currentValue = comparable ? round(def.value(split.current, s)) : null;

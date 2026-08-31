@@ -37,6 +37,12 @@
   headline growth numbers to move materially on real data. Custom alert rules that
   threshold on a change percentage re-evaluate against the new boundaries on their
   next run.
+
+  Comparison windows are equal in **whole days**. An odd-numbered span cannot be halved
+  into two whole-day windows, so the leftover day is dropped from the oldest end — this
+  keeps the recent window complete and both windows equal. On sparse data that can put a
+  meaningful share of rows outside both windows, which is why exact boundaries are always
+  shown rather than full coverage implied.
 - **Deduplicated three independent implementations of the period split** — `analytics.ts`,
   a private copy in `drivers.ts`, and a third (`halfSplit`) in `insights.ts`. The third
   drove the "which products are declining/growing" chat answers and the decline/growth

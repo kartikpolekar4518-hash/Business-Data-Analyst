@@ -5,7 +5,10 @@ import { detectSchema } from "./schema.js";
 import * as A from "./analytics.js";
 export type MetricKind="sum"|"ratio"|"distinct"|"count"|"avg";
 export interface PackMetric{id:string;label:string;kind:MetricKind;compute:(rows:Row[],s:SchemaMap)=>number;words:string[];format:"money"|"number"|"percent";builtin?:boolean;}
-export interface KpiDef{key:string;label:string;icon:string;format:"money"|"number"|"percent";tooltip?:string;noChange?:boolean;kind:MetricKind;describe:(s:SchemaMap)=>string;sources:(s:SchemaMap)=>string[];value:(rows:Row[],s:SchemaMap)=>number;}
+// countsRowsWhenUnmapped: with no source column this KPI counts rows rather than
+// evaluating to 0 (distinctOrCount does; distinctCustomers does not). The evidence
+// layer must know the difference or it will contradict the value it is explaining.
+export interface KpiDef{key:string;label:string;icon:string;format:"money"|"number"|"percent";tooltip?:string;noChange?:boolean;kind:MetricKind;describe:(s:SchemaMap)=>string;sources:(s:SchemaMap)=>string[];countsRowsWhenUnmapped?:boolean;value:(rows:Row[],s:SchemaMap)=>number;}
 export interface RankSectionDef{dimension:Semantic;metric:"revenue"|"profit"|"quantity"|"orders";title:string;subtitle:string;emptyText:string;format:"money"|"number";limit:number;}
 export interface CompositionDef{dimension:Semantic;fallback?:Semantic;title:string;subtitle:string;centerLabel:string;}
 export interface IndustryPack{id:string;name:string;key:string;label:string;metrics:PackMetric[];defaultDimensions:Semantic[];keyMetrics:string[];thresholds?:Record<string,number>;rules:SemanticRule[];signals:Semantic[];minSignals:number;priority:number;kpis:KpiDef[];trend:{title:string;subtitle:string};composition:CompositionDef;ranking:RankSectionDef;secondary:RankSectionDef;}
@@ -21,7 +24,7 @@ const customerCol=(s:SchemaMap)=>s.customer_id??s.customer_name;
 function kpis():KpiDef[]{return[
  {key:"revenue",label:"Revenue",icon:"revenue",format:"money",kind:"sum",describe:s=>A.revenueSource(s).expression,sources:s=>A.revenueSource(s).columns,value:sumRevenue},
  {key:"profit",label:"Profit",icon:"profit",format:"money",kind:"sum",describe:s=>profitSource(s).expression,sources:s=>profitSource(s).columns,value:sumProfit},
- {key:"orders",label:"Orders",icon:"orders",format:"number",kind:"distinct",describe:s=>s.order_id?`COUNT(DISTINCT ${s.order_id})`:"COUNT(rows)",sources:s=>s.order_id?[s.order_id]:[],value:distinctOrCount("order_id")},
+ {key:"orders",label:"Orders",icon:"orders",format:"number",kind:"distinct",describe:s=>s.order_id?`COUNT(DISTINCT ${s.order_id})`:"COUNT(rows)",sources:s=>s.order_id?[s.order_id]:[],countsRowsWhenUnmapped:true,value:distinctOrCount("order_id")},
  {key:"customers",label:"Customers",icon:"customers",format:"number",kind:"distinct",describe:s=>customerCol(s)?`COUNT(DISTINCT ${customerCol(s)})`:"0 (no customer column detected)",sources:s=>customerCol(s)?[customerCol(s)!]:[],value:distinctCustomers},
  {key:"margin",label:"Margin",icon:"margin",format:"percent",kind:"ratio",noChange:true,describe:s=>`${profitSource(s).expression} / ${A.revenueSource(s).expression} x 100`,sources:s=>[...new Set([...profitSource(s).columns,...A.revenueSource(s).columns])],value:marginPct}];}
 function makePack(id:string,name:string,metrics:PackMetric[],rules:SemanticRule[],signals:Semantic[],defaults:Semantic[],keyMetrics:string[],thresholds:Record<string,number>):IndustryPack{const kk=kpis();return{id,name,key:id,label:name,metrics,defaultDimensions:defaults,keyMetrics,thresholds,rules,signals,minSignals:id==="generic"?Infinity:2,priority:id==="generic"?-1:10,kpis:kk,trend:{title:"Performance Overview",subtitle:"Revenue & profit over time"},composition:{dimension:"category",fallback:"region",title:"Revenue Composition",subtitle:"Share by category",centerLabel:"Revenue"},ranking:{dimension:"product_name",metric:"revenue",title:"Top Products",subtitle:"Ranked by revenue",emptyText:"No product column detected",format:"money",limit:8},secondary:{dimension:"region",metric:"revenue",title:"Region Performance",subtitle:"By revenue",emptyText:"No region column detected",format:"money",limit:10}};}

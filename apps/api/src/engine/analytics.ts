@@ -93,21 +93,39 @@ export function splitPeriods(rows: Row[], s: SchemaMap, f: Filters = {}): Period
   const filtered = applyFilters(scope, s, f);     // caller's current view
   const times: number[] = [];
   for (const r of filtered) { const d = parseDate(r[s.date!]); if (d) times.push(d.getTime()); }
-  if (times.length < MIN_DATED_ROWS) return none("insufficient_history", filtered);
 
   let startMs: number, endExclMs: number, currentSource: CurrentSource;
-  if (dateFrom && dateTo) {
-    startMs = floorDay(new Date(dateFrom).getTime());
-    endExclMs = floorDay(new Date(dateTo).getTime()) + DAY;
+  if (dateFrom || dateTo) {
+    // Any date bound defines the current window; the missing side comes from the data.
+    // A partial bound must NOT fall through to the trailing-half path — that would
+    // derive a window from the filtered rows and then draw `previous` from outside the
+    // user's own filter.
+    if ((!dateFrom || !dateTo) && !times.length) return none("insufficient_history", filtered);
+    let dataMin = times[0], dataMax = times[0];
+    for (const t of times) { if (t < dataMin) dataMin = t; if (t > dataMax) dataMax = t; }
+    startMs = floorDay(dateFrom ? new Date(dateFrom).getTime() : dataMin);
+    endExclMs = floorDay(dateTo ? new Date(dateTo).getTime() : dataMax) + DAY;
     currentSource = "filter";
+    // The window is the caller's; row count is not a precondition for comparing
+    // against it. One day of current data against a populated prior day is valid.
   } else {
+    if (times.length < MIN_DATED_ROWS) return none("insufficient_history", filtered);
     let min = times[0], max = times[0];
     for (const t of times) { if (t < min) min = t; if (t > max) max = t; }
     min = floorDay(min); max = floorDay(max) + DAY;
-    startMs = floorDay(min + Math.floor((max - min) / 2));
-    endExclMs = max;
+    // Halve the span in WHOLE DAYS. Rounding up here would make `previous` reach past
+    // the first row and cover one more day than `current`, which reports growth on
+    // perfectly flat data. An odd leftover day is dropped from the oldest end instead,
+    // so both windows cover exactly the same duration and both sit inside the data.
+    const half = Math.floor((max - min) / DAY / 2) * DAY;
+    if (half <= 0) return none("insufficient_history", filtered);
+    endExclMs = max; startMs = max - half;
     currentSource = "trailing_half";
   }
+  // filterSchema accepts YYYY-MM-DD *shapes* that are not real dates ("2026-13-45"),
+  // which parse to NaN. NaN comparisons are all false, so this would otherwise reach a
+  // safe answer by accident and report the wrong reason for it.
+  if (!isFinite(startMs) || !isFinite(endExclMs)) return none("insufficient_history", filtered);
   const duration = endExclMs - startMs;
   if (duration <= 0) return none("insufficient_history", filtered);
 

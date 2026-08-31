@@ -1,10 +1,9 @@
 import { type ReactNode, type ComponentType } from "react";
-import { Sparkles, BrainCircuit, Database, ArrowUpRight, ArrowDownRight, Minus, Lightbulb } from "lucide-react";
+import { Sparkles, BrainCircuit, Database, Lightbulb } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import { cn, num } from "../lib/utils";
-import { formatKpiValue, type KpiFormat } from "../lib/kpi";
 import { DUR, EASE } from "../lib/motion";
-import { Badge, Dropdown } from "./ui";
+import { Badge } from "./ui";
 import type { Recommendation } from "../lib/types";
 
 // AI-styled *presentation* layer over the deterministic engine. Nothing here

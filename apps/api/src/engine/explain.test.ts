@@ -178,3 +178,32 @@ test("cleaning provenance is carried through to the evidence", () => {
   const ex = explainKpi(base({ dataset: { ...base().dataset, cleaning: [{ type: "duplicate_rows", column: null, affectedRows: 8 }] } }));
   assert.deepEqual(ex.provenance.cleaning, [{ type: "duplicate_rows", column: null, affectedRows: 8 }]);
 });
+
+// Regression + general invariant. `orders` falls back to counting rows when no
+// order-id column is detected, but the evidence layer hardcoded "evaluates to 0" for
+// any metric with no source column — so the card showed 30 while its own panel said 0.
+// That is precisely the drift explain.ts exists to prevent, so the assertion is written
+// generally: no KPI's evidence may contradict the value it is explaining.
+test("evidence never contradicts the value it explains, even with nothing mapped", () => {
+  const bare: Row[] = Array.from({ length: 30 }, (_, d) => ({ date: `2026-01-${String(d + 1).padStart(2, "0")}`, amount: 5 }));
+  for (const pack of Object.values(PACKS)) {
+    const dashboard = A.computeKpis(bare, {}, pack, {});
+    for (const kpi of dashboard) {
+      const ex = explainKpi(base({ rows: bare, schema: {}, pack, metricKey: kpi.key, industryKey: pack.id }));
+      assert.equal(ex.metric.value, kpi.value, `${pack.id}/${kpi.key}`);
+      if (kpi.value !== 0) {
+        assert.ok(!/evaluates to 0/.test(ex.inputs.note), `${pack.id}/${kpi.key} shows ${kpi.value} but its evidence claims 0: "${ex.inputs.note}"`);
+        assert.ok(ex.inputs.rowsIncluded > 0, `${pack.id}/${kpi.key} shows ${kpi.value} from 0 included rows`);
+      }
+    }
+  }
+});
+
+test("orders counts rows when no order-id column is detected, and says so", () => {
+  const bare: Row[] = Array.from({ length: 30 }, (_, d) => ({ date: `2026-01-${String(d + 1).padStart(2, "0")}`, amount: 5 }));
+  const ex = explainKpi(base({ rows: bare, schema: {}, metricKey: "orders" }));
+  assert.equal(ex.metric.value, 30);
+  assert.equal(ex.formula.expression, "COUNT(rows)");
+  assert.equal(ex.inputs.rowsIncluded, 30);
+  assert.match(ex.inputs.note, /every row counts as one/);
+});
