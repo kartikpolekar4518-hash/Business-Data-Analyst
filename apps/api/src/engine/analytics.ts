@@ -1,6 +1,7 @@
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import type { IndustryPack, PackMetric } from "./industries.js";
+import { DEFAULT_CALENDAR, periodKey, type CalendarConfig } from "./calendar.js";
 
 export interface Filters {
   dateFrom?: string; dateTo?: string;
@@ -15,6 +16,9 @@ export function num(v: unknown): number {
 }
 export function str(v: unknown): string { return v == null ? "" : String(v).trim(); }
 export function parseDate(v: unknown): Date | null { const d = new Date(str(v)); return isNaN(d.getTime()) ? null : d; }
+// Gregorian month bucket. Kept as the calendar-agnostic primitive and as the fixed
+// point calendar.test.ts asserts DEFAULT_CALENDAR against; period bucketing itself now
+// goes through periodKey(d, cal) so a fiscal or retail calendar can change it.
 export function monthKey(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; }
 export function rowRevenue(r: Row, s: SchemaMap): number {
   if (s.revenue) return num(r[s.revenue]); if (s.sales) return num(r[s.sales]);
@@ -166,13 +170,15 @@ function metricValue(metric: MetricRef, r: Row, s: SchemaMap): number {
   if (typeof metric === "object") return metric.compute([r], s);
   switch (metric) { case "revenue": return rowRevenue(r, s); case "profit": return rowProfit(r, s); case "quantity": return s.quantity ? num(r[s.quantity]) : 1; case "orders": return 1; }
 }
-export function timeSeries(rows: Row[], s: SchemaMap, metric: MetricRef, f: Filters = {}) {
+// `cal` defaults to DEFAULT_CALENDAR, which buckets exactly as monthKey always did, so
+// an organization that has never set a business calendar sees identical numbers.
+export function timeSeries(rows: Row[], s: SchemaMap, metric: MetricRef, f: Filters = {}, cal: CalendarConfig = DEFAULT_CALENDAR) {
   const filtered = applyFilters(rows, s, f); if (!s.date) return [];
   if (typeof metric === "object") {
-    const buckets = new Map<string, Row[]>(); for (const r of filtered) { const d = parseDate(r[s.date!]); if (!d) continue; const key = monthKey(d); const bucket = buckets.get(key) ?? []; bucket.push(r); buckets.set(key, bucket); }
+    const buckets = new Map<string, Row[]>(); for (const r of filtered) { const d = parseDate(r[s.date!]); if (!d) continue; const key = periodKey(d, cal); const bucket = buckets.get(key) ?? []; bucket.push(r); buckets.set(key, bucket); }
     return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, bucket]) => ({ period, value: round(metric.compute(bucket, s)) }));
   }
-  const buckets = new Map<string, number>(); for (const r of filtered) { const d = parseDate(r[s.date!]); if (!d) continue; const key = monthKey(d); buckets.set(key, (buckets.get(key) || 0) + metricValue(metric, r, s)); }
+  const buckets = new Map<string, number>(); for (const r of filtered) { const d = parseDate(r[s.date!]); if (!d) continue; const key = periodKey(d, cal); buckets.set(key, (buckets.get(key) || 0) + metricValue(metric, r, s)); }
   return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, value]) => ({ period, value: round(value) }));
 }
 export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: MetricRef, f: Filters = {}, limit = 10) {

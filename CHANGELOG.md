@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+### Custom metrics — define a number once, use it everywhere
+
+- **Organizations can now define their own metrics** (Settings → Metrics): a total,
+  average, row count, unique count, or a ratio of two columns, optionally narrowed by a
+  single row filter. A custom metric is then a first-class citizen — it appears as a
+  dashboard KPI, drives trends and rankings, is forecastable, can be targeted by an
+  alert rule, and is matchable in a plain-English question.
+- **Stored as data, not code.** `engine/metricSpec.ts` defines a declarative `MetricSpec`
+  that compiles into the engine's existing `PackMetric` and `KpiDef` shapes. There is
+  deliberately no expression language, no parser and no eval: a spec names one of the
+  five aggregation kinds the engine already understands over one or two fields. Fields
+  may be bound to a detected business meaning (revenue, cost, …) rather than a literal
+  column, so a metric survives being pointed at a differently-named upload.
+- **Custom metrics are explainable.** Compiled metrics carry `describe`/`sources`, so
+  `explainKpi` accepts them instead of throwing — previously only the five built-in
+  KPIs could produce a "Why this number" panel. A selfcheck assertion pins
+  evidence-equals-dashboard for a compiled custom metric.
+- Alert rules accept any metric the organization actually has (the hardcoded five-metric
+  enum is replaced by validation against the compiled registry), the scheduler resolves
+  custom metrics when evaluating a rule, and deleting a metric still in use by a rule is
+  refused rather than silently breaking it.
+- Merging is done into a copy of the industry pack: `PACKS` is a shared module-level
+  constant, so mutating it would leak one organization's metrics into every other
+  organization served by the same process. A selfcheck assertion pins that too.
+
+### Business calendars — fiscal years and retail 4-4-5 periods
+
+- **Periods are now configurable per organization** (Settings → Calendar): a fiscal
+  year start month, and either Gregorian calendar months or a retail **4-4-5 / 4-5-4 /
+  5-4-4** pattern with a configurable week start. New `engine/calendar.ts` owns both key
+  formats (`2026-03` and `FY2026-P03`); `timeSeries`, `correlateMetric`, the report
+  composer and the forecaster's period arithmetic all route through it. Retail years
+  open on the first chosen weekday on or after the 1st of the start month, and a 53rd
+  week folds into period 12 so every year has exactly 12 comparable periods.
+- **No behaviour change by default.** `DEFAULT_CALENDAR` reproduces the previous
+  `monthKey` bucketing exactly, the new columns default to it, and the migration
+  backfills nothing. A selfcheck assertion pins `timeSeries` output under the default
+  calendar to its pre-feature result, and the calculation fingerprint of an org that
+  never sets a calendar is unchanged (the calendar is serialised as `null` when default).
+- **The calendar is part of a number's identity.** It changes which rows land in which
+  period, so it feeds `calculationFingerprint`, and a non-default calendar prints the
+  rule that bucketed the periods in the "Why this number" panel. The *comparison window*
+  is deliberately still duration-based and calendar-agnostic — claiming otherwise would
+  have been false, so the evidence panel states the two separately.
+- Engine version bumped to `0.2.0`.
+
 ### Deterministic evidence — "Why this number"
 
 - **Every KPI now explains itself.** A new evidence panel shows the formula that ran,

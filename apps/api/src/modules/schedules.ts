@@ -4,13 +4,21 @@ import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { nextRun, executeReport, executeAlertRule, type Frequency } from "../scheduler.js";
+import { loadOrgConfig } from "./context.js";
+import { packMetric } from "../engine/industries.js";
 
 export const schedulesRouter = Router();
 schedulesRouter.use(requireAuth);
 
+// The metrics scheduler.metricValue resolves directly off the overview.
+const BUILTIN_ALERT_METRICS = ["revenue", "profit", "margin", "orders", "customers"];
+
 const frequency = z.enum(["HOURLY", "DAILY", "WEEKLY", "MONTHLY"]);
 const comparator = z.enum(["LT", "LTE", "GT", "GTE"]);
-const metric = z.enum(["revenue", "profit", "margin", "orders", "customers"]);
+// Any metric the org actually has: the five built-in KPIs, its industry pack's
+// metrics, or one it defined itself. Validated against the compiled registry in the
+// route rather than by a hardcoded enum, which could not know about custom metrics.
+const metric = z.string().min(1).max(40);
 
 // ─── Scheduled reports ───
 const reportCreate = z.object({
@@ -73,6 +81,16 @@ const ruleCreate = z.object({
 });
 const ruleUpdate = ruleCreate.partial();
 
+// Widening the metric field from an enum to a free string moved validation here: a
+// rule may only target a metric the org actually has, otherwise it would be accepted
+// and then evaluate to null forever without ever firing.
+async function assertKnownMetric(organizationId: string, key: string | undefined) {
+  if (!key) return;
+  if (BUILTIN_ALERT_METRICS.includes(key)) return;
+  const { pack } = await loadOrgConfig(organizationId);
+  if (!packMetric(pack, key)) throw new HttpError(400, `Unknown metric '${key}'. Define it under Settings -> Metrics first.`);
+}
+
 schedulesRouter.get("/alert-rules", wrap(async (req, res) => {
   const rules = await prisma.alertRule.findMany({ where: { organizationId: req.auth!.organizationId }, orderBy: { createdAt: "desc" } });
   res.json({ rules });
@@ -80,6 +98,7 @@ schedulesRouter.get("/alert-rules", wrap(async (req, res) => {
 
 schedulesRouter.post("/alert-rules", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const body = ruleCreate.parse(req.body ?? {});
+  await assertKnownMetric(req.auth!.organizationId, body.metric);
   const rule = await prisma.alertRule.create({
     data: { ...body, organizationId: req.auth!.organizationId, nextRunAt: nextRun(body.frequency as Frequency, new Date()) },
   });
@@ -90,6 +109,7 @@ schedulesRouter.patch("/alert-rules/:id", requireRole("ADMIN", "MANAGER"), wrap(
   const body = ruleUpdate.parse(req.body ?? {});
   const existing = await prisma.alertRule.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
   if (!existing) throw new HttpError(404, "Alert rule not found");
+  await assertKnownMetric(req.auth!.organizationId, body.metric);
   const nextRunAt = body.frequency ? nextRun(body.frequency as Frequency, new Date()) : undefined;
   const rule = await prisma.alertRule.update({ where: { id: existing.id }, data: { ...body, ...(nextRunAt ? { nextRunAt } : {}) } });
   res.json({ rule });

@@ -4,6 +4,8 @@
 // and best/base/worst scenarios fan out from the trend's slope uncertainty. Pure:
 // same history always yields the same forecast.
 
+import { nextPeriodKey, periodIndexInYear } from "./calendar.js";
+
 export interface HistoryPoint { period: string; value: number; }
 export interface ForecastPoint {
   period: string;
@@ -36,13 +38,10 @@ export interface WhatIfResult {
   goal?: GoalStatus;
 }
 
+// Periods are "YYYY-MM" on a calendar year and "FY2026-P03" on a retail one; the
+// calendar module owns both formats so the forecaster never has to know which is which.
 function nextPeriod(last: string): string {
-  // periods look like "YYYY-MM"
-  const m = /^(\d{4})-(\d{2})$/.exec(last);
-  if (!m) return last + "+1";
-  let year = Number(m[1]), month = Number(m[2]) + 1;
-  if (month > 12) { month = 1; year++; }
-  return `${year}-${String(month).padStart(2, "0")}`;
+  return nextPeriodKey(last) ?? last + "+1";
 }
 
 // Ordinary-least-squares line `value = a + b*x` over `ys` at x = 0..n-1, plus the
@@ -66,9 +65,11 @@ export function linearFit(ys: number[]): LinearFit {
 const SEASON = 12;        // monthly data -> yearly season
 const Z95 = 1.96;
 
+// 0-based slot within the year. Retail years also run 12 periods, so SEASON holds for
+// both calendar and retail schemes and seasonality works identically on each.
 function monthOf(period: string): number | null {
-  const m = /^\d{4}-(\d{2})$/.exec(period);
-  return m ? Number(m[1]) - 1 : null;
+  const index = periodIndexInYear(period);
+  return index === null ? null : index - 1;
 }
 
 // Centered additive seasonal indices (one per month), or null if the periods aren't

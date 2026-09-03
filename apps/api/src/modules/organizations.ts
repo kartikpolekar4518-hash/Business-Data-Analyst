@@ -44,6 +44,11 @@ organizationsRouter.get("/current", wrap(async (req, res) => {
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
   industry: z.enum(Object.keys(PACKS) as [string, ...string[]]).optional(),
+  // Business calendar (engine/calendar.ts). Validated at the edge so a bad value can
+  // never reach the analytics path, where it would silently re-bucket every period.
+  fiscalYearStartMonth: z.number().int().min(1).max(12).optional(),
+  periodScheme: z.enum(["calendar", "445", "454", "544"]).optional(),
+  weekStartDay: z.number().int().min(0).max(6).optional(),
 });
 
 organizationsRouter.patch("/current", requireRole("ADMIN"), wrap(async (req, res) => {
@@ -53,5 +58,7 @@ organizationsRouter.patch("/current", requireRole("ADMIN"), wrap(async (req, res
   // On a real industry change, re-tailor the stored schema for every dataset so
   // all features (not just the dashboard) speak the new business's language.
   if (data.industry && data.industry !== before?.industry) await reapplyIndustrySchema(org.id, data.industry);
+  // A calendar change needs no equivalent recompute: it stores nothing on datasets and
+  // is read fresh by loadOrgConfig on every analytics request, so it applies at once.
   res.json({ organization: org });
 }));

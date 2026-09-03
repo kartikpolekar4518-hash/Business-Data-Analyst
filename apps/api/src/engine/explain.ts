@@ -4,6 +4,7 @@ import * as A from "./analytics.js";
 import { analyzeDrivers, type DriverResult } from "./drivers.js";
 import type { IndustryPack, KpiDef, MetricKind } from "./industries.js";
 import { canonicalJson, sha256 } from "./identity.js";
+import { DEFAULT_CALENDAR, describeCalendar, isDefaultCalendar, normalizeCalendar, type CalendarConfig } from "./calendar.js";
 
 // Deterministic evidence for one KPI: what formula ran, over which rows, against
 // which comparison window, and under which dataset/engine/configuration identity.
@@ -79,6 +80,8 @@ export interface ExplainInput {
   detectionRules?: DetectionRules;
   dataset: { id: string; name: string; fileName: string; rowCount: number; datasetHash: string | null; rawFileHash: string | null; engineVersion: string | null; cleaning: { type: string; column: string | null; affectedRows: number }[] };
   industryKey: string;
+  /** The org's business calendar. Omitted means the Gregorian default. */
+  calendar?: CalendarConfig;
 }
 
 const BLANK = (v: unknown) => v === null || v === undefined || (typeof v === "string" && v.trim() === "");
@@ -153,15 +156,21 @@ function valueInputs(kind: MetricKind, rows: Row[], sources: string[], countsRow
   };
 }
 
-function describeComparison(split: A.PeriodSplit): string {
+function describeComparison(split: A.PeriodSplit, calendar: CalendarConfig): string {
+  // The comparison window itself is still duration-based and calendar-agnostic (see the
+  // policy comment in analytics.splitPeriods). The calendar governs how rows are
+  // bucketed into the periods a trend is drawn from, so it is stated separately rather
+  // than implied — claiming the comparison is fiscal-aware would be false.
+  const calendarNote = isDefaultCalendar(calendar) ? "" : ` Periods are bucketed by: ${describeCalendar(calendar)}`;
   if (split.basis === "unavailable") {
-    return split.reason === "no_date_column" ? "No date column detected — no comparison period."
+    const why = split.reason === "no_date_column" ? "No date column detected — no comparison period."
       : split.reason === "no_prior_data" ? "No data exists for the preceding period of equal length."
       : "Not enough dated history for a comparison.";
+    return why + calendarNote;
   }
   const [cs, ce] = split.currentRange!, [ps, pe] = split.previousRange!;
   const how = split.currentSource === "filter" ? "your selected range" : "the most recent half of the available data";
-  return `${cs} to ${ce} (${how}) compared with ${ps} to ${pe}, the interval of equal length immediately before it.`;
+  return `${cs} to ${ce} (${how}) compared with ${ps} to ${pe}, the interval of equal length immediately before it.` + calendarNote;
 }
 
 // The fingerprint identifies the CALCULATION, not the request: filters are
@@ -187,8 +196,9 @@ export function calculationFingerprint(input: {
   datasetHash: string | null; engineVersion: string | null; industryKey: string;
   metricKey: string; filters: A.Filters; comparisonBasis: A.ComparisonBasis;
   currentRange: [string, string] | null; previousRange: [string, string] | null;
-  schemaSources: string[];
+  schemaSources: string[]; calendar?: CalendarConfig;
 }): string {
+  const calendar = normalizeCalendar(input.calendar);
   return sha256(canonicalJson({
     datasetHash: input.datasetHash,
     engineVersion: input.engineVersion,
@@ -197,6 +207,11 @@ export function calculationFingerprint(input: {
     // pins them. This becomes a real hash the day pack thresholds/KPI definitions
     // are database-editable per organization.
     industryConfigHash: null,
+    // The business calendar IS database-editable per organization and changes which
+    // rows land in which period, so it must be part of the identity of a number.
+    // The default is emitted as null so fingerprints computed before business
+    // calendars existed stay stable for orgs that never set one.
+    calendar: isDefaultCalendar(calendar) ? null : calendar,
     metric: input.metricKey,
     schemaSources: input.schemaSources,
     filters: normalizeFilters(input.filters),
@@ -206,6 +221,7 @@ export function calculationFingerprint(input: {
 
 export function explainKpi(input: ExplainInput): Explanation {
   const { rows, schema: s, pack, metricKey, filters, dataset, industryKey } = input;
+  const calendar = normalizeCalendar(input.calendar ?? DEFAULT_CALENDAR);
   const def: KpiDef | undefined = pack.kpis.find((k) => k.key === metricKey);
   if (!def) throw new RangeError(`Unsupported metric: ${metricKey}`);
 
@@ -247,7 +263,7 @@ export function explainKpi(input: ExplainInput): Explanation {
       currentRange: split.currentRange, previousRange: split.previousRange,
       currentValue, previousValue,
       changePct: def.noChange ? null : kpi.changePct,
-      description: describeComparison(split),
+      description: describeComparison(split, calendar),
     },
     drivers,
     provenance: {
@@ -259,7 +275,7 @@ export function explainKpi(input: ExplainInput): Explanation {
         datasetHash: dataset.datasetHash, engineVersion: dataset.engineVersion, industryKey,
         metricKey, filters, comparisonBasis: split.basis,
         currentRange: split.currentRange, previousRange: split.previousRange,
-        schemaSources: sources,
+        schemaSources: sources, calendar,
       }),
     },
     claims: {

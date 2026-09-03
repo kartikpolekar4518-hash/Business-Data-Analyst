@@ -12,6 +12,7 @@ import { uploadsRouter } from "./modules/uploads.js";
 import { connectionsRouter } from "./modules/connections.js";
 import { datasetsRouter } from "./modules/datasets.js";
 import { analyticsRouter } from "./modules/analytics.js";
+import { metricsRouter } from "./modules/metrics.js";
 import { aiRouter } from "./modules/ai.js";
 import { forecastingRouter } from "./modules/forecasting.js";
 import { reportsRouter } from "./modules/reports.js";
@@ -89,6 +90,7 @@ app.use("/api/uploads", uploadsRouter);
 app.use("/api/connections", connectionsRouter);
 app.use("/api/datasets", datasetsRouter);
 app.use("/api/analytics", analyticsRouter);
+app.use("/api/metrics", metricsRouter);
 // NL-query endpoints are rate-limited to bound work on abusive callers (deterministic engine, but each request re-runs analytics).
 app.use("/api/ai", rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false }), aiRouter);
 app.use("/api/forecasts", forecastingRouter);
