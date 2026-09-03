@@ -40,9 +40,24 @@ evidence panel exists so that interpretation is visible and checkable.
 immediately preceding the current one**. With a date filter applied, August 1–31
 compares against July 1–31. With no filter, the most recent half of the available
 span compares against the equally long half before it. Exact boundaries are always
-shown. There is no calendar/fiscal/retail-week inference and no seasonality
-adjustment; when the data cannot support that comparison, NoPS shows **"comparison
-unavailable — insufficient historical data"** rather than manufacturing a percentage.
+shown. There is no seasonality adjustment, and the comparison window itself is still
+duration-based — it is **not** inferred from your fiscal calendar; when the data cannot
+support that comparison, NoPS shows **"comparison unavailable — insufficient historical
+data"** rather than manufacturing a percentage.
+
+### Business calendars
+
+Separately from the comparison window, the **periods a trend is grouped into** are
+configurable per organization (Settings → Calendar): a fiscal year start month, and
+either Gregorian calendar months or a retail **4-4-5 / 4-5-4 / 5-4-4** pattern. Retail
+years open on the first chosen weekday on or after the 1st of the start month, and a
+53rd week folds into period 12 so every year has exactly 12 comparable periods.
+
+The default — calendar months, fiscal year starting January — reproduces the engine's
+original bucketing exactly, so an organization that never opens the setting sees
+unchanged numbers. Because the calendar changes which rows land in which period, it is
+part of a figure's `calculationFingerprint`, and the rule that bucketed a number is
+printed in its "Why this number" panel.
 
 Windows are equal in *duration*, never in row count. That distinction matters: a
 comparison that took an equal number of rows from each side cannot express a change in

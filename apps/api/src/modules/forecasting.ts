@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadDataset } from "./context.js";
+import { loadDataset, loadOrgConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import { forecast, evaluateGoal, whatIf } from "../engine/forecast.js";
 import { detectPack, packMetric } from "../engine/industries.js";
@@ -23,11 +23,12 @@ forecastingRouter.post("/", requireRole("ADMIN", "MANAGER"), wrap(async (req, re
   const auth = req.auth!;
   const { metric, horizon, datasetId, goal, driverDelta } = createSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
+  const { calendar } = await loadOrgConfig(auth.organizationId);
 
   // Resolve the metric from the pack registry (any pack metric is forecastable).
   const pack = detectPack(schema, [], dataset.name);
   const metricDef = packMetric(pack, metric) ?? packMetric(pack, "revenue")!;
-  const series = A.timeSeries(rows, schema, metricDef);
+  const series = A.timeSeries(rows, schema, metricDef, {}, calendar);
   const history = series.map((p) => ({ period: p.period, value: p.value }));
 
   let result;

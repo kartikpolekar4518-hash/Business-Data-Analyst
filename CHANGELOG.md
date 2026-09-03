@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+### Business calendars — fiscal years and retail 4-4-5 periods
+
+- **Periods are now configurable per organization** (Settings → Calendar): a fiscal
+  year start month, and either Gregorian calendar months or a retail **4-4-5 / 4-5-4 /
+  5-4-4** pattern with a configurable week start. New `engine/calendar.ts` owns both key
+  formats (`2026-03` and `FY2026-P03`); `timeSeries`, `correlateMetric`, the report
+  composer and the forecaster's period arithmetic all route through it. Retail years
+  open on the first chosen weekday on or after the 1st of the start month, and a 53rd
+  week folds into period 12 so every year has exactly 12 comparable periods.
+- **No behaviour change by default.** `DEFAULT_CALENDAR` reproduces the previous
+  `monthKey` bucketing exactly, the new columns default to it, and the migration
+  backfills nothing. A selfcheck assertion pins `timeSeries` output under the default
+  calendar to its pre-feature result, and the calculation fingerprint of an org that
+  never sets a calendar is unchanged (the calendar is serialised as `null` when default).
+- **The calendar is part of a number's identity.** It changes which rows land in which
+  period, so it feeds `calculationFingerprint`, and a non-default calendar prints the
+  rule that bucketed the periods in the "Why this number" panel. The *comparison window*
+  is deliberately still duration-based and calendar-agnostic — claiming otherwise would
+  have been false, so the evidence panel states the two separately.
+- Engine version bumped to `0.2.0`.
+
 ### Deterministic evidence — "Why this number"
 
 - **Every KPI now explains itself.** A new evidence panel shows the formula that ran,

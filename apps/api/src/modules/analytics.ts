@@ -3,10 +3,10 @@ import { z } from "zod";
 import { wrap, HttpError } from "../errors.js";
 import { prisma } from "../prisma.js";
 import { requireAuth } from "../auth/middleware.js";
-import { loadDataset } from "./context.js";
+import { loadDataset, loadOrgConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
-import { getPack, suggestIndustry, type RankSectionDef } from "../engine/industries.js";
+import { suggestIndustry, type RankSectionDef } from "../engine/industries.js";
 import { analyzeDrivers, type DriverMetric } from "../engine/drivers.js";
 import { detectAnomalies } from "../engine/anomaly.js";
 import { analyzeCorrelations } from "../engine/correlate.js";
@@ -47,8 +47,10 @@ function filtersFrom(query: any): A.Filters {
 
 const timeSeries = (metric: "revenue" | "profit") =>
   wrap(async (req, res) => {
-    const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-    res.json({ series: A.timeSeries(rows, schema, metric, filtersFrom(req.query)) });
+    const orgId = req.auth!.organizationId;
+    const { rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+    const { calendar } = await loadOrgConfig(orgId);
+    res.json({ series: A.timeSeries(rows, schema, metric, filtersFrom(req.query), calendar) });
   });
 
 const groupByDimension = (key: "product_name" | "customer_name" | "region", limit: number) =>
@@ -60,8 +62,7 @@ const groupByDimension = (key: "product_name" | "customer_name" | "region", limi
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
   const { dataset, rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
-  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
-  const pack = getPack(org?.industry);
+  const { pack, calendar } = await loadOrgConfig(orgId);
   const f = filtersFrom(req.query);
 
   // The stored schema is kept pack-correct at write time, so it is used directly.
@@ -70,8 +71,8 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
   const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
   const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
 
-  const revenueTrend = A.timeSeries(rows, schema, "revenue", f);
-  const profitTrend = A.timeSeries(rows, schema, "profit", f);
+  const revenueTrend = A.timeSeries(rows, schema, "revenue", f, calendar);
+  const profitTrend = A.timeSeries(rows, schema, "profit", f, calendar);
   const sparkOf = (t: { value: number }[]) => (t.length > 1 ? t.map((p) => p.value) : undefined);
   // Margin series by period-keyed lookup (not index) so it stays correct even if
   // the revenue/profit trend arrays ever diverge in length or ordering.
@@ -123,8 +124,7 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
 analyticsRouter.get("/explain", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
   const { dataset, rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
-  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { industry: true } });
-  const pack = getPack(org?.industry);
+  const { pack, calendar } = await loadOrgConfig(orgId);
   const metricKey = typeof req.query.metric === "string" ? req.query.metric : "revenue";
   if (!pack.kpis.some((k) => k.key === metricKey)) throw new HttpError(400, `Unknown metric '${metricKey}' for this industry.`);
 
@@ -136,7 +136,7 @@ analyticsRouter.get("/explain", wrap(async (req, res) => {
 
   res.json(explainKpi({
     rows, schema, pack, metricKey, filters: filtersFrom(req.query), detectionRules,
-    industryKey: pack.key,
+    industryKey: pack.key, calendar,
     dataset: {
       id: dataset.id, name: dataset.name, fileName: dataset.fileName, rowCount: dataset.rowCount,
       datasetHash: dataset.datasetHash, rawFileHash: dataset.rawFileHash, engineVersion: dataset.engineVersion,
@@ -166,9 +166,11 @@ analyticsRouter.get("/drivers", wrap(async (req, res) => {
 
 // Anomalies in a metric's time series (deterministic, robust to single outliers).
 analyticsRouter.get("/anomalies", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const orgId = req.auth!.organizationId;
+  const { rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const { calendar } = await loadOrgConfig(orgId);
   const metric = (["revenue", "profit", "orders"] as const).find((m) => m === req.query.metric) ?? "revenue";
-  const series = A.timeSeries(rows, schema, metric, filtersFrom(req.query));
+  const series = A.timeSeries(rows, schema, metric, filtersFrom(req.query), calendar);
   res.json(detectAnomalies(series, metric.charAt(0).toUpperCase() + metric.slice(1)));
 }));
 

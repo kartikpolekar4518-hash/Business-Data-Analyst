@@ -11,6 +11,7 @@ import { deriveInsights } from "./insights.js";
 import { investigate } from "./investigate.js";
 import { detectPack, packMetric, PACKS } from "./industries.js";
 import { explainKpi } from "./explain.js";
+import { DEFAULT_CALENDAR } from "./calendar.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -166,5 +167,56 @@ assert(goalMissed.status === "missed", "forecast well below goal is missed");
 const wi = whatIf([{ period: "2024-01", value: 100 }, { period: "2024-02", value: 120 }, { period: "2024-03", value: 140 }], 3, 50, 150);
 assert(wi.scenario.points[0].value > wi.base.points[0].value, "what-if delta lifts the projection");
 assert(wi.goal !== undefined, "what-if returns goal status");
+
+// ---- Phase 4: business calendars ----
+// One explain input reused across the calendar assertions, so the only thing that
+// varies between them is the calendar itself.
+const explainBase = {
+  rows, schema: map, pack: PACKS.generic!, metricKey: "revenue", filters: {}, industryKey: PACKS.generic!.id,
+  dataset: { id: "selfcheck", name: "selfcheck", fileName: "selfcheck.csv", rowCount: rows.length, datasetHash: null, rawFileHash: null, engineVersion: null, cleaning: [] },
+};
+
+// The load-bearing guarantee: an org that never sets a calendar must see the numbers
+// it saw before the feature existed. Assert it against the real pipeline, not just the
+// bucketing helper, because timeSeries is what every trend and forecast runs through.
+const trendDefault = A.timeSeries(rows, map, "revenue");
+const trendExplicitDefault = A.timeSeries(rows, map, "revenue", {}, DEFAULT_CALENDAR);
+assert.deepEqual(trendExplicitDefault, trendDefault, "the default calendar leaves timeSeries output unchanged");
+assert(trendDefault.every((p) => /^\d{4}-\d{2}$/.test(p.period)), "default periods stay YYYY-MM");
+
+const retailCal = { fiscalYearStartMonth: 2, scheme: "445" as const, weekStartDay: 0 };
+const retailTrend = A.timeSeries(rows, map, "revenue", {}, retailCal);
+assert(retailTrend.every((p) => /^FY\d{4}-P\d{2}$/.test(p.period)), "retail periods are FY####-P##");
+const totalDefault = trendDefault.reduce((s, p) => s + p.value, 0);
+const totalRetail = retailTrend.reduce((s, p) => s + p.value, 0);
+assert(Math.abs(totalDefault - totalRetail) < 0.01, "re-bucketing moves rows between periods but never changes the total");
+
+// A fiscal year start alone must not re-bucket anything — the months are still months.
+const aprilCal = { fiscalYearStartMonth: 4, scheme: "calendar" as const, weekStartDay: 1 };
+assert.deepEqual(A.timeSeries(rows, map, "revenue", {}, aprilCal), trendDefault, "fiscal start alone does not move rows between periods");
+
+// Forecasting has to keep working on retail keys, since it advances periods itself.
+if (retailTrend.length >= 2) {
+  const retailForecast = forecast(retailTrend.map((p) => ({ period: p.period, value: p.value })), 3);
+  assert(retailForecast.points.length === 3, "forecast projects forward on retail periods");
+  assert(retailForecast.points.every((p) => /^FY\d{4}-P\d{2}$/.test(p.period)), "projected retail periods keep their format");
+}
+
+// Evidence: a non-default calendar must state its rule, and the default must not
+// change the fingerprint of orgs that never touched the setting.
+const explainDefault = explainKpi({ ...explainBase, calendar: DEFAULT_CALENDAR });
+const explainNoCal = explainKpi(explainBase);
+assert.equal(
+  explainNoCal.provenance.calculationFingerprint,
+  explainDefault.provenance.calculationFingerprint,
+  "the default calendar does not change a calculation fingerprint",
+);
+const explainRetail = explainKpi({ ...explainBase, calendar: retailCal });
+assert(
+  explainRetail.provenance.calculationFingerprint !== explainDefault.provenance.calculationFingerprint,
+  "a changed calendar changes the calculation fingerprint",
+);
+assert(/4-4-5/.test(explainRetail.comparison.description), "evidence states the calendar rule that bucketed the periods");
+assert(!/4-4-5/.test(explainDefault.comparison.description), "the default calendar adds no noise to the evidence panel");
 
 console.log("✓ engine selfcheck passed");

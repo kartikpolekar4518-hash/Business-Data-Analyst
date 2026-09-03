@@ -6,6 +6,7 @@ import type { SchemaMap } from "./schema.js";
 import type { IndustryPack } from "./industries.js";
 import * as A from "./analytics.js";
 import { forecast } from "./forecast.js";
+import { DEFAULT_CALENDAR, type CalendarConfig } from "./calendar.js";
 import { deriveInsights } from "./insights.js";
 
 export interface ReportSection { title: string; format: "money" | "number"; items: { label: string; value: number }[]; }
@@ -52,9 +53,9 @@ function buildSummary(pack: IndustryPack, kpis: A.KpiResult[]): string {
   return `${pack.label} performance — ${headline}. Primary metric ${dir} versus the prior period.`;
 }
 
-export function composeReport(pack: IndustryPack, rows: Row[], schema: SchemaMap): ReportContent {
+export function composeReport(pack: IndustryPack, rows: Row[], schema: SchemaMap, cal: CalendarConfig = DEFAULT_CALENDAR): ReportContent {
   const kpis = A.computeKpis(rows, schema, pack);
-  const revSeries = A.timeSeries(rows, schema, "revenue");
+  const revSeries = A.timeSeries(rows, schema, "revenue", {}, cal);
   const fc = revSeries.length >= 2 ? forecast(revSeries.map((p) => ({ period: p.period, value: p.value })), 3) : null;
   const { recommendations } = deriveInsights(rows, schema);
 

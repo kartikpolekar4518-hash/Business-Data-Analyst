@@ -4,6 +4,7 @@ import type { Row } from "../engine/parse.js";
 import { detectSchema, type SchemaMap } from "../engine/schema.js";
 import type { Profile } from "../engine/profile.js";
 import { getPack } from "../engine/industries.js";
+import { normalizeCalendar, type PeriodScheme } from "../engine/calendar.js";
 
 // Parsed-row cache. Deserializing the rows JSON is the dominant cost of every
 // analytics request (the dashboard alone fires ~5 in parallel), so rows are
@@ -33,6 +34,25 @@ export async function loadDataset(organizationId: string, datasetId?: string) {
     rowCache.set(key, rows);
   }
   return { dataset, rows, schema: dataset.schemaMap as SchemaMap };
+}
+
+// The org-level configuration every analytical route needs: which industry pack shapes
+// the dashboard, and which business calendar buckets its periods. Fetched together in
+// one query because every caller wants both, and normalized here so a bad stored value
+// degrades to the default instead of throwing on an analytics read.
+export async function loadOrgConfig(organizationId: string) {
+  const org = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { industry: true, fiscalYearStartMonth: true, periodScheme: true, weekStartDay: true },
+  });
+  return {
+    pack: getPack(org?.industry),
+    calendar: normalizeCalendar({
+      fiscalYearStartMonth: org?.fiscalYearStartMonth,
+      scheme: org?.periodScheme as PeriodScheme | undefined,
+      weekStartDay: org?.weekStartDay,
+    }),
+  };
 }
 
 // Strip the heavy JSON row blobs from a dataset record before returning it in a response.

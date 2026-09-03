@@ -14,13 +14,14 @@ export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
-  const tabs = [{ id: "organization", label: "Organization" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
+  const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500 dark:text-slate-400">Manage your workspace, team, and integrations.</p></div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
       {!can("ADMIN") && tab !== "preferences" && tab !== "activity" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
+      {tab === "calendar" && <CalendarTab />}
       {tab === "billing" && <BillingTab />}
       {tab === "users" && <UsersTab />}
       {tab === "activity" && <ActivityTab />}
@@ -121,6 +122,89 @@ function OrgTab() {
       </div>
       <div className="text-sm text-slate-500 dark:text-slate-400">{data?.organization.memberCount ?? 0} members</div>
       {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
+    </CardBody></Card>
+  );
+}
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const SCHEMES = [
+  { id: "calendar", label: "Calendar months", hint: "Standard months — January, February, and so on." },
+  { id: "445", label: "Retail 4-4-5", hint: "Each quarter runs 4, then 4, then 5 weeks. The most common retail calendar." },
+  { id: "454", label: "Retail 4-5-4", hint: "Each quarter runs 4, then 5, then 4 weeks. Used by the NRF calendar." },
+  { id: "544", label: "Retail 5-4-4", hint: "Each quarter runs 5, then 4, then 4 weeks." },
+];
+
+interface OrgCalendar { name: string; fiscalYearStartMonth: number; periodScheme: string; weekStartDay: number }
+
+// The business calendar decides which rows land in which period on every trend,
+// forecast and comparison. Defaults are calendar months starting in January, which
+// reproduces exactly what the engine did before this setting existed.
+function CalendarTab() {
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { data } = useQuery({ queryKey: ["org"], queryFn: () => api.get<{ organization: OrgCalendar }>("/organizations/current") });
+  const org = data?.organization;
+  const [month, setMonth] = useState<number | null>(null);
+  const [scheme, setScheme] = useState<string | null>(null);
+  const [weekStart, setWeekStart] = useState<number | null>(null);
+
+  const activeScheme = scheme ?? org?.periodScheme ?? "calendar";
+  const activeMonth = month ?? org?.fiscalYearStartMonth ?? 1;
+  const activeWeekStart = weekStart ?? org?.weekStartDay ?? 1;
+  const isRetail = activeScheme !== "calendar";
+
+  const save = async () => {
+    try {
+      await api.patch("/organizations/current", {
+        fiscalYearStartMonth: activeMonth,
+        periodScheme: activeScheme,
+        weekStartDay: activeWeekStart,
+      });
+      await qc.invalidateQueries({ queryKey: ["org"] });
+      await qc.invalidateQueries({ queryKey: ["overview"] });
+      await qc.invalidateQueries({ queryKey: ["analytics"] });
+      toast("Calendar saved — trends and forecasts now use it", "success");
+    } catch { toast("Failed", "error"); }
+  };
+
+  return (
+    <Card><CardHeader title="Business calendar" subtitle="How your year is divided up for trends, forecasts and comparisons." /><CardBody className="max-w-xl space-y-4">
+      <div>
+        <Label>Financial year starts in</Label>
+        <Select value={String(activeMonth)} onChange={(e) => setMonth(Number(e.target.value))} disabled={!can("ADMIN")}>
+          {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+        </Select>
+        <p className="mt-1 text-xs text-slate-400">A year starting in April 2026 is labelled FY2026 and runs to March 2027.</p>
+      </div>
+
+      <div>
+        <Label>Period type</Label>
+        <Select value={activeScheme} onChange={(e) => setScheme(e.target.value)} disabled={!can("ADMIN")}>
+          {SCHEMES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </Select>
+        <p className="mt-1 text-xs text-slate-400">{SCHEMES.find((s) => s.id === activeScheme)?.hint}</p>
+      </div>
+
+      {isRetail && (
+        <div>
+          <Label>Weeks start on</Label>
+          <Select value={String(activeWeekStart)} onChange={(e) => setWeekStart(Number(e.target.value))} disabled={!can("ADMIN")}>
+            {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
+          </Select>
+          <p className="mt-1 text-xs text-slate-400">
+            Your year opens on the first {WEEKDAYS[activeWeekStart]} on or after 1 {MONTHS[activeMonth - 1]}. A 53rd week folds into period 12.
+          </p>
+        </div>
+      )}
+
+      <div className="rounded-lg border border-border bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-400">
+        Changing this changes how every trend and forecast is grouped. Your uploaded data is not
+        modified, and every figure stays reproducible — the calendar rule is shown in “Why this number”.
+      </div>
+
+      {can("ADMIN") && <Button onClick={save}>Save calendar</Button>}
     </CardBody></Card>
   );
 }
