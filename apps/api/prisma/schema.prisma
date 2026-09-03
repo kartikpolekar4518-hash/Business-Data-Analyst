@@ -92,6 +92,7 @@ model Organization {
   scheduledReports ScheduledReport[]
   alertRules  AlertRule[]
   reportTemplates ReportTemplate[]
+  customMetrics   CustomMetric[]
 }
 
 model OrganizationMember {
@@ -219,6 +220,24 @@ model ReportTemplate {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
+  @@index([organizationId])
+}
+
+// A metric defined by the organization rather than by code (see engine/metricSpec.ts).
+// `spec` is a declarative MetricSpec — an aggregation kind over one or two named fields
+// with at most one filter — never an expression to be evaluated. `key` is what alert
+// rules, saved forecasts and URLs reference, so it is unique per organization.
+model CustomMetric {
+  id             String       @id @default(uuid())
+  key            String
+  label          String
+  spec           Json
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  @@unique([organizationId, key])
   @@index([organizationId])
 }
 

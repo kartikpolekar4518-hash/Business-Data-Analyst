@@ -12,6 +12,7 @@ import { investigate } from "./investigate.js";
 import { detectPack, packMetric, PACKS } from "./industries.js";
 import { explainKpi } from "./explain.js";
 import { DEFAULT_CALENDAR } from "./calendar.js";
+import { compileKpiDef, compileMetric, validateMetricSpec } from "./metricSpec.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -218,5 +219,47 @@ assert(
 );
 assert(/4-4-5/.test(explainRetail.comparison.description), "evidence states the calendar rule that bucketed the periods");
 assert(!/4-4-5/.test(explainDefault.comparison.description), "the default calendar adds no noise to the evidence panel");
+
+// ---- Phase 5: user-defined metrics ----
+// The point of compiling a spec into the engine's own shapes is that a custom metric
+// works everywhere a built-in does. Assert that against the real pipeline rather than
+// the compiler in isolation — especially evidence, which used to throw for any metric
+// that was not one of the five hardcoded KpiDefs.
+const costRatioSpec = {
+  key: "cost_ratio", label: "Cost Ratio", kind: "ratio" as const, format: "percent" as const,
+  field: { kind: "semantic" as const, name: "cost" },
+  denominator: { kind: "semantic" as const, name: "revenue" },
+};
+assert.deepEqual(validateMetricSpec(costRatioSpec), [], "the sample spec is valid");
+
+const costRatio = compileMetric(costRatioSpec);
+// Over the raw (uncleaned) fixture: cost 60+120+90+90+50 = 410, revenue 600 -> 68.3%.
+// Note this counts the duplicate row on both sides, which is exactly right: a metric
+// computes over the rows it is given, and de-duplication is a cleaning decision.
+assert(Math.abs(costRatio.compute(rows, map) - 68.3) < 0.05, `cost ratio expected ~68.3, got ${costRatio.compute(rows, map)}`);
+
+// A custom metric must be usable as an analysis metric: trends, rankings, forecasts.
+const customTrend = A.timeSeries(rows, map, costRatio);
+assert(customTrend.length > 0, "a custom metric produces a time series");
+const customRanking = A.groupBy(rows, map, "region", costRatio);
+assert(customRanking.length > 0, "a custom metric produces a ranking");
+
+// A custom metric must be explainable. This is the assertion that would have failed
+// before compileKpiDef existed, because explainKpi throws for unknown metric keys.
+const customPack = { ...PACKS.generic!, metrics: [...PACKS.generic!.metrics, costRatio], kpis: [...PACKS.generic!.kpis, compileKpiDef(costRatioSpec)] };
+const customDashboard = A.computeKpis(rows, map, customPack, {});
+const customTile = customDashboard.find((k) => k.key === "cost_ratio");
+assert(customTile !== undefined, "a custom metric appears on the dashboard");
+const customEvidence = explainKpi({ ...explainBase, pack: customPack, metricKey: "cost_ratio" });
+assert.equal(customEvidence.metric.value, customTile!.value, "custom-metric evidence agrees with the dashboard");
+assert.equal(customEvidence.formula.expression, "SUM(cost) / SUM(revenue) x 100", "custom-metric evidence prints a real formula");
+assert.deepEqual(customEvidence.formula.sources.map((s) => s.column), ["cost", "revenue"], "custom-metric evidence names its columns");
+
+// Merging must never mutate the shared pack constant — that would leak one
+// organization's metrics into every other org served by the same process.
+assert(
+  PACKS.generic!.kpis.every((k) => k.key !== "cost_ratio") && PACKS.generic!.metrics.every((m) => m.id !== "cost_ratio"),
+  "compiling a custom metric does not mutate the shared industry pack",
+);
 
 console.log("✓ engine selfcheck passed");

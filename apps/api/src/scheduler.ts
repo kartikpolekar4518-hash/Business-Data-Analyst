@@ -7,10 +7,11 @@
 
 import { prisma } from "./prisma.js";
 import { env } from "./env.js";
-import { loadDataset } from "./modules/context.js";
+import { loadDataset, loadOrgConfig } from "./modules/context.js";
 import { buildReport, renderReportPdf } from "./modules/reports.js";
 import { sendMail, isEmailEnabled } from "./mailer.js";
 import * as A from "./engine/analytics.js";
+import { packMetric } from "./engine/industries.js";
 
 export type Frequency = "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY";
 export type Comparator = "LT" | "LTE" | "GT" | "GTE";
@@ -111,7 +112,15 @@ export async function runDueReports(now = new Date()): Promise<number> {
 export async function executeAlertRule(rule: AlertRuleJob, now = new Date()): Promise<void> {
   try {
     const { rows, schema } = await loadDataset(rule.organizationId);
-    const value = metricValue(A.overview(rows, schema), rule.metric);
+    // Built-in metrics come straight off the overview. Anything else is a pack or
+    // custom metric, resolved through the org's compiled registry — without this a
+    // rule targeting a custom metric would evaluate to null and silently never fire.
+    let value = metricValue(A.overview(rows, schema), rule.metric);
+    if (value === null) {
+      const { pack } = await loadOrgConfig(rule.organizationId);
+      const def = packMetric(pack, rule.metric);
+      if (def) value = def.compute(rows, schema);
+    }
     let triggered = false;
     if (value !== null && crosses(value, rule.comparator as Comparator, rule.threshold)) {
       triggered = true;

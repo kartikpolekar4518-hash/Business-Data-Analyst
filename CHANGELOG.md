@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Custom metrics — define a number once, use it everywhere
+
+- **Organizations can now define their own metrics** (Settings → Metrics): a total,
+  average, row count, unique count, or a ratio of two columns, optionally narrowed by a
+  single row filter. A custom metric is then a first-class citizen — it appears as a
+  dashboard KPI, drives trends and rankings, is forecastable, can be targeted by an
+  alert rule, and is matchable in a plain-English question.
+- **Stored as data, not code.** `engine/metricSpec.ts` defines a declarative `MetricSpec`
+  that compiles into the engine's existing `PackMetric` and `KpiDef` shapes. There is
+  deliberately no expression language, no parser and no eval: a spec names one of the
+  five aggregation kinds the engine already understands over one or two fields. Fields
+  may be bound to a detected business meaning (revenue, cost, …) rather than a literal
+  column, so a metric survives being pointed at a differently-named upload.
+- **Custom metrics are explainable.** Compiled metrics carry `describe`/`sources`, so
+  `explainKpi` accepts them instead of throwing — previously only the five built-in
+  KPIs could produce a "Why this number" panel. A selfcheck assertion pins
+  evidence-equals-dashboard for a compiled custom metric.
+- Alert rules accept any metric the organization actually has (the hardcoded five-metric
+  enum is replaced by validation against the compiled registry), the scheduler resolves
+  custom metrics when evaluating a rule, and deleting a metric still in use by a rule is
+  refused rather than silently breaking it.
+- Merging is done into a copy of the industry pack: `PACKS` is a shared module-level
+  constant, so mutating it would leak one organization's metrics into every other
+  organization served by the same process. A selfcheck assertion pins that too.
+
 ### Business calendars — fiscal years and retail 4-4-5 periods
 
 - **Periods are now configurable per organization** (Settings → Calendar): a fiscal

@@ -9,12 +9,13 @@ import { useIndustries } from "../lib/industries";
 import { timeAgo } from "../lib/utils";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, Skeleton, EmptyState, useToast, ErrorState } from "../components/ui";
 import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
+import { CustomMetricsSection } from "../components/metrics";
 
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
-  const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
+  const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "metrics", label: "Metrics" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500 dark:text-slate-400">Manage your workspace, team, and integrations.</p></div>
@@ -22,6 +23,7 @@ export default function SettingsPage() {
       {!can("ADMIN") && tab !== "preferences" && tab !== "activity" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
       {tab === "calendar" && <CalendarTab />}
+      {tab === "metrics" && <CustomMetricsSection />}
       {tab === "billing" && <BillingTab />}
       {tab === "users" && <UsersTab />}
       {tab === "activity" && <ActivityTab />}

@@ -23,11 +23,15 @@ forecastingRouter.post("/", requireRole("ADMIN", "MANAGER"), wrap(async (req, re
   const auth = req.auth!;
   const { metric, horizon, datasetId, goal, driverDelta } = createSchema.parse(req.body);
   const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
-  const { calendar } = await loadOrgConfig(auth.organizationId);
+  const { pack: orgPack, calendar } = await loadOrgConfig(auth.organizationId);
 
   // Resolve the metric from the pack registry (any pack metric is forecastable).
-  const pack = detectPack(schema, [], dataset.name);
-  const metricDef = packMetric(pack, metric) ?? packMetric(pack, "revenue")!;
+  // The org's compiled pack is consulted first because it carries the custom metrics;
+  // the dataset-detected pack still supplies industry metrics for an uploaded file
+  // whose shape differs from the org's configured industry.
+  const detected = detectPack(schema, [], dataset.name);
+  const metricDef = packMetric(orgPack, metric) ?? packMetric(detected, metric)
+    ?? packMetric(orgPack, "revenue") ?? packMetric(detected, "revenue")!;
   const series = A.timeSeries(rows, schema, metricDef, {}, calendar);
   const history = series.map((p) => ({ period: p.period, value: p.value }));
 
