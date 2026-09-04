@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadDataset, loadOrgConfig } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import { forecast, evaluateGoal, whatIf } from "../engine/forecast.js";
 import { detectPack, packMetric } from "../engine/industries.js";
@@ -32,7 +32,7 @@ const createSchema = z.object({
 forecastingRouter.post("/", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const auth = req.auth!;
   const { metric, horizon, datasetId, goal, driverDelta, levers = [] } = createSchema.parse(req.body);
-  const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
+  const { dataset, rows, schema } = await loadJoinedDataset(auth.organizationId, datasetId);
   const { pack: orgPack, calendar } = await loadOrgConfig(auth.organizationId);
 
   // Resolve the metric from the pack registry (any pack metric is forecastable).

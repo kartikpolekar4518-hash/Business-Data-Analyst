@@ -3,7 +3,7 @@ import { z } from "zod";
 import { wrap, HttpError } from "../errors.js";
 import { prisma } from "../prisma.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadDataset, loadOrgConfig } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
 import { suggestIndustry, type RankSectionDef } from "../engine/industries.js";
@@ -51,25 +51,25 @@ function filtersFrom(query: any): A.Filters {
 const timeSeries = (metric: "revenue" | "profit") =>
   wrap(async (req, res) => {
     const orgId = req.auth!.organizationId;
-    const { rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+    const { rows, schema } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
     const { calendar } = await loadOrgConfig(orgId);
     res.json({ series: A.timeSeries(rows, schema, metric, filtersFrom(req.query), calendar) });
   });
 
 const groupByDimension = (key: "product_name" | "customer_name" | "region", limit: number) =>
   wrap(async (req, res) => {
-    const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+    const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
     res.json({ items: A.groupBy(rows, schema, key, "revenue", filtersFrom(req.query), limit) });
   });
 
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
-  const { dataset, rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const { dataset, rows, schema, join } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
   const { pack, calendar } = await loadOrgConfig(orgId);
   const f = filtersFrom(req.query);
 
   // The stored schema is kept pack-correct at write time, so it is used directly.
-  // The column profile is fetched only here (not in loadDataset) to power the
+  // The column profile is fetched only here (not in loadJoinedDataset) to power the
   // "switch industry?" suggestion banner without bloating other analytics reads.
   const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
   const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
@@ -105,6 +105,14 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
   res.json({
     datasetId: dataset.id,
     datasetName: dataset.name,
+    // Which other files these numbers were read across, and what each connection did.
+    // Null for the single-file case, which is every organization that has not connected
+    // anything — so the client renders exactly what it always did.
+    join: join?.map((j) => ({
+      rightDatasetName: j.rightDatasetName, leftColumn: j.leftColumn, rightColumn: j.rightColumn,
+      kind: j.report.kind, matchedRows: j.report.matchedLeftRows, unmatchedRows: j.report.unmatchedLeftRows,
+      applied: j.report.applied, message: j.report.message,
+    })) ?? null,
     industry: pack.key,
     suggestedIndustry: cols.length ? suggestIndustry(cols) : pack.key,
     schema,
@@ -145,10 +153,10 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
 // Deterministic evidence for one KPI: the formula that ran, the rows it consumed,
 // the comparison window, and the dataset/engine identity behind it. Recomputed on
 // demand from the SAME functions the dashboard calls (never a second implementation)
-// and scoped to the caller's organization by loadDataset, like every other read.
+// and scoped to the caller's organization by loadJoinedDataset, like every other read.
 analyticsRouter.get("/explain", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
-  const { dataset, rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const { dataset, rows, schema } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
   const { pack, calendar } = await loadOrgConfig(orgId);
   const metricKey = typeof req.query.metric === "string" ? req.query.metric : "revenue";
   if (!pack.kpis.some((k) => k.key === metricKey)) throw new HttpError(400, `Unknown metric '${metricKey}' for this industry.`);
@@ -183,7 +191,7 @@ analyticsRouter.get("/regions", groupByDimension("region", 20));
 // Driver / contribution breakdown: which dimension members moved the metric, and by
 // how much. Contributions reconcile to the period-over-period change shown in KPIs.
 analyticsRouter.get("/drivers", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const metric: DriverMetric = req.query.metric === "profit" ? "profit" : "revenue";
   const dimension = typeof req.query.dimension === "string" ? (req.query.dimension as Semantic) : undefined;
   res.json(analyzeDrivers(rows, schema, metric, dimension, filtersFrom(req.query)));
@@ -192,7 +200,7 @@ analyticsRouter.get("/drivers", wrap(async (req, res) => {
 // Anomalies in a metric's time series (deterministic, robust to single outliers).
 analyticsRouter.get("/anomalies", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
-  const { rows, schema } = await loadDataset(orgId, req.query.datasetId as string | undefined);
+  const { rows, schema } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
   const { calendar } = await loadOrgConfig(orgId);
   const metric = (["revenue", "profit", "orders"] as const).find((m) => m === req.query.metric) ?? "revenue";
   const series = A.timeSeries(rows, schema, metric, filtersFrom(req.query), calendar);
@@ -201,14 +209,14 @@ analyticsRouter.get("/anomalies", wrap(async (req, res) => {
 
 // Value-tier segmentation of customers or products.
 analyticsRouter.get("/segments", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const entity = (["customer_name", "product_name"] as const).find((e) => e === req.query.entity) as SegmentEntity | undefined;
   res.json(segmentEntities(A.applyFilters(rows, schema, filtersFrom(req.query)), schema, entity));
 }));
 
 // Correlations across the dataset's numeric columns (association only, never causal).
 analyticsRouter.get("/correlations", wrap(async (req, res) => {
-  const { dataset, rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const { dataset, rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
   const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
   const numeric = cols.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name);
@@ -218,7 +226,7 @@ analyticsRouter.get("/correlations", wrap(async (req, res) => {
 
 // Flat rows for the analytics data table + CSV export on the client (with pagination).
 analyticsRouter.get("/table", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const filtered = A.applyFilters(rows, schema, filtersFrom(req.query));
   const columns = Object.keys(filtered[0] ?? rows[0] ?? {});
   

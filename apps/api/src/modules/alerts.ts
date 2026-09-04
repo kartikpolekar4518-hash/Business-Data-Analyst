@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth } from "../auth/middleware.js";
-import { loadDataset } from "./context.js";
+import { loadJoinedDataset } from "./context.js";
 import { deriveInsights } from "../engine/insights.js";
 
 export const alertsRouter = Router();
@@ -13,7 +13,7 @@ alertsRouter.use(requireAuth);
 // De-dupes by (type, metric) so re-running doesn't pile up copies.
 export async function refreshAlerts(organizationId: string) {
   try {
-    const { rows, schema } = await loadDataset(organizationId);
+    const { rows, schema } = await loadJoinedDataset(organizationId);
     const { alerts } = deriveInsights(rows, schema);
     const existing = await prisma.alert.findMany({ where: { organizationId } });
     const seen = new Set(existing.map((a) => `${a.type}:${a.metric}`));

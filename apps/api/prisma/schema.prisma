@@ -95,6 +95,7 @@ model Organization {
   customMetrics   CustomMetric[]
   savedViews      SavedView[]
   cleaningRecipes CleaningRecipe[]
+  datasetRelations DatasetRelation[]
 }
 
 model OrganizationMember {
@@ -154,6 +155,10 @@ model Dataset {
   recipe         CleaningRecipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
   recipeId       String?
   issues         DataQualityIssue[]
+  // Relationships this dataset takes part in. Two named relations because both ends
+  // point at Dataset; a relation to a deleted dataset means nothing, so both cascade.
+  relationsAsLeft  DatasetRelation[] @relation("RelationLeft")
+  relationsAsRight DatasetRelation[] @relation("RelationRight")
   reports        Report[]
   forecasts      Forecast[]
   conversations  AIConversation[]
@@ -183,6 +188,35 @@ model CleaningRecipe {
 
   @@unique([organizationId, name])
   @@index([organizationId])
+}
+
+// A confirmed join between two of the organization's datasets (see engine/join.ts).
+// The analytical read context left-joins each relation onto the base dataset before the
+// analytics run; nothing is written back, so every source dataset stays independently
+// auditable and removing a relationship restores exactly the numbers the org had.
+//
+// `kind` is the cardinality MEASURED when the user confirmed the relationship, recorded
+// so the evidence panel can state it without re-deriving. Only a unique right-hand key
+// is ever stored: a repeated one duplicates each matching left row and inflates every
+// total, and modules/relations.ts refuses it at write time rather than warning later.
+model DatasetRelation {
+  id             String       @id @default(uuid())
+  leftColumn     String
+  rightColumn    String
+  kind           String       // one_to_one | many_to_one (a fan-out join is never stored)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  left           Dataset      @relation("RelationLeft", fields: [leftDatasetId], references: [id], onDelete: Cascade)
+  leftDatasetId  String
+  right          Dataset      @relation("RelationRight", fields: [rightDatasetId], references: [id], onDelete: Cascade)
+  rightDatasetId String
+
+  @@unique([organizationId, leftDatasetId, rightDatasetId, leftColumn, rightColumn])
+  @@index([organizationId])
+  @@index([leftDatasetId])
+  @@index([rightDatasetId])
 }
 
 model DataQualityIssue {

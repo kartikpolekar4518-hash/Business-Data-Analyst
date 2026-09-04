@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as XLSX from "@e965/xlsx";
-import { parseFile } from "./parse.js";
+import { parseFile, parseWorkbook } from "./parse.js";
 
 const csv = (s: string) => Buffer.from(s, "utf8");
 
@@ -77,4 +77,49 @@ test("strips prototype-polluting header keys (CSV)", () => {
   assert.equal(rows[0].name, "Ada");
   assert.equal(({} as Record<string, unknown>).polluted, undefined);
   assert.equal(Object.prototype.hasOwnProperty.call(rows[0], "__proto__"), false);
+});
+
+// ---------- Multi-sheet workbooks ----------
+// A workbook is a natural multi-table source (orders on one sheet, customers on the
+// next). Only worksheet 0 was ever read, so the rest was discarded — parseWorkbook
+// returns all of them, and parseFile keeps returning exactly worksheet 0.
+function workbook(sheets: { name: string; rows: Record<string, unknown>[] }[]): Buffer {
+  const wb = XLSX.utils.book_new();
+  for (const s of sheets) XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(s.rows), s.name);
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" }) as Buffer;
+}
+
+test("parseWorkbook returns every non-empty sheet, in workbook order", () => {
+  const buffer = workbook([
+    { name: "Orders", rows: [{ order_id: "1", customer_id: "C1" }] },
+    { name: "Blank", rows: [] },
+    { name: "Customers", rows: [{ customer_id: "C1", region: "West" }] },
+  ]);
+  const sheets = parseWorkbook({ buffer, fileName: "book.xlsx" });
+  assert.deepEqual(sheets.map((s) => s.name), ["Orders", "Customers"], "an empty sheet is not a table");
+  assert.deepEqual(sheets[1].columns, ["customer_id", "region"]);
+});
+
+test("a one-sheet workbook parses identically through both entry points", () => {
+  const buffer = xlsxBuffer([{ name: "Ada", region: "West" }, { name: "Bo", region: "East" }]);
+  const single = parseFile({ buffer, fileName: "d.xlsx" });
+  const [only] = parseWorkbook({ buffer, fileName: "d.xlsx" });
+  assert.deepEqual(only.rows, single.rows, "the same rows, so the same schema and the same dataset hash");
+  assert.deepEqual(only.columns, single.columns);
+});
+
+test("parseFile still reads exactly worksheet 0 of a multi-sheet workbook", () => {
+  const buffer = workbook([
+    { name: "Orders", rows: [{ order_id: "1" }] },
+    { name: "Customers", rows: [{ customer_id: "C1" }] },
+  ]);
+  assert.deepEqual(parseFile({ buffer, fileName: "book.xlsx" }).rows, [{ order_id: "1" }],
+    "the existing single-sheet contract does not move");
+});
+
+test("parseWorkbook treats a CSV as a workbook of one sheet", () => {
+  const sheets = parseWorkbook({ buffer: csv("a,b\n1,2\n"), fileName: "d.csv" });
+  assert.equal(sheets.length, 1);
+  assert.deepEqual(sheets[0].rows, [{ a: "1", b: "2" }]);
+  assert.deepEqual(parseWorkbook({ buffer: csv("a,b\n"), fileName: "d.csv" }), [], "a header with no rows is no table");
 });

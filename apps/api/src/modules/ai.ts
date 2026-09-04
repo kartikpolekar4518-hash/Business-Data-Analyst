@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadDataset } from "./context.js";
+import { loadJoinedDataset } from "./context.js";
 import { ruleParse, runIntent } from "../engine/intent.js";
 import { llmParseIntent } from "../ai/provider.js";
 import { deriveInsights } from "../engine/insights.js";
@@ -14,7 +14,7 @@ aiRouter.use(requireAuth);
 
 // Headline insight + recommendations for the dashboard. Deterministic, no LLM.
 aiRouter.get("/insights", wrap(async (req, res) => {
-  const { rows, schema } = await loadDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const ov = A.overview(rows, schema);
   const { recommendations } = deriveInsights(rows, schema);
   const g = ov.growth;
@@ -35,7 +35,7 @@ const chatSchema = z.object({
 aiRouter.post("/chat", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const auth = req.auth!;
   const { message, datasetId, conversationId } = chatSchema.parse(req.body);
-  const { dataset, rows, schema } = await loadDataset(auth.organizationId, datasetId);
+  const { dataset, rows, schema } = await loadJoinedDataset(auth.organizationId, datasetId);
 
   // Understand the question with GPT when configured; fall back to the deterministic
   // rule parser when it isn't (or on any failure). Either way, runIntent computes the

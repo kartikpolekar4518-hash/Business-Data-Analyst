@@ -4,11 +4,12 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 5 of 6 shipped, plus follow-ups 3a and 3b.** Features 1–2 in PR #70 (merged);
-feature 3 in PR #72 (merged); date-grain drill-down (3b) in PR #73 (merged); shareable
-saved views (3a) in PR #74 (merged); what-if scenario modelling (4) in PR #75 (merged);
-replayable cleaning recipes (5) on branch `claude/replayable-cleaning-recipes-auv4l9`.
-Next up: 6, multi-file joins and relationships — the largest, and last.
+**Status: 6 of 6 shipped, plus follow-ups 3a and 3b. The programme is complete.**
+Features 1–2 in PR #70 (merged); feature 3 in PR #72 (merged); date-grain drill-down (3b)
+in PR #73 (merged); shareable saved views (3a) in PR #74 (merged); what-if scenario
+modelling (4) in PR #75 (merged); replayable cleaning recipes (5) in PR #76 (merged);
+multi-file joins and relationships (6) on branch
+`claude/multi-file-joins-relationships-oef783`.
 
 ---
 
@@ -281,24 +282,90 @@ way — including when it is appended into the dataset it belongs with.
   tenant isolation, replay, auto-apply through the shared pipeline, and combine-files
   including the loud refusal and the dropped-cleaning case.
 
----
+### 6. Multi-file joins and relationships ✅
 
-## Remaining
+Connect the order file to the customer file on a shared column, and region — which lives
+only in the customer file — becomes a filter, a breakdown and a driver on the dashboard,
+without a single existing number moving.
 
-### 6. Multi-file joins and relationships (largest, last)
-
-- `DatasetRelation` model (org-scoped): left/right dataset ids, left/right columns, kind.
-- `engine/join.ts`: deterministic `joinRows` with collision-safe column prefixing and —
-  critically — a **cardinality report**. A many-to-many join silently fans out rows and
-  would inflate every downstream sum. Detect and refuse or warn; never quietly produce a
-  wrong total.
-- `loadJoinedDataset` as a sibling of `loadDataset` in `modules/context.ts`, with the row
-  cache key covering every participating dataset id + `updatedAt`. Every analytics route
-  consumes `{ rows, schema }`, so none of them change.
-- Auto-detection by column name + value-overlap sampling, offered as a suggestion the
-  user confirms — never applied silently.
-- Note `parse.ts` reads **only worksheet 0** of an .xlsx today; a multi-sheet workbook is
-  already a natural multi-table source currently being discarded.
+- `engine/join.ts`: `joinRows(left, right, spec) -> { rows, columns, report }`, a pure
+  `Row[] -> Row[]` applied **before** the analytics. `computeKpis`, `timeSeries`,
+  `groupBy`, `applyFilters`, the forecaster and the drivers consume joined rows with **no
+  changes of their own** — none of them learns that a join exists. The same "cheapest
+  path" the Codebase-facts note predicted, and the fourth feature to take it.
+- **The cardinality report is the feature.** A join whose RIGHT key repeats duplicates
+  each matching left row, and every downstream sum is then counted several times over
+  while looking perfectly normal. So `safe` is defined as *the right key being unique
+  among its non-blank values*; `fanOut === 1` is the invariant that follows, and is
+  asserted rather than being the definition. `kind` (`one_to_one` / `many_to_one` /
+  `one_to_many` / `many_to_many`) is read from key repetition on each side; unmatched
+  rows never make a key "many", and a blank is never a key at all — a blank left cell
+  matches nothing and two blanks are not the same customer.
+- **The engine cannot produce an inflated total, and there is no flag to make it.** An
+  unsafe join returns the *left array itself* with `applied: false` and a message naming
+  the repeated values and what they would have done to the totals. `one_to_many` is
+  refused on exactly the same grounds as `many_to_many`: what inflates is the right key
+  repeating, not the label. The route surfaces that message verbatim as a 400 — a
+  relationship that would lie is never stored, rather than stored with a warning.
+- **Nothing moves for an org that never connects anything.** `loadJoinedDataset` returns
+  the *same rows array* `loadDataset` returned when there are no relationships — the
+  standing rule for this programme in its strongest form, and what the selfcheck pins
+  first. A matched row keeps every one of its own cells; an unmatched one survives whole
+  with `""` (never `0`, which would read as a measured zero) for what it could not find,
+  and still counts toward every total.
+- `loadJoinedDataset` sits beside `loadDataset` in `modules/context.ts`, which is
+  unchanged. The row-cache key covers every participating dataset id + `updatedAt` **and
+  the relation configuration itself** — editing a relationship changes which rows are
+  analysed without touching any dataset, so a key built only from datasets would keep
+  serving the old join. The analytical readers (analytics, AI, forecasting, reports,
+  alerts, metrics, scheduler) call it instead of `loadDataset`; the returned shape is
+  identical, so no route has any join-specific code.
+- **The join is a read context, never a write.** No source dataset's rows, cleaning,
+  schema map, profile or hash is rewritten, so every uploaded file stays independently
+  auditable and disconnecting restores exactly the numbers the org had. The joined
+  `rowCount` and `datasetHash` are recomputed for the evidence panel — which must
+  describe what was *analysed*, not one of the inputs — and are not persisted.
+- `mergeSchemas` starts from the left's stored map and fills **only semantics the left
+  lacks**. Deliberately not a re-detection: `detectSchema` is first-wins over its column
+  order, so re-running it could rebind `revenue` to a right-hand column and move a number
+  on a dataset the user only meant to enrich. Colliding column names are prefixed
+  (`Regions.name`), then suffixed, against the *accumulated* header, so a chain names its
+  columns the same way every time.
+- **Chaining is a fixed sequence, not a graph solver.** Relations are applied in
+  `createdAt`-then-`id` order against the accumulating rows, so a later connection may
+  legitimately match on a column an earlier one added (Orders → Customers → Regions is
+  two relations anchored on Orders, the second matching on the `region` the first
+  supplied). Validation therefore measures against `loadJoinedDataset`'s own accumulated
+  context — the same rows analytics will read — so the two can never disagree about what
+  a join does. Cycles are refused at configuration time, where they can be explained.
+- Writes validate in a fixed order, each stage refusing plainly before the next: both
+  datasets exist in this org, both columns exist, no cycle, and only then the cardinality.
+  A typo'd column is named as a typo rather than left to match nothing and show an empty
+  column.
+- **Auto-detection is offered, never applied.** `suggestRelations` scores column-name
+  affinity *and* value-overlap sampling — either alone is wrong often enough to matter:
+  matching names with no shared values connect unrelated files. It never proposes a join
+  that would then be refused, and connecting is always a separate, explicit POST, because
+  a wrongly guessed join changes every number on the page.
+- **The .xlsx multi-sheet note, closed.** `parse.ts` read only worksheet 0, so a workbook
+  with orders on one sheet and customers on the next — a natural multi-table source — had
+  the rest discarded. `parseWorkbook` returns every non-empty sheet and the upload route
+  ingests sheets 1..n as sibling datasets, then returns the detected relationships as
+  *suggestions*. `parseFile` is untouched, so a CSV and a one-sheet workbook produce the
+  same rows, columns, schema and `datasetHash` they always did — pinned by a test. Plan
+  limits are honoured per sheet, and a sheet that does not fit is named in the response
+  rather than dropped quietly.
+- Selfcheck Phase 10 pins the claim the feature rests on: no relationship is the very
+  same array; a fan-out join is refused and names the repeated value; a many-to-one join
+  moves no KPI in any pack and no bucket of the trend; an unmatched row keeps every cell;
+  a join commutes with `applyFilters`; two hops still add no rows and move nothing; and
+  every auto-detected proposal is one the engine would actually apply.
+- `relations.itest.ts` covers CRUD, RBAC, tenant isolation, all four validation refusals,
+  auto-detection, the two-hop chain, and both multi-sheet workbook cases.
+- **Deliberate limitation:** only left joins with a unique right key. A fan-out join is
+  refused outright rather than offered with a warning — there is no reading of an inflated
+  sum that is useful, and a warning the user can dismiss is a wrong number waiting to
+  happen.
 
 ---
 
@@ -332,13 +399,13 @@ which makes it much more visible than it used to be. Worth its own fix.
 - Query keys are flat primitive arrays; filter-scoped keys carry the raw query string.
 - Migrations are hand-written SQL with a leading prose comment explaining intent and any
   data decision. Timestamp naming: `YYYYMMDDHHMMSS_add_snake_case_thing`.
-- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.6.0`.
+- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.7.0`.
 
 ## Verification
 
 ```bash
 npm run typecheck                  # api + web
-npm test                           # 219 unit tests + engine selfcheck
+npm test                           # 240 unit tests + engine selfcheck
 ```
 
 Integration tests need Postgres. Docker is unavailable in the web sandbox, so run one
@@ -355,7 +422,7 @@ psql -h 127.0.0.1 -U test -d postgres -c "CREATE DATABASE test;"
 cd apps/api
 export DATABASE_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
 npx prisma migrate deploy
-npx tsx --test "src/**/*.itest.ts"   # 68 tests
+npx tsx --test "src/**/*.itest.ts"   # 78 tests
 ```
 
 Every feature must add: a `*.test.ts` beside the new engine module, a section in

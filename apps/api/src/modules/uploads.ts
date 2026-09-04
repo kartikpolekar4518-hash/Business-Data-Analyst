@@ -6,7 +6,7 @@ import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { env } from "../env.js";
-import { parseFile } from "../engine/parse.js";
+import { parseFile, parseWorkbook } from "../engine/parse.js";
 import { ingestRows, reshapeDataset } from "../engine/ingest.js";
 import { validateSteps, type CleaningStep } from "../engine/cleaning.js";
 import { getPack } from "../engine/industries.js";
@@ -15,6 +15,7 @@ import { stripRows } from "./context.js";
 import { ENGINE_VERSION } from "../engine/version.js";
 import type { Row } from "../engine/parse.js";
 import { rawFileHash } from "../engine/identity.js";
+import { suggestRelations } from "../engine/join.js";
 import { generateRetailData, generatePharmacyData, generateSaasData } from "../sample/generators.js";
 import { assertWithinLimit } from "./billing.js";
 const SAMPLE_SETS: Record<string,{rows:()=>Record<string,unknown>[];name:string;file:string}>={
@@ -26,7 +27,53 @@ export const uploadsRouter=Router();uploadsRouter.use(requireAuth);
 const ALLOWED_MIME_TYPES=["text/csv","text/plain","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","application/vnd.ms-excel"];
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:env.maxFileSize},fileFilter:(_req,file,cb)=>{if(!ALLOWED_MIME_TYPES.includes(file.mimetype)){console.warn(`[upload] Rejected invalid MIME type: ${file.mimetype}`);cb(new HttpError(400,`Invalid file type '${file.mimetype}'. Upload CSV or Excel files only.`));}else cb(null,true);}});
 const uploadLimiter=rateLimit({windowMs:60_000,limit:10,standardHeaders:true,legacyHeaders:false,message:"Too many uploads — max 10 per minute"});
-uploadsRouter.post("/",uploadLimiter,requireRole("ADMIN","MANAGER"),upload.single("file"),wrap(async(req,res)=>{const auth=req.auth!;if(!req.file)throw new HttpError(400,"No file uploaded");await assertWithinLimit(auth.organizationId,"datasets");const{originalname,size,buffer}=req.file;let parsed;try{parsed=parseFile({buffer,fileName:originalname});}catch(e){throw new HttpError(400,e instanceof Error?e.message:"Could not parse file");}if(!parsed.rows.length)throw new HttpError(400,"The file has no data rows");if(parsed.rows.length>env.maxUploadRows)parsed.rows=parsed.rows.slice(0,env.maxUploadRows);let fileExt="csv";if(originalname.includes(".")){fileExt=originalname.split(".").pop()!.toLowerCase();if(!["csv","xlsx","xls"].includes(fileExt))throw new HttpError(400,`Invalid file extension '.${fileExt}'. Upload CSV or Excel files only.`);}const result=await ingestRows({organizationId:auth.organizationId,actorId:auth.userId,name:originalname.slice(0,originalname.lastIndexOf(".")||originalname.length),fileName:originalname,fileType:fileExt,fileSize:size,rows:parsed.rows,columns:parsed.columns,sourceType:"upload",rawFileHash:rawFileHash(buffer),activityAction:"dataset.uploaded",activityDetail:originalname});res.status(201).json(result);}));
+uploadsRouter.post("/",uploadLimiter,requireRole("ADMIN","MANAGER"),upload.single("file"),wrap(async(req,res)=>{const auth=req.auth!;if(!req.file)throw new HttpError(400,"No file uploaded");await assertWithinLimit(auth.organizationId,"datasets");const{originalname,size,buffer}=req.file;let sheets;try{sheets=parseWorkbook({buffer,fileName:originalname});}catch(e){throw new HttpError(400,e instanceof Error?e.message:"Could not parse file");}const parsed=sheets[0];if(!parsed?.rows.length)throw new HttpError(400,"The file has no data rows");if(parsed.rows.length>env.maxUploadRows)parsed.rows=parsed.rows.slice(0,env.maxUploadRows);let fileExt="csv";if(originalname.includes(".")){fileExt=originalname.split(".").pop()!.toLowerCase();if(!["csv","xlsx","xls"].includes(fileExt))throw new HttpError(400,`Invalid file extension '.${fileExt}'. Upload CSV or Excel files only.`);}const base=originalname.slice(0,originalname.lastIndexOf(".")||originalname.length);const result=await ingestRows({organizationId:auth.organizationId,actorId:auth.userId,name:base,fileName:originalname,fileType:fileExt,fileSize:size,rows:parsed.rows,columns:parsed.columns,sourceType:"upload",rawFileHash:rawFileHash(buffer),activityAction:"dataset.uploaded",activityDetail:originalname});const extra=await ingestExtraSheets({auth,sheets,base,originalname,fileExt,size});res.status(201).json({...result,...extra});}));
+
+// ─── Multi-sheet workbooks ───────────────────────────────────────────────────
+// Worksheet 0 is ingested above, byte for byte as it always was — a CSV and a one-sheet
+// workbook never reach this function at all. The remaining sheets used to be discarded,
+// even though a workbook with orders on one sheet and customers on the next is exactly
+// the multi-table source relationships exist for. Each becomes its own dataset, and the
+// detected relationships between them are RETURNED AS SUGGESTIONS: an upload never
+// connects two files by itself.
+async function ingestExtraSheets(input: {
+  auth: { organizationId: string; userId: string };
+  sheets: { name: string; rows: Row[]; columns: string[] }[];
+  base: string; originalname: string; fileExt: string; size: number;
+}) {
+  const { auth, sheets, base } = input;
+  if (sheets.length < 2) return {};
+
+  const additionalDatasets: unknown[] = [];
+  const skippedSheets: { name: string; reason: string }[] = [];
+  for (const sheet of sheets.slice(1)) {
+    // The plan's dataset limit is checked per sheet. A sheet that does not fit is NAMED
+    // in the response rather than dropped quietly — the user chose to upload it.
+    try { await assertWithinLimit(auth.organizationId, "datasets"); }
+    catch { skippedSheets.push({ name: sheet.name, reason: "Your plan's file limit was reached." }); continue; }
+    if (sheet.rows.length > env.maxUploadRows) sheet.rows = sheet.rows.slice(0, env.maxUploadRows);
+    const { dataset } = await ingestRows({
+      organizationId: auth.organizationId, actorId: auth.userId,
+      name: `${base} — ${sheet.name}`, fileName: input.originalname, fileType: input.fileExt,
+      // The uploaded bytes are one workbook; only the first sheet's dataset can honestly
+      // claim to be identified by that file's hash, so the others carry none.
+      fileSize: input.size, rows: sheet.rows, columns: sheet.columns, sourceType: "upload",
+      activityAction: "dataset.uploaded", activityDetail: `${input.originalname} (${sheet.name})`,
+    });
+    additionalDatasets.push(dataset);
+  }
+
+  const datasets = await prisma.dataset.findMany({
+    where: { organizationId: auth.organizationId }, orderBy: { createdAt: "desc" }, take: 10,
+    select: { id: true, name: true, rows: true, cleanedRows: true },
+  });
+  const suggestedRelations = suggestRelations(datasets.map((d) => {
+    const rows = ((d.cleanedRows ?? d.rows) ?? []) as Row[];
+    return { id: d.id, name: d.name, columns: Object.keys(rows[0] ?? {}), rows };
+  })).slice(0, 10);
+
+  return { additionalDatasets, skippedSheets, suggestedRelations };
+}
 uploadsRouter.post("/sample",requireRole("ADMIN","MANAGER"),wrap(async(req,res)=>{const auth=req.auth!;await assertWithinLimit(auth.organizationId,"datasets");const org=await prisma.organization.findUnique({where:{id:auth.organizationId},select:{industry:true}});const set=SAMPLE_SETS[org?.industry??"retail"]??SAMPLE_SETS.retail;const rows=set.rows();const first=rows[0];if(!first)throw new HttpError(500,"Sample generator returned no rows");const columns=Object.keys(first);const result=await ingestRows({organizationId:auth.organizationId,actorId:auth.userId,name:set.name,fileName:set.file,fileType:"csv",fileSize:0,rows,columns,sourceType:"sample",activityAction:"dataset.sampleLoaded",activityDetail:set.name});res.status(201).json(result);}));
 
 // ─── Combine Files ───────────────────────────────────────────────────────────

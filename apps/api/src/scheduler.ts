@@ -7,7 +7,7 @@
 
 import { prisma } from "./prisma.js";
 import { env } from "./env.js";
-import { loadDataset, loadOrgConfig } from "./modules/context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./modules/context.js";
 import { buildReport, renderReportPdf } from "./modules/reports.js";
 import { sendMail, isEmailEnabled } from "./mailer.js";
 import * as A from "./engine/analytics.js";
@@ -111,7 +111,7 @@ export async function runDueReports(now = new Date()): Promise<number> {
 // scheduled loop and a manual "run now" share this body.
 export async function executeAlertRule(rule: AlertRuleJob, now = new Date()): Promise<void> {
   try {
-    const { rows, schema } = await loadDataset(rule.organizationId);
+    const { rows, schema } = await loadJoinedDataset(rule.organizationId);
     // Built-in metrics come straight off the overview. Anything else is a pack or
     // custom metric, resolved through the org's compiled registry — without this a
     // rule targeting a custom metric would evaluate to null and silently never fire.

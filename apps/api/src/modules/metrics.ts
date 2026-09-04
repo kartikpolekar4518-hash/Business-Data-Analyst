@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadDataset, loadOrgConfig } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./context.js";
 import {
   METRIC_FORMATS, METRIC_KINDS, METRIC_OPERATORS,
   compileKpiDef, describeSpec, validateMetricSpec, type MetricSpec,
@@ -130,7 +130,7 @@ metricsRouter.delete("/:id", requireRole("ADMIN", "MANAGER"), wrap(async (req, r
 metricsRouter.post("/preview", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
   const spec = parseSpec(req.body?.spec ?? {});
-  const { rows, schema } = await loadDataset(orgId, typeof req.body?.datasetId === "string" ? req.body.datasetId : undefined);
+  const { rows, schema } = await loadJoinedDataset(orgId, typeof req.body?.datasetId === "string" ? req.body.datasetId : undefined);
   const def = compileKpiDef(spec);
   res.json({
     formula: describeSpec(spec, schema),

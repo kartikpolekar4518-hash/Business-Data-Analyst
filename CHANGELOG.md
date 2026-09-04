@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### Connected files — use two spreadsheets as one
+
+- **Match one file to another on a shared column.** If your orders are in one file and
+  your customers in another, connect them on the customer id and your dashboard can use
+  both at once — filter by region, break sales down by customer type, whatever the second
+  file adds. Settings → Connected files.
+- **We spot the likely matches for you, but never connect anything on our own.** A
+  suggestion only becomes a connection when you press Connect, because a wrong match would
+  change every number on your dashboard.
+- **We refuse a connection that would make your totals too high.** If the second file has
+  the same customer listed twice, each of that customer's orders would get counted twice
+  over — and the total would look completely normal. So we don't do it: we tell you which
+  value is repeated and ask you to pick a different column.
+- **Your files are never changed.** Connecting only lets your charts read the extra
+  columns. Disconnect and every number goes back exactly as it was, and each file stays
+  independently checkable in "Why this number".
+- **Rows that don't match are kept, not dropped.** An order with no matching customer
+  still counts toward your revenue; the columns it couldn't find are left blank rather
+  than filled with a zero that would look like a real measurement.
+- **Excel workbooks with several sheets now come in whole.** Previously only the first
+  sheet of a workbook was read and the rest was thrown away. Now each sheet becomes its
+  own file, and we point out the connections between them.
+
 ### What-if scenarios — move a lever, see the whole forecast move
 
 - **Ask "what if we raised prices 5%?" and get an answer.** The Forecasts page now has
