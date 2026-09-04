@@ -11,17 +11,70 @@ import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, type Chip } f
 import { TrendChart, BarRankChart } from "../components/charts";
 import { DriverBreakdown, SegmentTiers, CorrelationList } from "../components/analytics";
 import { KpiCard } from "../components/Kpi";
-import { BarChart3 } from "lucide-react";
-import type { OverviewResponse } from "../lib/types";
+import { BarChart3, ChevronRight } from "lucide-react";
+import type { OverviewResponse, Hierarchy, HierarchyLevel } from "../lib/types";
+import { drillPath, drillTo, drillUp, findLevel } from "../lib/hierarchy";
 
 const FILTERS = [
   { key: "region", label: "Region" },
   { key: "state", label: "State" },
+  { key: "city", label: "City" },
   { key: "category", label: "Category" },
   { key: "department", label: "Department" },
   { key: "product", label: "Product" },
   { key: "customer", label: "Customer" },
 ] as const;
+
+// One trail per hierarchy the user has drilled into. Rendered only when something is
+// actually set, so the page looks unchanged until a chart is clicked.
+function DrillBreadcrumb({ hierarchies, params, onNavigate }: {
+  hierarchies: Hierarchy[];
+  params: URLSearchParams;
+  onNavigate: (h: Hierarchy, level: HierarchyLevel | null) => void;
+}) {
+  const trails = hierarchies
+    .map((h) => ({ h, path: drillPath(h, params) }))
+    .filter((t) => t.path.length > 0);
+  if (!trails.length) return null;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {trails.map(({ h, path }) => (
+        <nav key={h.id} aria-label={`${h.label} drill-down`} className="flex flex-wrap items-center gap-1 text-sm">
+          <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">{h.label}</span>
+          <button
+            type="button"
+            onClick={() => onNavigate(h, null)}
+            className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+          >
+            All
+          </button>
+          {path.map((crumb, i) => {
+            const last = i === path.length - 1;
+            const text = crumb.values.join(", ");
+            return (
+              <span key={crumb.level.filterKey} className="flex items-center gap-1">
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-slate-600" />
+                {last ? (
+                  // The level you are on is a position, not a destination.
+                  <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-slate-900 dark:text-white">{text}</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(h, crumb.level)}
+                    className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+                  >
+                    {text}
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </nav>
+      ))}
+    </div>
+  );
+}
 
 export default function Analytics() {
   const [params, setParams] = useSearchParams();
@@ -46,6 +99,18 @@ export default function Analytics() {
     setParams(next, { replace: true });
   };
   const removeOne = (key: string, value: string) => setMulti(key, params.getAll(key).filter((v) => v !== value));
+
+  // Drilling is just another filter write — same URL, same query key, same refetch. The
+  // dimension -> filter-key resolution comes entirely from the API's `hierarchies`; a
+  // dimension it did not describe returns undefined and leaves that chart inert.
+  const hierarchies = ov.data?.hierarchies ?? [];
+  const drillHandler = (dimension?: string | null) => {
+    const found = findLevel(hierarchies, dimension);
+    if (!found) return undefined;
+    return (value: string) => setParams(drillTo(params, found.hierarchy, found.level, value), { replace: true });
+  };
+  const navigateUp = (h: Hierarchy, level: HierarchyLevel | null) =>
+    setParams(drillUp(params, h, level), { replace: true });
   const setDates = (from?: string, to?: string) => {
     const next = new URLSearchParams(params);
     from ? next.set("dateFrom", from) : next.delete("dateFrom");
@@ -117,7 +182,7 @@ export default function Analytics() {
             <SavedViews storageKey="diq_saved_views_analytics" currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {FILTERS.map((f) => (
             <div key={f.key}>
               <Label>{f.label}</Label>
@@ -136,12 +201,13 @@ export default function Analytics() {
             ))}
       </div>
 
-      {/* Charts */}
+      {/* Charts — a bar click drills one level down its hierarchy */}
+      <DrillBreadcrumb hierarchies={hierarchies} params={params} onNavigate={navigateUp} />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card><CardHeader title={ov.data?.trend.title ?? "Revenue trend"} /><CardBody>{ov.data ? <TrendChart data={ov.data.trend.revenue} /> : <Spinner />}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} onSelect={drillHandler(ov.data.composition.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} onSelect={drillHandler(ov.data.ranking.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} onSelect={drillHandler(ov.data.secondary.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
       </div>
 
       {/* Advanced analytics: drivers, segments, correlations */}

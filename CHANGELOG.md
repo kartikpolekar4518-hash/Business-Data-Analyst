@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### Drill-down — click a chart to filter to it
+
+- **Ranked charts are now clickable.** Clicking a bar filters the whole page to that
+  value and moves one level down a hierarchy: region → state → city, or category →
+  product. A breadcrumb above the charts steps back up — `All` clears the hierarchy, an
+  intermediate crumb keeps its level and clears the ones below it. The filter still lives
+  in the URL, so a drilled view is still a shareable link.
+- **`city` is now a filter dimension.** It was already detected in uploads and already
+  usable in custom metrics, but could not be filtered on, so the geography hierarchy had
+  nowhere to end.
+- **Drilling changes the view, never the number.** A drill is exactly the filter it looks
+  like: the engine selfcheck asserts a drilled view equals the identical hand-set filter
+  for rows, KPIs, rankings and evidence, and that stepping back up restores the earlier
+  total exactly. Adding `city` to the filter allowlist moved no existing calculation
+  fingerprint — the pre-change digests are pinned as literals so no future dimension can
+  drift them either.
+- **Hand-edited URLs behave predictably.** A filter set without its parents (`?city=…`
+  alone) is honoured as written rather than having a parent invented for it, and any
+  drill from there lands back on a clean hierarchy position instead of stranding a stale
+  filter.
+- Chart tooltips now show the label, the exact value and its share of the total shown.
+- Drill-down is a shortcut, not the only route: the filter dropdowns remain the keyboard
+  path to every dimension, and the donut chart's legend rows are real buttons.
+
 ### Custom metrics — define a number once, use it everywhere
 
 - **Organizations can now define their own metrics** (Settings → Metrics): a total,

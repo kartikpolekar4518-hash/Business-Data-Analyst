@@ -4,7 +4,8 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 2 of 6 shipped.** Branch `claude/pony-tail-github-active-0553cy`, PR #70.
+**Status: 3 of 6 shipped.** Features 1–2 in PR #70 (merged); feature 3 on branch
+`claude/new-session-pxpdfv`.
 
 ---
 
@@ -64,33 +65,59 @@ trends, rankings, forecasts, alert rules and NL questions.
   gone); the scheduler resolves custom metrics; deleting a metric in use by a rule is
   refused.
 
+### 3. Hierarchies and drill-down ✅ (commits `e127787`…`73e9373`)
+
+Click a bar and the page filters to it, one level down a hierarchy, with a breadcrumb
+back up.
+
+- **`city` had to become a filter dimension first.** It was already a detected `Semantic`
+  and already used by custom metrics and the AI provider, but was not filterable, so
+  `region > state > city` could not be expressed. That touched all four encodings the
+  list below warns about, plus `FILTERS` in `pages/Analytics.tsx` — **five**, not four.
+- `engine/hierarchy.ts` holds `DEFAULT_HIERARCHIES` (`region > state > city`,
+  `category > product_name`) and pure `Filters -> Filters` transforms. No aggregation
+  code: `applyFilters` and `groupBy` are reused unchanged.
+- `semantic` and `filterKey` are separate fields, not derived from one another — they
+  already disagree (`product_name` → `product`). The hierarchies travel to the client in
+  the `/analytics/overview` response so the mapping is written down exactly once.
+- **Non-contiguous filters are defined, not incidental.** Filters live in the URL, so
+  `?city=Fresno` with no region or state is reachable by hand. `currentLevel` takes the
+  deepest level actually set and never invents a parent; `drillTo`/`drillUp` restore
+  contiguity by clearing descendants, so nothing can strand a filter with no path back
+  to it.
+- Fingerprint safety: `normalizeFilters` skips absent keys, so adding `city` to
+  `ANALYTICAL_FILTER_KEYS` moved no existing number. The three pre-change digests are
+  pinned as literals in `explain.test.ts` — verified byte-identical before pinning. Any
+  future dimension added to the allowlist must leave them alone.
+- Selfcheck Phase 6 pins the claim the feature rests on: a drilled view equals the
+  identical hand-set filter for rows, KPIs, rankings and evidence, and stepping back up
+  restores the earlier total exactly.
+- **Deliberate limitation:** no date-grain drill (year → quarter → month).
+  `engine/calendar.ts` can label a period but has no period → date-range function, so a
+  date drill needs a new `periodRange(key, cal)` primitive with its own correctness tests
+  against 4-4-5. Feature-sized; listed under Remaining below.
+- **Not done here:** promoting `SavedViews` from `localStorage` to an org-scoped model.
+  Also under Remaining.
+
 ---
 
 ## Remaining
 
-### 3. Hierarchies and drill-down (next)
+### 3a. Shareable saved views (small, next)
 
-Power BI parity: Drillthrough, Hierarchy, Tooltips, Bookmarks, Slicers.
+`components/filters.tsx` `SavedViews` already stores exactly `{ name, query }` — but in
+`localStorage`, so a view is trapped in one browser. Promote to an org-scoped `SavedView`
+model (`ReportTemplate` is the shape to copy, `templates.itest.ts` the test to copy).
+Keep the stored shape and `onApply` works unchanged. Needs a migration, CRUD routes with
+the usual `requireRole` gating, and an `*.itest.ts` covering CRUD, RBAC and tenant
+isolation.
 
-The whole "click a thing → change the view" cycle **already exists** — it just has no
-trigger on the charts.
+### 3b. Date-grain drill-down (small)
 
-- `pages/Analytics.tsx` holds filter state in the URL via `useSearchParams`, with
-  `setMulti` / `removeOne` writers and derived `FilterChips`. Changing a param re-keys
-  `["analytics", qs]` and refetches every panel automatically.
-- **Plan:** add an optional `onSelect?: (label: string) => void` to `BarRankChart` and
-  `DonutChart` in `components/charts.tsx`, wired to Recharts `onClick`; the handler calls
-  the existing `setMulti`. There is currently **no chart click handling anywhere** in the
-  app — this is greenfield but small.
-- `engine/hierarchy.ts`: default hierarchies from existing semantics —
-  `region > state > city`, `category > product_name`, and a date grain using feature 1.
-  Drilling = "add a filter, move to the child dimension", so `applyFilters` + `groupBy`
-  are reused unchanged; no new aggregation code.
-- Custom Recharts tooltip content; `Tooltip` from `ui.feedback` for non-chart surfaces.
-- **Saved views:** `components/filters.tsx:173` `SavedViews` already stores exactly
-  `{ name, query }` — but in `localStorage`, per-browser. Promote to an org-scoped
-  `SavedView` model so views are shareable. Keep the stored shape; `onApply` and every
-  consumer then work unchanged.
+Deferred out of feature 3. Needs `periodRange(key, cal)` in `engine/calendar.ts` — the
+inverse of `periodKey` — so drilling a period can set `dateFrom`/`dateTo`. Must be
+correct for fiscal and retail 4-4-5 calendars, which is the whole reason it was not
+squeezed into the drill-down change.
 
 ### 4. What-if scenario modelling
 
@@ -143,6 +170,14 @@ trigger on the charts.
 
 ---
 
+## Known issue, pre-existing
+
+`BarRankChart` renders no visible bar when its data has a single entry, and appears to
+under-render with few entries. Confirmed **identical before and after** the drill-down
+change by rebuilding the previous commit and screenshotting the same two URLs, so it is
+not a drill-down regression — but drilling reaches single-category views far more often,
+which makes it much more visible than it used to be. Worth its own fix.
+
 ## Codebase facts worth not re-deriving
 
 - The engine is pure and row-array based: every analytic is
@@ -158,19 +193,20 @@ trigger on the charts.
 - **Four** files independently encode the filter-dimension list: `Filters`
   (`engine/analytics.ts`), `filterSchema` (`modules/analytics.ts`),
   `ANALYTICAL_FILTER_KEYS` (`engine/explain.ts`), and `EXCLUSION_LABEL`
-  (`web/src/components/explain.tsx`). Any new dimension touches all four.
+  (`web/src/components/explain.tsx`) — plus `FILTERS` in `pages/Analytics.tsx`, which
+  makes **five**. Adding `city` for feature 3 touched every one of them.
 - The web app has **no `useMutation` anywhere** — writes are plain `async` + local
   `saving` boolean + `toast()` + `invalidateQueries`. Don't introduce one.
 - Query keys are flat primitive arrays; filter-scoped keys carry the raw query string.
 - Migrations are hand-written SQL with a leading prose comment explaining intent and any
   data decision. Timestamp naming: `YYYYMMDDHHMMSS_add_snake_case_thing`.
-- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.2.0`.
+- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.3.0`.
 
 ## Verification
 
 ```bash
 npm run typecheck                  # api + web
-npm test                           # 165 unit tests + engine selfcheck
+npm test                           # 180 unit tests + engine selfcheck
 ```
 
 Integration tests need Postgres. Docker is unavailable in the web sandbox, so run one

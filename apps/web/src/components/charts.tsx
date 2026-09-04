@@ -56,6 +56,36 @@ function useAxis() {
 
 const fmtK = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`);
 
+/* ───────── Drill-down plumbing shared by the clickable charts ───────── */
+// Recharts hands click/tooltip payloads back in a few different shapes depending on the
+// series type, so unwrap defensively and drill only on a real label.
+type ChartPayload = { label?: string; value?: number; payload?: { label?: string; value?: number } };
+function labelOf(d: unknown): string {
+  const p = d as ChartPayload | undefined;
+  return String(p?.payload?.label ?? p?.label ?? "").trim();
+}
+const clickProps = (onSelect?: (label: string) => void) =>
+  onSelect
+    ? { cursor: "pointer", onClick: (d: unknown) => { const l = labelOf(d); if (l) onSelect(l); } }
+    : {};
+
+// label · value · share of the total shown. The default tooltip printed a bare number,
+// which is the one thing the axis already tells you.
+function ShareTooltip({ total, active, payload }: { total: number; active?: boolean; payload?: ChartPayload[] }) {
+  const { tooltipStyle } = useAxis();
+  const entry = payload?.[0];
+  if (!active || !entry) return null;
+  const label = labelOf(entry);
+  const value = entry.payload?.value ?? entry.value ?? 0;
+  const pct = total ? Math.round((value / total) * 1000) / 10 : null;
+  return (
+    <div style={{ ...tooltipStyle, padding: "8px 10px" }}>
+      <div className="font-medium">{label}</div>
+      <div className="tabular-nums">{value.toLocaleString()}{pct == null ? "" : ` · ${pct}% of total`}</div>
+    </div>
+  );
+}
+
 /* ───────── Sparkline — dependency-free inline SVG (for KPI tiles) ───────── */
 export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { data: number[]; color?: string; width?: number; height?: number }) {
   const id = useId();
@@ -182,8 +212,7 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
 });
 
 /* ───────── Donut composition chart ───────── */
-export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190 }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number }) {
-  const { tooltipStyle } = useAxis();
+export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190, onSelect }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number; onSelect?: (label: string) => void }) {
   const anim = useSeriesAnimation();
   const top = data.slice(0, 6);
   const total = top.reduce((s, d) => s + d.value, 0);
@@ -192,10 +221,10 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
       <div className="relative shrink-0" style={{ width: height, height }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={top} dataKey="value" nameKey="label" innerRadius="62%" outerRadius="92%" paddingAngle={2} stroke="none" cornerRadius={4} {...anim}>
+            <Pie data={top} dataKey="value" nameKey="label" innerRadius="62%" outerRadius="92%" paddingAngle={2} stroke="none" cornerRadius={4} {...anim} {...clickProps(onSelect)}>
               {top.map((_, i) => <Cell key={i} fill={SERIES[i % SERIES.length]} />)}
             </Pie>
-            <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtK(v)} />
+            <Tooltip content={<ShareTooltip total={total} />} />
           </PieChart>
         </ResponsiveContainer>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
@@ -204,22 +233,45 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
         </div>
       </div>
       <ul className="w-full min-w-0 flex-1 space-y-2">
-        {top.map((d, i) => (
-          <li key={d.label} className="flex items-center gap-2 text-[13px]">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SERIES[i % SERIES.length] }} />
-            <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{d.label}</span>
-            <span className="w-9 shrink-0 text-right font-semibold text-slate-900 dark:text-white">{total ? Math.round((d.value / total) * 100) : 0}%</span>
-          </li>
-        ))}
+        {top.map((d, i) => {
+          const row = (
+            <>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SERIES[i % SERIES.length] }} />
+              <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{d.label}</span>
+              <span className="w-9 shrink-0 text-right font-semibold text-slate-900 dark:text-white">{total ? Math.round((d.value / total) * 100) : 0}%</span>
+            </>
+          );
+          return (
+            <li key={d.label} className="text-[13px]">
+              {onSelect ? (
+                <button
+                  type="button"
+                  onClick={() => onSelect(d.label)}
+                  className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-white/5"
+                >
+                  {row}
+                </button>
+              ) : (
+                <span className="flex items-center gap-2">{row}</span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
 });
 
-export const BarRankChart = memo(function BarRankChart({ data, horizontal = true }: { data: { label: string; value: number }[]; horizontal?: boolean }) {
-  const { grid, tick, tooltipStyle } = useAxis();
+// A bar is a mouse-only target: Recharts renders plain SVG paths with no focus handling,
+// and giving each one a tab stop would drop a dozen stops into the page for a shortcut.
+// Drill-down is a shortcut, never the only route — the MultiSelect filter dropdowns above
+// the charts reach every one of these dimensions by keyboard and remain the accessible
+// path. DonutChart's legend rows are real buttons for the same reason.
+export const BarRankChart = memo(function BarRankChart({ data, horizontal = true, onSelect }: { data: { label: string; value: number }[]; horizontal?: boolean; onSelect?: (label: string) => void }) {
+  const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
   const gradId = useId();
+  const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ResponsiveContainer width="100%" height={Math.max(220, data.length * 34)}>
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
@@ -232,9 +284,9 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
           <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
           <YAxis tick={tick} axisLine={false} tickLine={false} width={48} />
         </>}
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(91,140,255,0.08)" }} />
+        <Tooltip content={<ShareTooltip total={total} />} cursor={{ fill: "rgba(91,140,255,0.08)" }} />
         {/* Ranked bars of one metric share one hue — varied color would encode nothing but rank. */}
-        <Bar dataKey="value" fill={`url(#${gradId})`} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} />
+        <Bar dataKey="value" fill={`url(#${gradId})`} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
       </BarChart>
     </ResponsiveContainer>
   );
