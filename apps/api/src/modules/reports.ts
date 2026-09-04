@@ -7,7 +7,7 @@ import { env } from "../env.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { assertWithinLimit } from "./billing.js";
-import { loadDataset, loadOrgConfig } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import { composeReport, fmtKpiValue, applyTemplate, type ReportInclude } from "../engine/report.js";
 
@@ -18,7 +18,7 @@ reportsRouter.use(requireAuth);
 // tailored to the org's industry pack (KPIs, section titles, and wording).
 // Exported so the scheduler can regenerate reports on a cadence.
 export async function buildReport(organizationId: string, datasetId?: string) {
-  const { dataset, rows, schema } = await loadDataset(organizationId, datasetId);
+  const { dataset, rows, schema } = await loadJoinedDataset(organizationId, datasetId);
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
   const { pack, calendar } = await loadOrgConfig(organizationId);
   const content = composeReport(pack, rows, schema, calendar);

@@ -16,6 +16,7 @@ import { DEFAULT_CALENDAR, periodRange, type CalendarConfig } from "./calendar.j
 import { compileKpiDef, compileMetric, validateMetricSpec } from "./metricSpec.js";
 import { availableHierarchies, currentLevel, nextLevel, drillPath, drillTo, drillUp, findLevel, dateDrillPath, drillToDate, trendGrain } from "./hierarchy.js";
 import { applyScenario, scenarioImpact } from "./scenario.js";
+import { analyzeJoin, createsCycle, joinRows, mergeSchemas, suggestRelations } from "./join.js";
 import { analyzeDrivers } from "./drivers.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
@@ -635,5 +636,119 @@ assert(validateSteps([{ type: "duplicate_rows", column: "region" } as CleaningSt
 assert(validateSteps([{ type: "whitespace", column: null } as CleaningStep]).length > 0, "a cell step must name its column");
 assert(validateSteps([{ type: "missing_values", column: "note" } as CleaningStep]).length > 0, "a fill step must carry its fill");
 assert(validateSteps([{ type: "shred_it", column: "note" } as unknown as CleaningStep]).length > 0, "an unknown step is not a step");
+
+
+// ─── 10. Multi-file joins and relationships ──────────────────────────────────
+// The claim: connecting a second file ENRICHES the rows without moving a single number
+// that was already on the page. A join is a pure Row[] -> Row[] applied before the
+// analytics, so every analytic reads it unchanged — and the one way a join can lie
+// (fanning the left rows out, so every sum is counted several times over) is refused by
+// construction rather than warned about.
+const joinOrders: Row[] = [
+  { order_id: "1", customer_id: "C1", order_date: "2025-01-05", revenue: "100" },
+  { order_id: "2", customer_id: "C2", order_date: "2025-02-05", revenue: "200" },
+  { order_id: "3", customer_id: "C1", order_date: "2025-03-05", revenue: "150" },
+  { order_id: "4", customer_id: "C9", order_date: "2025-04-05", revenue: "50" },  // no such customer
+  { order_id: "5", customer_id: "",   order_date: "2025-05-05", revenue: "25" },  // no customer at all
+];
+const joinCustomers: Row[] = [
+  { customer_id: "C1", name: "Ada", region: "West" },
+  { customer_id: "C2", name: "Bo", region: "East" },
+  { customer_id: "C3", name: "Cy", region: "North" }, // never ordered
+];
+const orderSchema = detectSchema(profileDataset(joinOrders, Object.keys(joinOrders[0])).columns).map;
+const customerSchema = detectSchema(profileDataset(joinCustomers, Object.keys(joinCustomers[0])).columns).map;
+assert.equal(orderSchema.region, undefined, "region lives in the customer file — the whole reason to join");
+const customerSpec = { leftColumn: "customer_id", rightColumn: "customer_id", rightName: "Customers" };
+const baseTotal = A.overview(joinOrders, orderSchema).revenue.value;
+assert.equal(baseTotal, 525, "the total before anything is connected");
+
+// An organization that has connected nothing must see what it always saw. Asserted on
+// the array itself: identical rows cannot produce a different anything, anywhere.
+const refused = joinRows(joinOrders, [...joinCustomers, { customer_id: "C1", name: "Ada (old)", region: "South" }], customerSpec);
+assert.equal(refused.rows, joinOrders, "a fan-out join returns the very same array — no inflated total can exist");
+assert.equal(refused.report.applied, false);
+assert.equal(refused.report.safe, false, "safety is the RIGHT key being unique, not the cardinality label");
+assert.deepEqual(refused.report.duplicateKeys, ["c1"], "and the refusal names the value to fix");
+
+const joined = joinRows(joinOrders, joinCustomers, customerSpec);
+assert.equal(joined.report.applied, true);
+assert.equal(joined.report.kind, "many_to_one");
+assert.equal(joined.report.fanOut, 1, "fanOut === 1 is the invariant that follows from a unique right key");
+assert.equal(joined.rows.length, joinOrders.length, "a join adds columns, never rows");
+
+// The standing rule for this programme: every number already on the page is unmoved.
+const joinedSchema = mergeSchemas(orderSchema, customerSchema, joined.report.columnRenames);
+assert.equal(joinedSchema.revenue, orderSchema.revenue, "the left's revenue column is never rebound to the right's");
+assert.equal(joinedSchema.region, "region", "and a semantic the left LACKED is what the join adds");
+assert.equal(A.overview(joined.rows, joinedSchema).revenue.value, baseTotal, "the headline total does not move");
+const beforeTrend = A.timeSeries(joinOrders, orderSchema, "revenue", {}, DEFAULT_CALENDAR);
+const afterTrend = A.timeSeries(joined.rows, joinedSchema, "revenue", {}, DEFAULT_CALENDAR);
+assert.deepEqual(afterTrend, beforeTrend, "and neither does any bucket of the trend");
+for (const pack of Object.values(PACKS)) {
+  assert.deepEqual(
+    A.computeKpis(joined.rows, joinedSchema, pack, {}).map((k) => [k.key, k.value]),
+    A.computeKpis(joinOrders, orderSchema, pack, {}).map((k) => [k.key, k.value]),
+    `${pack.id}: every KPI is identical before and after connecting a lookup file`,
+  );
+}
+
+// Auditability: a row that found no match keeps ALL of its own cells, and still counts.
+assert.equal(joined.report.unmatchedLeftRows, 1);
+assert.equal(joined.report.blankKeyRows, 1, "a blank key is not a key — two blanks are not the same customer");
+for (let i = 0; i < joinOrders.length; i++) {
+  for (const [k, v] of Object.entries(joinOrders[i])) {
+    assert.equal(joined.rows[i][k], v, `row ${i}: ${k} is carried through untouched, matched or not`);
+  }
+}
+for (const i of [3, 4]) { // the orphan and the blank-keyed row
+  assert.equal(joined.rows[i].region, "", "an unmatched row gets a blank for what it could not find — never a 0 that reads as measured");
+  assert.equal(joined.rows[i].name, "");
+}
+assert.equal(joined.report.unmatchedRightRows, 1, "Cy never ordered, and a left join drops them rather than inventing a row");
+
+// A join is per row, so it commutes with filtering: a region read on the dashboard and
+// the same region read on a filtered page cannot disagree.
+assert.deepEqual(
+  A.applyFilters(joined.rows, joinedSchema, { region: "West" }),
+  joinRows(A.applyFilters(joinOrders, orderSchema, {}), joinCustomers, customerSpec).rows.filter((r) => r.region === "West"),
+  "filtering a joined view equals joining a filtered one",
+);
+assert.equal(A.overview(A.applyFilters(joined.rows, joinedSchema, { region: "West" }), joinedSchema).revenue.value, 250,
+  "and filtering on a column that ARRIVED through the join selects exactly its rows");
+
+// Chained: Orders -> Customers -> Regions. Applied in one fixed order, so the
+// accumulated column names are reproducible — and `name` collides, which is the case
+// prefixing exists for.
+const joinRegions: Row[] = [{ region: "West", name: "Pacific" }, { region: "East", name: "Atlantic" }, { region: "North", name: "Arctic" }];
+const chained = joinRows(joined.rows, joinRegions, { leftColumn: "region", rightColumn: "region", rightName: "Regions" }, joined.columns);
+assert.equal(chained.rows[0].name, "Ada", "the first hop's column is not overwritten by the second's");
+assert.equal(chained.rows[0]["Regions.name"], "Pacific", "the colliding one is prefixed");
+assert.deepEqual(
+  joinRows(joined.rows, joinRegions, { leftColumn: "region", rightColumn: "region", rightName: "Regions" }, joined.columns).columns,
+  chained.columns, "the same chain produces the same names every time");
+assert.equal(A.overview(chained.rows, joinedSchema).revenue.value, baseTotal, "two hops still move nothing");
+assert.equal(chained.rows.length, joinOrders.length, "and still add no rows");
+
+// Cycles are refused where they can be explained, not resolved at read time.
+assert.equal(createsCycle([{ leftDatasetId: "orders", rightDatasetId: "customers" }], "customers", "orders"), true);
+assert.equal(createsCycle([{ leftDatasetId: "orders", rightDatasetId: "customers" }], "customers", "regions"), false);
+
+// Auto-detection proposes; it never applies. Name affinity alone is not enough — the
+// values have to actually overlap.
+const proposed = suggestRelations([
+  { id: "o", name: "Orders", columns: Object.keys(joinOrders[0]), rows: joinOrders },
+  { id: "c", name: "Customers", columns: Object.keys(joinCustomers[0]), rows: joinCustomers },
+  { id: "x", name: "Unrelated", columns: ["customer_id", "note"], rows: [{ customer_id: "Z1", note: "n" }] },
+]);
+assert(proposed.some((p) => p.leftDatasetId === "o" && p.rightDatasetId === "c" && p.leftColumn === "customer_id"),
+  "orders -> customers is proposed");
+assert(!proposed.some((p) => p.rightDatasetId === "x"),
+  "the same column name over values that never appear is not a relationship");
+const proposalRows: Record<string, Row[]> = { o: joinOrders, c: joinCustomers, x: [{ customer_id: "Z1", note: "n" }] };
+assert(proposed.every((p) => analyzeJoin(
+  proposalRows[p.leftDatasetId], proposalRows[p.rightDatasetId],
+  { leftColumn: p.leftColumn, rightColumn: p.rightColumn, rightName: p.rightDatasetName }).safe),
+  "every proposal, measured against the real rows, is one the engine would actually apply");
 
 console.log("✓ engine selfcheck passed");
