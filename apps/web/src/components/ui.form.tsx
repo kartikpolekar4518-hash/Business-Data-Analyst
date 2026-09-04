@@ -143,6 +143,80 @@ export const Switch = ({
 );
 
 // ─────────────────────────────────────────────
+// Slider — controlled, for a bounded numeric lever
+// ─────────────────────────────────────────────
+// Same controlled signature as Switch: the value comes in, a change goes out, no
+// internal state. The track and fill are Progress's, so a lever and a progress bar
+// read as the same object at a glance. The real <input type="range"> is kept and made
+// transparent on top rather than replaced by pointer maths — that is what keeps
+// keyboard control, arrow-key stepping and screen-reader announcement for free.
+export const Slider = ({
+  value,
+  onChange,
+  min = 0,
+  max = 100,
+  step = 1,
+  disabled,
+  label,
+  format,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  value: number;
+  onChange: (value: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  disabled?: boolean;
+  label?: ReactNode;
+  format?: (value: number) => string;
+  className?: string;
+  "aria-label"?: string;
+}) => {
+  // The fill runs from ZERO to the value, not from the left edge, with zero clamped into
+  // the range. On a 0..100 slider that is the left edge and the bar is Progress exactly;
+  // on a signed range (a ±50% lever) it is the middle, so "no change" reads as an empty
+  // track instead of a half-full one. A zero-width range would divide by zero.
+  const at = (n: number) => (max === min ? 0 : ((Math.max(min, Math.min(max, n)) - min) / (max - min)) * 100);
+  const pct = at(value);
+  const origin = at(0);
+  return (
+    <div className={cn("w-full", disabled && "opacity-50", className)}>
+      {label != null && (
+        <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+          <span>{label}</span>
+          <span className="tabular-nums text-slate-400">{format ? format(value) : value}</span>
+        </div>
+      )}
+      <div className="relative flex h-5 items-center">
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+          <div
+            className="absolute inset-y-0 rounded-full bg-brand-500"
+            style={{ left: `${Math.min(origin, pct)}%`, width: `${Math.abs(pct - origin)}%` }}
+          />
+        </div>
+        <span
+          aria-hidden
+          className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-full border border-brand-500 bg-white shadow-sm dark:bg-slate-900"
+          style={{ left: `${pct}%` }}
+        />
+        <input
+          type="range"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          disabled={disabled}
+          aria-label={ariaLabel}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="absolute inset-0 h-full w-full cursor-pointer appearance-none bg-transparent opacity-0 disabled:cursor-not-allowed"
+        />
+      </div>
+    </div>
+  );
+};
+
+// ─────────────────────────────────────────────
 // Textarea
 // ─────────────────────────────────────────────
 export const Textarea = forwardRef<

@@ -4,10 +4,10 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 3 of 6 shipped, plus follow-ups 3a and 3b.** Features 1–2 in PR #70 (merged);
+**Status: 4 of 6 shipped, plus follow-ups 3a and 3b.** Features 1–2 in PR #70 (merged);
 feature 3 in PR #72 (merged); date-grain drill-down (3b) in PR #73 (merged); shareable
-saved views (3a) on branch `claude/savedviews-org-scoped-model-bfw8fg`. Next up:
-4, what-if scenario modelling.
+saved views (3a) in PR #74 (merged); what-if scenario modelling (4) on branch
+`claude/power-bi-what-if-scenarios-5wkmqr`. Next up: 5, replayable cleaning recipes.
 
 ---
 
@@ -166,27 +166,55 @@ where the list comes from moved.
   `views.itest.ts` covers CRUD, the overwrite, the 409, query validation, RBAC and tenant
   isolation.
 
----
+### 4. What-if scenario modelling ✅
 
-## Remaining
-
-### 4. What-if scenario modelling
+Move a slider — unit price, quantity, cost or revenue — and the whole forecast moves
+with it, because the lever is applied to the rows before any analytic runs.
 
 - `engine/scenario.ts`: `applyScenario(rows, schema, levers) -> Row[]`, a pure row
   transform applied **before** existing analytics. `computeKpis`, `timeSeries`,
-  `forecast` and `analyzeDrivers` then work on adjusted rows with no changes.
-- The existing `whatIf` (`engine/forecast.ts`) adds an absolute delta to the **last
-  history point only** — it cannot express "raise price 5%". Leave it (tests and
-  selfcheck cover it) and add the row-level path alongside.
-- **Honest limitation to surface in the UI:** a price lever propagates to profit only
-  when revenue is derived as `quantity × unit_price` (`analytics.ts` `rowRevenue`).
-  When revenue is a stored column it cannot, and the panel must say so rather than
-  showing a silently unchanged profit.
-- Add `scenario Json?` to `Forecast` — `goal`/`driverDelta` are currently accepted and
-  discarded, so a saved scenario cannot be re-identified.
-- Web: first `Slider` in `ui.form.tsx` (match `Switch`'s controlled signature; copy
-  track/fill visuals from `Progress`), plus a debounce helper — **neither exists yet**.
-  Replaces the two bare `<input type="number">` fields on `pages/Forecasts.tsx`.
+  `forecast` and `analyzeDrivers` consume the adjusted rows with **no changes of their
+  own** — none of them learns that a scenario exists.
+- A lever is one percentage change to one business quantity, over the four numeric
+  semantics (`revenue`, `unit_price`, `quantity`, `cost`). **No expression language, no
+  parser, no eval** — the rule `metricSpec.ts` set. `revenue` resolves through
+  `rowRevenue`'s own column preference (`revenue` then `sales`), so a lever moves the
+  column the revenue number is actually read from.
+- **Nothing moves for an org that never opens the panel.** With no effective lever
+  `applyScenario` returns the *original array*, not a copy — the standing rule for this
+  programme in its strongest form, and what the selfcheck pins first.
+- The existing `whatIf` (`engine/forecast.ts`) is untouched and still exercised by the
+  tests and Phase 3 of the selfcheck. The row-level path sits alongside it; only the
+  *UI* field for the absolute delta is gone, replaced by the sliders.
+- **The honest limitation is data, not prose.** `scenarioImpact(schema, levers)` returns
+  per lever which headline numbers it reaches and why not, computed from
+  `revenueSource`/`rowProfit`'s actual branches: a price lever reaches revenue and
+  profit only where revenue is derived as `quantity × unit_price`, and a cost lever
+  reaches profit only where profit is derived as `revenue − cost`. The route returns it
+  and the panel prints it — an unmoved profit is always accompanied by the reason.
+- `Forecast.scenario Json?` records `{ levers, goal, driverDelta }`. Nullable, no
+  backfill, no default: `NULL` is what every forecast saved before the column existed
+  already was, and it is what a plain forecast still writes. Saved cards read it back
+  into a "what-if" badge, so a scenario is no longer indistinguishable from a plain
+  forecast of the same metric.
+- Web: `Slider` in `ui.form.tsx` matches `Switch`'s controlled signature and takes
+  `Progress`'s track/fill; the real `<input type="range">` is kept and made transparent
+  over it, so keyboard stepping and screen-reader announcement come for free.
+  `lib/debounce.ts` (`useDebounced`) keeps a drag instant locally while the URL is
+  written once per gesture — levers live in the query string (`?lv_unit_price=5`) like
+  the rest of the page's state. Both bare `<input type="number">` fields on
+  `pages/Forecasts.tsx` are gone: goal uses the design-system `Input`, and the what-if
+  delta is replaced by the sliders.
+- Selfcheck Phase 8 pins the claim the feature rests on: the untouched case is the same
+  array, a 5% price lever is exactly 5% on the overview, on every KPI that reads revenue
+  and on **every bucket** of the trend, a scenario commutes with `applyFilters`, and on
+  a stored-revenue shape the identical lever moves nothing headline and says so.
+- `forecasts.itest.ts` covers the round trip through the route, lever validation, RBAC
+  and tenant isolation.
+
+---
+
+## Remaining
 
 ### 5. Replayable cleaning recipes
 
@@ -251,13 +279,13 @@ which makes it much more visible than it used to be. Worth its own fix.
 - Query keys are flat primitive arrays; filter-scoped keys carry the raw query string.
 - Migrations are hand-written SQL with a leading prose comment explaining intent and any
   data decision. Timestamp naming: `YYYYMMDDHHMMSS_add_snake_case_thing`.
-- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.4.0`.
+- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.5.0`.
 
 ## Verification
 
 ```bash
 npm run typecheck                  # api + web
-npm test                           # 198 unit tests + engine selfcheck
+npm test                           # 207 unit tests + engine selfcheck
 ```
 
 Integration tests need Postgres. Docker is unavailable in the web sandbox, so run one
@@ -274,7 +302,7 @@ psql -h 127.0.0.1 -U test -d postgres -c "CREATE DATABASE test;"
 cd apps/api
 export DATABASE_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
 npx prisma migrate deploy
-npx tsx --test "src/**/*.itest.ts"   # 52 tests
+npx tsx --test "src/**/*.itest.ts"   # 57 tests
 ```
 
 Every feature must add: a `*.test.ts` beside the new engine module, a section in

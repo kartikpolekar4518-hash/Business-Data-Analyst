@@ -270,6 +270,9 @@ model Forecast {
   method         String
   history        Json         // [{ period, value }]
   points         Json         // [{ period, value, lower, upper }]
+  // What-if inputs that produced `points`: { levers, goal, driverDelta }. NULL for a
+  // plain forecast, which is what every forecast saved before scenarios existed was.
+  scenario       Json?
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
