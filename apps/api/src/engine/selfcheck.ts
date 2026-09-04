@@ -3,7 +3,8 @@
 import assert from "node:assert";
 import type { Row } from "./parse.js";
 import { profileDataset } from "./profile.js";
-import { detectSchema, cleanRows } from "./schema.js";
+import { detectSchema } from "./schema.js";
+import { CLEANING_STEP_TYPES, buildSteps, cleanRows, describeStep, validateSteps, type CleaningStep } from "./cleaning.js";
 import * as A from "./analytics.js";
 import { answer } from "./intent.js";
 import { forecast, evaluateGoal, whatIf } from "./forecast.js";
@@ -58,8 +59,8 @@ assert(ov.customers.previous === 2, `customers 'previous' should be prior-period
 assert(ov.orders.changePct === 0, `orders change should be distinct-order based (0), got ${ov.orders.changePct}`);
 
 // 4. Cleaning removes the duplicate and trims/normalizes — original untouched.
-const numericCols = new Set(profile.columns.filter((c) => c.type === "number" || c.type === "currency").map((c) => c.name));
-const cleaned = cleanRows(rows, columns, ["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues, numericCols);
+const cleaningSteps = buildSteps(["duplicate_rows", "whitespace", "missing_values", "inconsistent_case"], profile.issues, profile.columns);
+const { rows: cleaned } = cleanRows(rows, cleaningSteps);
 assert(cleaned.length === 4, `duplicate removed, expected 4 rows got ${cleaned.length}`);
 assert(rows.length === 5, "original rows unchanged");
 assert(cleaned.every((r) => r.customer_name !== " bo "), "whitespace trimmed");
@@ -539,5 +540,100 @@ assert.deepEqual(
   "on a derived shape the same lever reaches revenue and profit, and cost reaches profit",
 );
 
+
+
+
+// ─── 9. Replayable cleaning recipes ──────────────────────────────────────────
+// The claim: a recipe is a TRANSFORM, not a pointer into one dataset's issue table.
+// The same steps against a different upload do the same thing — which is exactly what
+// the old { acceptedTypes } list could not promise, and what makes appending next
+// month's file to a dataset safe.
+const recipeColumns = ["region", "product", "revenue", "note"];
+const marchRows: Row[] = [
+  { region: "West ", product: "widget", revenue: "1200 USD", note: "" }, // whitespace + case + text-in-number + blank
+  { region: "West", product: "Widget", revenue: "900", note: "ok" },
+  { region: "West", product: "Widget", revenue: "900", note: "ok" },     // duplicate
+  { region: "East", product: "Widget", revenue: "500", note: "ok" },
+  { region: "East", product: "Gadget", revenue: "700", note: "ok" },
+  { region: "North", product: "Gadget", revenue: "800", note: "ok" },
+];
+const marchProfile = profileDataset(marchRows, recipeColumns);
+const recipe = buildSteps(["whitespace", "inconsistent_case", "numeric_with_text", "missing_values", "duplicate_rows"], marchProfile.issues, marchProfile.columns);
+
+// Nothing moves for a dataset nobody cleaned — the standing rule for this programme,
+// in its strongest form: the very same array back, not a copy.
+assert.equal(cleanRows(marchRows, []).rows, marchRows, "an empty recipe returns the very same array");
+assert.deepEqual(cleanRows(marchRows, []).applied, [], "and claims to have done nothing");
+
+// Every step names its own column (except whole-row de-duplication) and carries its own
+// decisions, so nothing in the list needs the issue table to be interpreted.
+assert.equal(validateSteps(recipe).length, 0, "a built recipe is a valid recipe");
+for (const s of recipe) {
+  if (s.type === "duplicate_rows") assert.equal(s.column, null, "de-duplication is whole-row");
+  else assert(typeof s.column === "string" && s.column.length > 0, `${s.type} is column-scoped`);
+  if (s.type === "missing_values") assert(s.fill !== undefined, "a fill is decided when the step is built, not at replay");
+}
+assert.equal(recipe.at(-1)!.type, "duplicate_rows", "de-duplication runs last, after the cells are normalised");
+assert.equal(recipe.find((s) => s.type === "missing_values" && s.column === "revenue")!.fill, 0,
+  "a numeric column fills with 0, never the string that would silently zero a total");
+assert.equal(recipe.find((s) => s.type === "missing_values" && s.column === "note")!.fill, "Unknown", "a text column fills with text");
+assert(recipe.every((s) => describeStep(s).length > 0), "every step can be shown to the user in words");
+
+const marchCleaned = cleanRows(marchRows, recipe);
+assert.equal(marchCleaned.rows.length, 5, "the duplicate is gone");
+assert.equal(marchCleaned.rows[0].region, "West", "whitespace trimmed");
+assert.equal(marchCleaned.rows[0].product, "Widget", "capitalisation normalised");
+assert.equal(marchCleaned.rows[0].revenue, 1200, "stray text stripped and the value read as a number");
+assert.equal(marchCleaned.rows[0].note, "Unknown", "blank filled");
+assert.equal(marchRows[0].region, "West ", "the original rows are never modified");
+// Provenance keeps the { type, column, affectedRows } vocabulary the evidence panel
+// already renders, but counts what happened HERE rather than copying issue-table counts.
+for (const a of marchCleaned.applied) {
+  assert(CLEANING_STEP_TYPES.includes(a.type), `${a.type} is a step type`);
+  assert(a.affectedRows > 0, "a step that changed nothing is not claimed as a fix");
+  assert.deepEqual(Object.keys(a).sort(), ["affectedRows", "column", "type"], "the provenance shape is unchanged");
+}
+
+// April: same columns, DIFFERENT problems — no duplicates, and the dirt has moved to
+// other columns. This is the case the old instruction got wrong.
+const aprilRows: Row[] = [
+  { region: "east", product: " Gadget ", revenue: "300", note: "ok" },
+  { region: "East", product: "Gadget", revenue: "450 EUR", note: "" },
+];
+const aprilProfile = profileDataset(aprilRows, recipeColumns);
+const aprilFromTypes = buildSteps(["whitespace", "inconsistent_case", "numeric_with_text", "missing_values", "duplicate_rows"], aprilProfile.issues, aprilProfile.columns);
+assert.notDeepEqual(aprilFromTypes, recipe,
+  "the SAME accepted-types list compiles to a DIFFERENT transform against April — the bug recipes fix");
+
+// The recipe, replayed, is the same transform. It does not consult April's issues.
+const aprilCleaned = cleanRows(aprilRows, recipe);
+assert.equal(aprilCleaned.rows[0].product, "Gadget", "March's trim step still trims in April");
+assert.equal(aprilCleaned.rows[1].revenue, 450, "March's numeric coercion still coerces in April");
+assert.equal(aprilCleaned.rows[1].note, "Unknown", "and March's fill value is the fill value used");
+assert.deepEqual(cleanRows(aprilRows, recipe).rows, aprilCleaned.rows, "replaying is deterministic");
+// Replay is idempotent: re-running a recipe over rows it already cleaned finds nothing
+// left to do, so an auto-apply hook cannot compound its own output.
+assert.deepEqual(cleanRows(aprilCleaned.rows, recipe).rows, aprilCleaned.rows, "a second pass changes nothing");
+assert.deepEqual(cleanRows(aprilCleaned.rows, recipe).applied, [], "and reports no fixes the second time");
+
+// Combine Files: cleaning the combination equals cleaning each file and concatenating,
+// for every per-row step. That equivalence is why appending April to March is safe.
+const perRowRecipe: CleaningStep[] = recipe.filter((s) => s.type !== "duplicate_rows");
+assert.deepEqual(
+  cleanRows([...marchRows, ...aprilRows], perRowRecipe).rows,
+  [...cleanRows(marchRows, perRowRecipe).rows, ...cleanRows(aprilRows, perRowRecipe).rows],
+  "a per-row recipe over the combination equals the combination of the per-file results",
+);
+// De-duplication is the one step that is deliberately whole-set, and combining is
+// exactly when it earns its keep: a row resent in both files collapses to one.
+const resent = cleanRows([...marchRows, ...aprilRows, { ...aprilRows[0] }], recipe);
+assert.equal(resent.rows.length, cleanRows([...marchRows, ...aprilRows], recipe).rows.length,
+  "a row present in both files survives the combination once");
+
+// A malformed recipe is refused by the engine, not applied half-way.
+assert(validateSteps([{ type: "duplicate_rows", column: "region" } as CleaningStep]).length > 0, "de-duplication takes no column");
+assert(validateSteps([{ type: "whitespace", column: null } as CleaningStep]).length > 0, "a cell step must name its column");
+assert(validateSteps([{ type: "missing_values", column: "note" } as CleaningStep]).length > 0, "a fill step must carry its fill");
+assert(validateSteps([{ type: "shred_it", column: "note" } as unknown as CleaningStep]).length > 0, "an unknown step is not a step");
 
 console.log("✓ engine selfcheck passed");

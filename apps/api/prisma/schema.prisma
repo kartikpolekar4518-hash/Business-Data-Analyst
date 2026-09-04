@@ -94,6 +94,7 @@ model Organization {
   reportTemplates ReportTemplate[]
   customMetrics   CustomMetric[]
   savedViews      SavedView[]
+  cleaningRecipes CleaningRecipe[]
 }
 
 model OrganizationMember {
@@ -148,6 +149,10 @@ model Dataset {
   organizationId String
   connection     Connection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
   connectionId   String?
+  // The recipe whose steps produced `cleanedRows`. Recorded so appending more data to
+  // this dataset can replay the identical transform over the combined rows.
+  recipe         CleaningRecipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeId       String?
   issues         DataQualityIssue[]
   reports        Report[]
   forecasts      Forecast[]
@@ -156,6 +161,28 @@ model Dataset {
 
   @@index([organizationId])
   @@index([connectionId])
+  @@index([recipeId])
+}
+
+// An ordered, column-scoped list of cleaning steps (see engine/cleaning.ts), saved so
+// the same transform can be replayed against next month's upload. `steps` is a
+// CleaningStep[] — each step names its own column and carries its own decisions, so a
+// recipe never depends on the issue table of the dataset it was built from.
+// At most one recipe per organization has `autoApply` set; that one runs inside the
+// shared ingest pipeline, so uploads, samples and connector syncs all get it.
+model CleaningRecipe {
+  id             String       @id @default(uuid())
+  name           String
+  steps          Json
+  autoApply      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+  datasets       Dataset[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
 }
 
 model DataQualityIssue {
