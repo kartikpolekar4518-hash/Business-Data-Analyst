@@ -13,6 +13,7 @@ import { detectPack, packMetric, PACKS } from "./industries.js";
 import { explainKpi } from "./explain.js";
 import { DEFAULT_CALENDAR } from "./calendar.js";
 import { compileKpiDef, compileMetric, validateMetricSpec } from "./metricSpec.js";
+import { availableHierarchies, currentLevel, nextLevel, drillPath, drillTo, drillUp, findLevel } from "./hierarchy.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -261,5 +262,78 @@ assert(
   PACKS.generic!.kpis.every((k) => k.key !== "cost_ratio") && PACKS.generic!.metrics.every((m) => m.id !== "cost_ratio"),
   "compiling a custom metric does not mutate the shared industry pack",
 );
+
+// ---- Phase 6: drill-down hierarchies ----
+// The whole feature is a claim about numbers NOT changing: a drill is a filter, so a
+// drilled view must equal the identical hand-set filter down to the last decimal, and
+// the evidence panel must agree with the tile it explains. Anything else means clicking
+// a chart quietly reports a different business number than typing the same filter.
+const geoColumns = ["order_date", "region", "state", "city", "category", "product_name", "revenue", "cost"];
+const geoRows: Row[] = [
+  { order_date: "2024-01-05", region: "West", state: "CA", city: "Fresno",   category: "Tools", product_name: "Widget", revenue: "100", cost: "60" },
+  { order_date: "2024-01-19", region: "West", state: "CA", city: "San Jose", category: "Tools", product_name: "Gadget", revenue: "220", cost: "120" },
+  { order_date: "2024-02-08", region: "West", state: "NV", city: "Reno",     category: "Parts", product_name: "Widget", revenue: "150", cost: "90" },
+  { order_date: "2024-02-21", region: "East", state: "MA", city: "Boston",   category: "Tools", product_name: "Gadget", revenue: "180", cost: "90" },
+  { order_date: "2024-03-11", region: "East", state: "NY", city: "Buffalo",  category: "Parts", product_name: "Widget", revenue: "130", cost: "50" },
+];
+const geoMap = detectSchema(profileDataset(geoRows, geoColumns).columns).map;
+const geoHierarchies = availableHierarchies(geoMap);
+assert.deepEqual(geoHierarchies.map((h) => h.id), ["geography", "product"], "both default hierarchies are available on this shape");
+const geoH = geoHierarchies[0];
+assert.deepEqual(geoH.levels.map((l) => l.semantic), ["region", "state", "city"], "region > state > city");
+
+// A drill is exactly the filter it looks like.
+const oneClick = drillTo({}, geoH, geoH.levels[0], "West");
+const twoClicks = drillTo(oneClick, geoH, geoH.levels[1], "CA");
+for (const [drilled, manual, label] of [
+  [oneClick, { region: "West" }, "one click"],
+  [twoClicks, { region: "West", state: "CA" }, "two clicks"],
+] as [A.Filters, A.Filters, string][]) {
+  assert.deepEqual(A.applyFilters(geoRows, geoMap, drilled), A.applyFilters(geoRows, geoMap, manual), `${label}: same rows as the hand-set filter`);
+  const drilledKpis = A.computeKpis(geoRows, geoMap, PACKS.generic!, drilled);
+  const manualKpis = A.computeKpis(geoRows, geoMap, PACKS.generic!, manual);
+  assert.deepEqual(drilledKpis, manualKpis, `${label}: same KPIs as the hand-set filter`);
+  assert.deepEqual(
+    A.groupBy(geoRows, geoMap, "state", "revenue", drilled),
+    A.groupBy(geoRows, geoMap, "state", "revenue", manual),
+    `${label}: same ranking as the hand-set filter`,
+  );
+}
+
+// Drilling narrows the view. If it did not, the feature would be doing nothing.
+assert(
+  A.applyFilters(geoRows, geoMap, twoClicks).length < A.applyFilters(geoRows, geoMap, oneClick).length,
+  "each drill level narrows the rows in view",
+);
+// West = 100 + 220 + 150; West/CA = 100 + 220. Pinned so a regression in filter
+// composition shows up as a wrong number, not merely as a different one.
+assert.equal(A.overview(geoRows, geoMap, oneClick).revenue.value, 470, "West totals 470");
+assert.equal(A.overview(geoRows, geoMap, twoClicks).revenue.value, 320, "West/CA totals 320");
+
+// Evidence must agree with the drilled tile, and must name the drill as a filter rather
+// than presenting a narrowed number as if it were the whole business.
+const drilledEvidence = explainKpi({ ...explainBase, rows: geoRows, schema: geoMap, pack: PACKS.generic!, metricKey: "revenue", filters: twoClicks });
+assert.equal(drilledEvidence.metric.value, A.computeKpis(geoRows, geoMap, PACKS.generic!, twoClicks).find((k) => k.key === "revenue")!.value, "drilled evidence equals the drilled tile");
+assert(drilledEvidence.inputs.exclusions.some((e) => e.reason === "filter:region"), "the drill is reported as a region filter");
+assert(drilledEvidence.inputs.exclusions.some((e) => e.reason === "filter:state"), "the drill is reported as a state filter");
+
+// Navigation. currentLevel reads position, nextLevel offers the child, and the leaf ends.
+assert.equal(currentLevel(geoH, twoClicks)!.semantic, "state");
+assert.equal(nextLevel(geoH, twoClicks)!.semantic, "city");
+const atLeaf = drillTo(twoClicks, geoH, geoH.levels[2], "Fresno");
+assert.equal(nextLevel(geoH, atLeaf), null, "no drill past the leaf");
+assert.deepEqual(drillPath(geoH, atLeaf).map((c) => c.values[0]), ["West", "CA", "Fresno"], "the breadcrumb reads the trail back");
+
+// Stepping back up must restore the earlier number EXACTLY — this is the round trip a
+// user performs constantly, and a stale descendant filter would silently understate it.
+assert.deepEqual(drillUp(atLeaf, geoH, geoH.levels[0]), { region: ["West"] }, "stepping up to West clears state and city");
+assert.equal(A.overview(geoRows, geoMap, drillUp(atLeaf, geoH, geoH.levels[0])).revenue.value, 470, "back at West, the number is the original 470");
+assert.deepEqual(drillUp(atLeaf, geoH, null), {}, "All clears the hierarchy");
+assert.deepEqual(A.overview(geoRows, geoMap, drillUp(atLeaf, geoH, null)), A.overview(geoRows, geoMap, {}), "All returns the unfiltered view exactly");
+
+// The semantic -> filterKey mapping is data, and it is not the identity function.
+assert.equal(findLevel(geoHierarchies, "product_name")!.level.filterKey, "product", "product_name drills through the `product` filter key");
+assert.equal(findLevel(geoHierarchies, "customer_name"), null, "a dimension in no hierarchy is not drillable");
+
 
 console.log("✓ engine selfcheck passed");
