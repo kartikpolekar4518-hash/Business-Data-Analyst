@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Saved views are now shared with your team
+
+- **A saved view lives with your organisation, not in one browser.** Naming a filter
+  combination on Analytics saves it for everyone in the organisation, on any device —
+  previously it was kept in the browser that saved it and vanished with the cache.
+- Everyone can apply a saved view; saving and deleting one is limited to admins and
+  managers, like every other shared setting.
+- **Your existing views come with you.** The first time an admin or manager opens
+  Analytics, the views this browser already held are uploaded once and shared.
+- Saving under a name that already exists replaces that view, exactly as before, so
+  there is never a second copy of the same name.
+
 ### Date drill-down — click the trend to zoom into a period
 
 - **The trend chart is now clickable.** Clicking a point filters the whole page to the

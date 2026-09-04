@@ -4,9 +4,10 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 3 of 6 shipped, plus follow-up 3b.** Features 1–2 in PR #70 (merged); feature 3
-in PR #72 (merged); date-grain drill-down (3b) on branch
-`claude/date-grain-drill-down-yhz1x8`. Next up: 3a, shareable saved views.
+**Status: 3 of 6 shipped, plus follow-ups 3a and 3b.** Features 1–2 in PR #70 (merged);
+feature 3 in PR #72 (merged); date-grain drill-down (3b) in PR #73 (merged); shareable
+saved views (3a) on branch `claude/savedviews-org-scoped-model-bfw8fg`. Next up:
+4, what-if scenario modelling.
 
 ---
 
@@ -95,8 +96,8 @@ back up.
   restores the earlier total exactly.
 - **Was deferred, now shipped as 3b below:** the date-grain drill (year → quarter →
   period), which needed a period → date-range function `engine/calendar.ts` did not have.
-- **Not done here:** promoting `SavedViews` from `localStorage` to an org-scoped model.
-  Also under Remaining.
+- **Was deferred, now shipped as 3a below:** promoting `SavedViews` from `localStorage`
+  to an org-scoped model.
 
 ### 3b. Date-grain drill-down ✅
 
@@ -136,18 +137,38 @@ sits one level below the window.
   in view is drillable, drilling it totals exactly what the bucket showed, the buckets sum
   to the total they were drawn from, and stepping back up restores the earlier total.
 
+### 3a. Shareable saved views ✅
+
+A named filter combination is saved for the whole organization instead of for one
+browser. `SavedViews` keeps its `{ name, query }` shape and `onApply` is unchanged — only
+where the list comes from moved.
+
+- `SavedView` (`prisma/schema.prisma`) copies `ReportTemplate` exactly, plus
+  `@@unique([organizationId, name])`. `query` is the Analytics page's URL query string,
+  stored verbatim as text — the client already had it, and applying a view is still just
+  replacing the page's search params.
+- **Overwrite-by-name is preserved, and is now an upsert.** The `localStorage` version
+  replaced a view of the same name; `POST /analytics/views` upserts on the unique index,
+  so it does the same thing without a read-then-write race. `PATCH` renaming onto a name
+  already in use is a 409 (the `customMetric` pattern), not a 500 from the constraint.
+- Routes live in `modules/analytics.ts`, not a new module — a saved view *is* an
+  analytics query. Reads are `requireAuth` so a VIEWER can apply a shared view; writes
+  are `requireRole("ADMIN","MANAGER")`, so the dropdown hides Save and Delete for them.
+- **A view that could not be applied cannot be saved.** The stored query is parsed and
+  checked against `filterSchema.strict()` at write time, so an unknown key or a malformed
+  date is a 400 at save rather than a 400 on every apply. Repeated params
+  (`region=West&region=East`, how a multi-select travels) stay valid.
+- **The migration cannot backfill** — the old views are in each user's `localStorage`,
+  which the server cannot read. The client imports its own once on first load (admins and
+  managers, who are the only ones allowed to write) and then deletes the key, so nothing
+  is silently lost and nothing is imported twice.
+- No engine change, so `engine/version.ts` is untouched and no fingerprint moves.
+  `views.itest.ts` covers CRUD, the overwrite, the 409, query validation, RBAC and tenant
+  isolation.
+
 ---
 
 ## Remaining
-
-### 3a. Shareable saved views (small, next)
-
-`components/filters.tsx` `SavedViews` already stores exactly `{ name, query }` — but in
-`localStorage`, so a view is trapped in one browser. Promote to an org-scoped `SavedView`
-model (`ReportTemplate` is the shape to copy, `templates.itest.ts` the test to copy).
-Keep the stored shape and `onApply` works unchanged. Needs a migration, CRUD routes with
-the usual `requireRole` gating, and an `*.itest.ts` covering CRUD, RBAC and tenant
-isolation.
 
 ### 4. What-if scenario modelling
 
@@ -253,7 +274,7 @@ psql -h 127.0.0.1 -U test -d postgres -c "CREATE DATABASE test;"
 cd apps/api
 export DATABASE_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
 npx prisma migrate deploy
-npx tsx --test "src/**/*.itest.ts"   # 46 tests
+npx tsx --test "src/**/*.itest.ts"   # 52 tests
 ```
 
 Every feature must add: a `*.test.ts` beside the new engine module, a section in

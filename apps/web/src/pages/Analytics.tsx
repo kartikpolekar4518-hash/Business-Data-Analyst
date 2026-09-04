@@ -210,7 +210,7 @@ export default function Analytics() {
               className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
           </div>
           <div className="ml-auto">
-            <SavedViews storageKey="diq_saved_views_analytics" currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
+            <SavedViews currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { wrap, HttpError } from "../errors.js";
 import { prisma } from "../prisma.js";
-import { requireAuth } from "../auth/middleware.js";
+import { requireAuth, requireRole } from "../auth/middleware.js";
 import { loadDataset, loadOrgConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
@@ -234,4 +234,65 @@ analyticsRouter.get("/table", wrap(async (req, res) => {
     limit,
     hasMore: offset + limit < filtered.length
   });
+}));
+
+// ─── Saved views (named filter queries, shared across the organization) ───
+// A view stores the Analytics page's URL query string. It is validated against the
+// same filterSchema the analytics routes use, so a view that could not be applied
+// cannot be saved in the first place.
+function parseQuery(query: string): void {
+  const params = new URLSearchParams(query);
+  const grouped: Record<string, string | string[]> = {};
+  for (const key of new Set(params.keys())) {
+    const values = params.getAll(key);
+    grouped[key] = values.length > 1 ? values : values[0];
+  }
+  const result = filterSchema.strict().safeParse(grouped);
+  if (!result.success) throw new HttpError(400, "That filter combination can't be saved as a view");
+}
+
+const viewCreate = z.object({ name: z.string().min(1).max(80), query: z.string().max(2000) });
+const viewUpdate = viewCreate.partial();
+
+analyticsRouter.get("/views", wrap(async (req, res) => {
+  const views = await prisma.savedView.findMany({
+    where: { organizationId: req.auth!.organizationId },
+    orderBy: { name: "asc" },
+  });
+  res.json({ views });
+}));
+
+// Saving under an existing name overwrites that view — the localStorage version
+// replaced by name, and the unique index makes that one atomic upsert.
+analyticsRouter.post("/views", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const body = viewCreate.parse(req.body ?? {});
+  parseQuery(body.query);
+  const organizationId = req.auth!.organizationId;
+  const view = await prisma.savedView.upsert({
+    where: { organizationId_name: { organizationId, name: body.name } },
+    update: { query: body.query },
+    create: { ...body, organizationId },
+  });
+  res.status(201).json({ view });
+}));
+
+analyticsRouter.patch("/views/:id", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const body = viewUpdate.parse(req.body ?? {});
+  if (body.query !== undefined) parseQuery(body.query);
+  const organizationId = req.auth!.organizationId;
+  const existing = await prisma.savedView.findFirst({ where: { id: req.params.id, organizationId } });
+  if (!existing) throw new HttpError(404, "Saved view not found");
+  if (body.name && body.name !== existing.name) {
+    const clash = await prisma.savedView.findFirst({ where: { organizationId, name: body.name } });
+    if (clash) throw new HttpError(409, `A view named '${body.name}' already exists.`);
+  }
+  const view = await prisma.savedView.update({ where: { id: existing.id }, data: body });
+  res.json({ view });
+}));
+
+analyticsRouter.delete("/views/:id", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const existing = await prisma.savedView.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
+  if (!existing) throw new HttpError(404, "Saved view not found");
+  await prisma.savedView.delete({ where: { id: existing.id } });
+  res.status(204).end();
 }));

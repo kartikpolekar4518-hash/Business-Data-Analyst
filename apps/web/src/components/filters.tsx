@@ -1,7 +1,10 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Calendar, ChevronDown, Check, Search, X, Bookmark, Trash2, Plus } from "lucide-react";
 import { cn } from "../lib/utils";
-import { Dropdown, DropdownItem, Badge, Button, Modal, Input, Label } from "./ui";
+import { api } from "../lib/api";
+import { useAuth } from "../lib/auth";
+import { Dropdown, DropdownItem, Badge, Button, Modal, Input, Label, useToast } from "./ui";
 
 // ─────────────────────────────────────────────
 // Relative date presets → fills dateFrom / dateTo (YYYY-MM-DD)
@@ -162,38 +165,64 @@ export const FilterChips = ({ chips, onClearAll }: { chips: Chip[]; onClearAll: 
 };
 
 // ─────────────────────────────────────────────
-// SavedViews — name + persist the current filter query (localStorage)
+// SavedViews — name + persist the current filter query (org-scoped, shared)
 // ─────────────────────────────────────────────
-type SavedView = { name: string; query: string };
+// Views live on the server (`/analytics/views`), so a view saved by one person is
+// visible to everyone in the organization. Everyone can apply a view; only an admin
+// or manager can save or delete one.
+type SavedView = { id: string; name: string; query: string };
 
-function readViews(key: string): SavedView[] {
-  try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
-}
+// Views used to live in this localStorage key, per browser. Import whatever this
+// browser still holds once, then drop the key so it can never be imported twice.
+const LEGACY_KEY = "diq_saved_views_analytics";
 
 export const SavedViews = ({
-  storageKey,
   currentQuery,
   onApply,
 }: {
-  storageKey: string;
   currentQuery: string;
   onApply: (query: string) => void;
 }) => {
-  const [views, setViews] = useState<SavedView[]>(() => readViews(storageKey));
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const { can } = useAuth();
+  const canEdit = can("ADMIN", "MANAGER");
   const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
 
-  const persist = (next: SavedView[]) => {
-    setViews(next);
-    localStorage.setItem(storageKey, JSON.stringify(next));
-  };
-  const save = () => {
+  const { data } = useQuery({ queryKey: ["saved-views"], queryFn: () => api.get<{ views: SavedView[] }>("/analytics/views") });
+  const views = data?.views ?? [];
+  const refresh = () => qc.invalidateQueries({ queryKey: ["saved-views"] });
+
+  useEffect(() => {
+    if (!data || !canEdit) return;
+    const stored = localStorage.getItem(LEGACY_KEY);
+    if (!stored) return;
+    localStorage.removeItem(LEGACY_KEY);
+    let legacy: { name: string; query: string }[] = [];
+    try { legacy = JSON.parse(stored); } catch { return; }
+    if (!Array.isArray(legacy) || legacy.length === 0) return;
+    (async () => {
+      // Saving by name overwrites, so an already-shared view keeps one row.
+      for (const v of legacy) await api.post("/analytics/views", { name: v.name, query: v.query }).catch(() => {});
+      toast("Your saved views are now shared with your team", "success");
+      refresh();
+    })();
+  }, [data, canEdit]);
+
+  async function save() {
     const n = name.trim();
     if (!n) return;
-    persist([...views.filter((v) => v.name !== n), { name: n, query: currentQuery }]);
-    setName("");
-    setSaving(false);
-  };
+    setBusy(true);
+    try { await api.post("/analytics/views", { name: n, query: currentQuery }); setName(""); setSaving(false); refresh(); }
+    catch { toast("Could not save the view", "error"); }
+    finally { setBusy(false); }
+  }
+  async function remove(id: string) {
+    try { await api.del(`/analytics/views/${id}`); refresh(); }
+    catch { toast("Could not delete the view", "error"); }
+  }
 
   return (
     <>
@@ -213,23 +242,27 @@ export const SavedViews = ({
               <p className="px-2 py-3 text-center text-xs text-slate-400">No saved views yet</p>
             ) : (
               views.map((v) => (
-                <div key={v.name} className="group flex items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60">
+                <div key={v.id} className="group flex items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60">
                   <button onClick={() => { onApply(v.query); close(); }} className="flex-1 truncate px-2.5 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200">
                     {v.name}
                   </button>
-                  <button
-                    onClick={() => persist(views.filter((x) => x.name !== v.name))}
-                    aria-label={`Delete ${v.name}`}
-                    className="px-2 text-slate-400 opacity-0 transition hover:text-red-500 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
+                  {canEdit && (
+                    <button
+                      onClick={() => remove(v.id)}
+                      aria-label={`Delete ${v.name}`}
+                      className="px-2 text-slate-400 opacity-0 transition hover:text-red-500 group-hover:opacity-100"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               ))
             )}
-            <div className="mt-1 border-t border-border pt-1 dark:border-white/[0.06]">
-              <DropdownItem icon={Plus} onClick={() => { setSaving(true); close(); }}>Save current view…</DropdownItem>
-            </div>
+            {canEdit && (
+              <div className="mt-1 border-t border-border pt-1 dark:border-white/[0.06]">
+                <DropdownItem icon={Plus} onClick={() => { setSaving(true); close(); }}>Save current view…</DropdownItem>
+              </div>
+            )}
           </div>
         )}
       </Dropdown>
@@ -237,9 +270,10 @@ export const SavedViews = ({
       <Modal open={saving} onClose={() => setSaving(false)} title="Save current view">
         <Label htmlFor="view-name">View name</Label>
         <Input id="view-name" value={name} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder="e.g. India — last 30 days" />
+        <p className="mt-2 text-xs text-slate-400">Everyone in your organisation can use this view. Saving over an existing name replaces it.</p>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setSaving(false)}>Cancel</Button>
-          <Button onClick={save} disabled={!name.trim()}>Save</Button>
+          <Button onClick={save} loading={busy} disabled={!name.trim()}>Save</Button>
         </div>
       </Modal>
     </>
