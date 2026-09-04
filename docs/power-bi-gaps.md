@@ -4,8 +4,9 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 3 of 6 shipped.** Features 1–2 in PR #70 (merged); feature 3 on branch
-`claude/new-session-pxpdfv`.
+**Status: 3 of 6 shipped, plus 3a.** Features 1–2 in PR #70 and feature 3 in PR #71 —
+both merged. Feature 3a (shareable saved views) and the `BarRankChart` fix are on branch
+`claude/barrankchart-single-entry-quv0bi`.
 
 ---
 
@@ -97,20 +98,39 @@ back up.
   date drill needs a new `periodRange(key, cal)` primitive with its own correctness tests
   against 4-4-5. Feature-sized; listed under Remaining below.
 - **Not done here:** promoting `SavedViews` from `localStorage` to an org-scoped model.
-  Also under Remaining.
+  Done since, as 3a below.
+
+### 3a. Shareable saved views ✅
+
+A named filter set saved on Analytics is now visible to everyone in the organization
+instead of being trapped in one browser's `localStorage`.
+
+- `SavedView` model (org-scoped, `ReportTemplate`'s shape) + `/api/views` CRUD in
+  `modules/views.ts`. Reads are `requireAuth`, writes `requireRole("ADMIN","MANAGER")` —
+  so a VIEWER opens shared views but cannot add or delete one, and the UI hides those
+  controls to match.
+- **`query` is stored and replayed verbatim** — the page's URL query string, exactly what
+  `localStorage` held. Nothing on the server parses it into filter dimensions, so this is
+  deliberately *not* a sixth place encoding the dimension list (see Codebase facts), and
+  a stale or unknown key in a saved view is harmless: the page ignores what it does not
+  read. It also means saved views already understand drill-down, which is only filters.
+- Names are unique per organization (`@@unique([organizationId, name])`) because saving
+  under an existing name replaces that view — the picker lists views by name, so two
+  would be unpickable. POST answers 201 for a new view and 200 for a replacement.
+- `SavedViews` lost its `storageKey` prop; `currentQuery`/`onApply` are unchanged, so
+  `pages/Analytics.tsx` needed one prop removed and nothing else.
+- **No backfill, deliberately.** Views sitting in a user's `localStorage` are per-browser
+  by definition and the server cannot reach them. They are simply not listed; a user who
+  wants one shared re-saves it once.
+- `views.itest.ts` covers CRUD, the replace-by-name rule, the 409 on renaming onto a
+  taken name, cross-member visibility, RBAC and tenant isolation.
+- Engine version deliberately **not** bumped: nothing under `engine/` changed and no
+  stored number moved. `ENGINE_VERSION` ties a saved number to the code that produced it,
+  so bumping it for a routing/UI change would make provenance say something untrue.
 
 ---
 
 ## Remaining
-
-### 3a. Shareable saved views (small, next)
-
-`components/filters.tsx` `SavedViews` already stores exactly `{ name, query }` — but in
-`localStorage`, so a view is trapped in one browser. Promote to an org-scoped `SavedView`
-model (`ReportTemplate` is the shape to copy, `templates.itest.ts` the test to copy).
-Keep the stored shape and `onApply` works unchanged. Needs a migration, CRUD routes with
-the usual `requireRole` gating, and an `*.itest.ts` covering CRUD, RBAC and tenant
-isolation.
 
 ### 3b. Date-grain drill-down (small)
 
@@ -170,13 +190,29 @@ squeezed into the drill-down change.
 
 ---
 
-## Known issue, pre-existing
+## Fixed: BarRankChart drew no bar for single-entry data
 
-`BarRankChart` renders no visible bar when its data has a single entry, and appears to
-under-render with few entries. Confirmed **identical before and after** the drill-down
-change by rebuilding the previous commit and screenshotting the same two URLs, so it is
-not a drill-down regression — but drilling reaches single-category views far more often,
-which makes it much more visible than it used to be. Worth its own fix.
+Was recorded here as a pre-existing known issue; root-caused and fixed on this branch.
+
+`BarRankChart` wrapped its `XAxis`/`YAxis` pair in a Fragment so the horizontal and
+vertical branches could swap them together. **Recharts finds its axes by scanning the
+chart's own direct children and does not descend into a Fragment**, so it saw neither
+axis, fell back to numeric defaults on both dimensions, and laid the bars out against a
+domain the category labels do not belong to. One entry drew no bar at all; a few entries
+drew one stray bar and no tick labels — which is exactly the reported symptom, and why it
+was equally broken before the drill-down change.
+
+Fixed by spreading the orientation-specific props onto a single `XAxis`/`YAxis` pair, so
+the props per orientation are byte-for-byte what they were. `maxBarSize={44}` added
+alongside, or a one-category view — which drilling now reaches constantly — renders one
+slab the height of the card.
+
+The rule this leaves behind is in Codebase facts below. The two other `<>` uses in
+`charts.tsx` wrap plain SVG/DOM nodes, not Recharts children, and are fine.
+
+Verified in Chromium against the real component at 1, 2, 3 and 6 entries. There is no web
+test harness in this repo (`npm test` is API-only), so this is a screenshot check, not a
+regression test — the first web component test would be a harness decision of its own.
 
 ## Codebase facts worth not re-deriving
 
@@ -200,7 +236,13 @@ which makes it much more visible than it used to be. Worth its own fix.
 - Query keys are flat primitive arrays; filter-scoped keys carry the raw query string.
 - Migrations are hand-written SQL with a leading prose comment explaining intent and any
   data decision. Timestamp naming: `YYYYMMDDHHMMSS_add_snake_case_thing`.
-- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.3.0`.
+- **Never wrap Recharts children in a Fragment**, or in a helper that returns one.
+  Recharts scans a chart's own direct children to find its axes and does not look inside
+  a Fragment; it then falls back to numeric defaults and lays out against the wrong
+  domain. It fails silently — no warning, no error, just a wrong chart. This cost the
+  ranked charts their axes (see the fix above).
+- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.3.0` —
+  unchanged by 3a, which touched no engine code and moved no stored number.
 
 ## Verification
 
@@ -223,7 +265,7 @@ psql -h 127.0.0.1 -U test -d postgres -c "CREATE DATABASE test;"
 cd apps/api
 export DATABASE_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
 npx prisma migrate deploy
-npx tsx --test "src/**/*.itest.ts"   # 46 tests
+npx tsx --test "src/**/*.itest.ts"   # 54 tests
 ```
 
 Every feature must add: a `*.test.ts` beside the new engine module, a section in

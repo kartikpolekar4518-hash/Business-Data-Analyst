@@ -93,6 +93,7 @@ model Organization {
   alertRules  AlertRule[]
   reportTemplates ReportTemplate[]
   customMetrics   CustomMetric[]
+  savedViews      SavedView[]
 }
 
 model OrganizationMember {
@@ -238,6 +239,24 @@ model CustomMetric {
   organizationId String
 
   @@unique([organizationId, key])
+  @@index([organizationId])
+}
+
+// A named filter query for the Analytics page, shared by everyone in the organization.
+// `query` is the page's URL query string verbatim (`region=West&dateFrom=…`) — the same
+// string the browser already round-trips — so applying a view is a plain navigation and
+// no filter dimension has to be re-encoded here. Names are unique per organization
+// because saving over an existing name replaces it, which is what the picker does.
+model SavedView {
+  id             String       @id @default(uuid())
+  name           String
+  query          String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  @@unique([organizationId, name])
   @@index([organizationId])
 }
 
