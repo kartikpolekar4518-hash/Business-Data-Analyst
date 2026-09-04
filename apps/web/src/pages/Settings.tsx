@@ -10,12 +10,13 @@ import { timeAgo } from "../lib/utils";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, Skeleton, EmptyState, useToast, ErrorState } from "../components/ui";
 import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 import { CustomMetricsSection } from "../components/metrics";
+import { CleaningRecipesSection } from "../components/recipes";
 
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
   const nav = useNavigate();
   const { can } = useAuth();
-  const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "metrics", label: "Metrics" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
+  const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "metrics", label: "Metrics" }, { id: "cleaning", label: "Cleaning" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500 dark:text-slate-400">Manage your workspace, team, and integrations.</p></div>
@@ -24,6 +25,7 @@ export default function SettingsPage() {
       {tab === "organization" && <OrgTab />}
       {tab === "calendar" && <CalendarTab />}
       {tab === "metrics" && <CustomMetricsSection />}
+      {tab === "cleaning" && <CleaningRecipesSection />}
       {tab === "billing" && <BillingTab />}
       {tab === "users" && <UsersTab />}
       {tab === "activity" && <ActivityTab />}

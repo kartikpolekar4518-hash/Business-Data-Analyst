@@ -4,10 +4,11 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 4 of 6 shipped, plus follow-ups 3a and 3b.** Features 1–2 in PR #70 (merged);
+**Status: 5 of 6 shipped, plus follow-ups 3a and 3b.** Features 1–2 in PR #70 (merged);
 feature 3 in PR #72 (merged); date-grain drill-down (3b) in PR #73 (merged); shareable
-saved views (3a) in PR #74 (merged); what-if scenario modelling (4) on branch
-`claude/power-bi-what-if-scenarios-5wkmqr`. Next up: 5, replayable cleaning recipes.
+saved views (3a) in PR #74 (merged); what-if scenario modelling (4) in PR #75 (merged);
+replayable cleaning recipes (5) on branch `claude/replayable-cleaning-recipes-auv4l9`.
+Next up: 6, multi-file joins and relationships — the largest, and last.
 
 ---
 
@@ -212,25 +213,77 @@ with it, because the lever is applied to the rows before any analytic runs.
 - `forecasts.itest.ts` covers the round trip through the route, lever validation, RBAC
   and tenant isolation.
 
+
+### 5. Replayable cleaning recipes ✅
+
+Tick the fixes once, save them as a recipe, and next month's file is cleaned the same
+way — including when it is appended into the dataset it belongs with.
+
+- `engine/cleaning.ts`: `CleaningStep` is `{ type, column, fill? }` — typed,
+  column-scoped, and applied in array order. `cleanRows(rows, steps)` consumes the list
+  directly and no longer re-reads any dataset's `issues[]`, which is the whole bug:
+  the old `{ acceptedTypes }` only had meaning next to the issue table it was read
+  against, so replaying it against a different upload produced a different transform.
+  Selfcheck Phase 9 pins exactly that — the same accepted-types list compiles to a
+  *different* recipe against April, while the recipe stays the same transform.
+- **The vocabulary did not move.** A step's `type` is the `QualityIssue` type it fixes,
+  so `{ type, column, affectedRows }` still round-trips into
+  `Explanation.provenance.cleaning` and the evidence panel renders unchanged.
+- `buildSteps` compiles the Quality Report's checkboxes into a recipe against *this*
+  dataset, reproducing the pre-recipe behaviour exactly — including the two fixes that
+  were never column-scoped: accepting "whitespace" trimmed **every** column and
+  "missing_values" filled **every** column, so those emit one step per column rather
+  than only for flagged ones. `missing_values` carries its `fill` (0 for a numeric
+  column, `"Unknown"` otherwise) *decided at build time*, so replay does not depend on
+  the new upload re-detecting the column as numeric.
+- **One provenance number moved, deliberately.** `affectedRows` is now counted as the
+  steps run instead of copied from the pre-clean issue rows — a recipe replayed against
+  another upload has to report that upload's numbers. Every count is identical except
+  `inconsistent_case`, whose issue row carries `affectedRows: 0` and which now reports
+  the cells it actually changed. Steps that changed nothing are left out entirely.
+- `CleaningRecipe` (org-scoped, `ReportTemplate` shape + `@@unique([organizationId,
+  name])`) and `Dataset.recipeId` (`ON DELETE SET NULL` — deleting a recipe must not
+  delete the data it once cleaned). Nullable, no backfill: `NULL` is what every existing
+  dataset already is, cleaned by a list that cannot be reconstructed.
+- **Auto-apply lives in `engine/ingest.ts`**, so upload, sample and connector sync all
+  get it at once — including sync, which has no user present to accept suggestions. At
+  most one recipe per org may `autoApply`; two would make which cleaning a new upload
+  receives depend on row order. With no such recipe every value ingest writes is byte
+  for byte what it wrote before recipes existed.
+- `reshapeDataset` (also in `ingest.ts`) is the one place the profile, schema, quality
+  score and `datasetHash` are recomputed together, shared by ingest, cleaning and
+  combine-files so those three cannot drift. It takes the detection `rules` as an
+  argument rather than looking them up: ingest detects with the industry pack and
+  re-cleaning does not. That asymmetry predates recipes and is preserved, not quietly
+  fixed — fixing it would move numbers on datasets nobody touched.
+- **Combine Files** (`POST /uploads/:id/append`): column compatibility is an exact set
+  match against the dataset's *original* header (cleaning may have dropped columns), and
+  a mismatch is a 400 naming both sides. Keeping the columns in common would produce a
+  dataset that is half one shape and half another, with every total wrong invisibly.
+  Exceeding `maxUploadRows` refuses rather than truncating — an upload truncating from
+  the end is survivable, an append silently dropping the rows you just added is not.
+  `rawFileHash` is cleared: no single uploaded file identifies the rows any more.
+  Without a recipe the dataset's stale cleaning is **dropped and the response says so**
+  — leaving `cleanedRows` in place over rows they were never computed from would be
+  worse than losing them, and it is the argument for saving a recipe.
+- Selfcheck Phase 9 also pins: an empty recipe returns the *very same array* (the
+  standing rule at its strongest), replay is idempotent so auto-apply cannot compound
+  its own output, and a per-row recipe over a combination equals the combination of the
+  per-file results — which is what makes appending April to March safe. De-duplication
+  is the one deliberately whole-set step, and combining is exactly when it earns its
+  keep.
+- Web: Settings → Cleaning lists recipes with the engine's own plain-English wording
+  (`describeStep`, so the client keeps no second copy of what a step means) and one
+  `autoApply` switch. The dataset page runs a saved recipe, offers to save the steps a
+  clean just ran (returned by the route, so it saves what happened rather than a second
+  guess at it), and takes another file via "Add more data".
+- `recipes.itest.ts` covers CRUD, the name upsert, the 409, step validation, RBAC,
+  tenant isolation, replay, auto-apply through the shared pipeline, and combine-files
+  including the loud refusal and the dropped-cleaning case.
+
 ---
 
 ## Remaining
-
-### 5. Replayable cleaning recipes
-
-- Today a cleaning instruction is only `{ acceptedTypes: string[] }`, and `cleanRows`
-  (`engine/schema.ts`) re-reads *that dataset's* `issues[]` to decide which columns to
-  touch. So replaying the same list against a different upload produces a **different
-  transform**. Fix: a typed, column-scoped, ordered `CleaningStep[]` that `cleanRows`
-  consumes directly.
-- Keep the `{ type, column, affectedRows }` vocabulary — it already round-trips into
-  `Explanation.provenance.cleaning` and renders in the evidence panel.
-- `CleaningRecipe` model (org-scoped, `ReportTemplate` shape) + `Dataset.recipeId`.
-- Auto-apply hook in `engine/ingest.ts` — the single pipeline shared by upload, sample
-  and connector sync, so all three get it at once.
-- **Combine Files:** append a new upload's rows into an existing dataset
-  (column-compatible only, rejecting mismatches loudly). This is what makes the recipe
-  worth having month to month.
 
 ### 6. Multi-file joins and relationships (largest, last)
 
@@ -279,13 +332,13 @@ which makes it much more visible than it used to be. Worth its own fix.
 - Query keys are flat primitive arrays; filter-scoped keys carry the raw query string.
 - Migrations are hand-written SQL with a leading prose comment explaining intent and any
   data decision. Timestamp naming: `YYYYMMDDHHMMSS_add_snake_case_thing`.
-- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.5.0`.
+- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.6.0`.
 
 ## Verification
 
 ```bash
 npm run typecheck                  # api + web
-npm test                           # 207 unit tests + engine selfcheck
+npm test                           # 219 unit tests + engine selfcheck
 ```
 
 Integration tests need Postgres. Docker is unavailable in the web sandbox, so run one
@@ -302,7 +355,7 @@ psql -h 127.0.0.1 -U test -d postgres -c "CREATE DATABASE test;"
 cd apps/api
 export DATABASE_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
 npx prisma migrate deploy
-npx tsx --test "src/**/*.itest.ts"   # 57 tests
+npx tsx --test "src/**/*.itest.ts"   # 68 tests
 ```
 
 Every feature must add: a `*.test.ts` beside the new engine module, a section in

@@ -3,12 +3,12 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { profileDataset } from "../engine/profile.js";
-import { cleanRows, detectSchema } from "../engine/schema.js";
+import type { ColumnProfile } from "../engine/profile.js";
+import { buildSteps, validateSteps, type CleaningStep } from "../engine/cleaning.js";
+import { reshapeDataset } from "../engine/ingest.js";
 import { stripRows } from "./context.js";
 import { refreshAlerts } from "./alerts.js";
 import type { Row } from "../engine/parse.js";
-import { canonicalDatasetHash } from "../engine/identity.js";
 import { ENGINE_VERSION } from "../engine/version.js";
 
 export const datasetsRouter = Router();
@@ -45,42 +45,59 @@ datasetsRouter.get("/:id/schema", wrap(async (req, res) => {
   res.json({ schemaMap: d.schemaMap, columns: d.columns });
 }));
 
-const cleanSchema = z.object({ acceptedTypes: z.array(z.string()) });
+// Cleaning is now a recipe: either build one from the accepted suggestions (what the
+// Quality Report's checkboxes produce) or replay one that was saved earlier.
+const cleanSchema = z.object({
+  acceptedTypes: z.array(z.string().max(60)).max(50).optional(),
+  recipeId: z.string().uuid().optional(),
+}).refine((b) => !!b.acceptedTypes !== !!b.recipeId, {
+  message: "Pass either acceptedTypes or recipeId, not both",
+});
 
-// Apply accepted cleaning suggestions -> new cleanedRows, re-profile, re-detect schema.
+// Apply cleaning steps -> new cleanedRows, re-profile, re-detect schema.
 // Original rows are never modified.
 datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
-  const { acceptedTypes } = cleanSchema.parse(req.body);
+  const { acceptedTypes, recipeId } = cleanSchema.parse(req.body);
   const orgId = req.auth!.organizationId;
   const datasetId = req.params.id;
-  
+
   // Fetch dataset + issues in a single transaction to prevent race conditions
   const [d, issues] = await prisma.$transaction([
     prisma.dataset.findFirst({ where: { id: datasetId, organizationId: orgId } }),
     prisma.dataQualityIssue.findMany({ where: { datasetId } }),
   ]);
-  
+
   if (!d) throw new HttpError(404, "Dataset not found");
-  
+
   const originalRows = d.rows as Row[];
-  const columnsList = (d.columns as any[]) || [];
-  const columns = columnsList.map((c: any) => c.name);
+  const columnsList = ((d.columns as unknown as ColumnProfile[]) || []);
+  const columns = columnsList.map((c) => c.name);
 
-  const numericColumns = new Set(columnsList
-    .filter((c: any) => c.type === "number" || c.type === "currency").map((c: any) => c.name));
-  const cleaned = cleanRows(originalRows, columns, acceptedTypes, issues as any, numericColumns);
+  // A saved recipe is used verbatim. An accepted-types list is compiled into one first,
+  // against THIS dataset's issues and column types — that compilation is the whole point
+  // of the feature: after it, the instruction no longer refers back to the issue table.
+  let recipe: { id: string; steps: CleaningStep[] } | null = null;
+  if (recipeId) {
+    const found = await prisma.cleaningRecipe.findFirst({ where: { id: recipeId, organizationId: orgId } });
+    if (!found) throw new HttpError(404, "Recipe not found");
+    const stored = found.steps as unknown as CleaningStep[];
+    const errors = Array.isArray(stored) ? validateSteps(stored) : ["The saved recipe is not a list of steps."];
+    if (errors.length) throw new HttpError(400, errors.join(" "));
+    recipe = { id: found.id, steps: stored };
+  }
+  const steps = recipe?.steps ?? buildSteps(acceptedTypes ?? [], issues, columnsList);
 
-  // Cleaning provenance: the pre-clean issue rows are the record of WHAT was fixed,
-  // and the transaction below replaces them with post-clean issues. Snapshot the
-  // accepted ones first (count level only — no cell-level before/after diffs) so the
-  // question "why did my uploaded data change before analytics ran?" stays answerable.
-  const accepted = new Set(acceptedTypes);
-  const cleaningLog = issues
-    .filter((i) => accepted.has(i.type))
-    .map((i) => ({ type: i.type, column: i.column, affectedRows: i.affectedRows }));
-  const newColumns = Object.keys(cleaned[0] ?? {});
-  const profile = profileDataset(cleaned, newColumns.length ? newColumns : columns);
-  const { map, columns: annotated } = detectSchema(profile.columns);
+  // Detection here deliberately runs without the industry pack's extra rules, as it
+  // always has on this route — see reshapeDataset.
+  const shaped = reshapeDataset(originalRows, columns, steps);
+  const cleaned = shaped.cleanedRows ?? originalRows;
+
+  // Cleaning provenance: what the steps actually changed in these rows, counted as they
+  // ran rather than copied out of the pre-clean issue table (a recipe replayed against
+  // a different upload has to report that upload's numbers). Count level only — no
+  // cell-level before/after diffs — so the question "why did my uploaded data change
+  // before analytics ran?" stays answerable.
+  const cleaningLog = shaped.applied;
 
   // Replace the persisted issue list with the ones found on the cleaned data —
   // otherwise the Quality Report keeps showing already-fixed issues (e.g. the
@@ -91,23 +108,28 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
       data: {
         status: "CLEANED",
         cleanedRows: cleaned as object,
-        qualityScore: profile.qualityScore,
+        qualityScore: shaped.profile.qualityScore,
         rowCount: cleaned.length,
-        columnCount: profile.columnCount,
-        columns: annotated as object,
-        schemaMap: map as object,
-        profile: profile as object,
+        columnCount: shaped.profile.columnCount,
+        columns: shaped.columns as object,
+        schemaMap: shaped.schemaMap as object,
+        profile: shaped.profile as object,
         // The analytical rows changed, so the analytical identity changes with them.
         // rawFileHash is untouched: the uploaded file is still the same file.
-        datasetHash: canonicalDatasetHash(cleaned),
+        datasetHash: shaped.datasetHash,
         engineVersion: ENGINE_VERSION,
         cleaningLog: cleaningLog as object,
+        // Remembering the recipe is what lets appended rows be cleaned the same way.
+        // Cleaning from checkboxes clears it: those steps were not saved anywhere, so
+        // claiming the dataset can replay itself would be a lie.
+        recipeId: recipe?.id ?? null,
       },
     }),
     prisma.dataQualityIssue.deleteMany({ where: { datasetId: d.id } }),
-    prisma.dataQualityIssue.createMany({ data: profile.issues.map((i) => ({ ...i, datasetId: d.id })) }),
+    prisma.dataQualityIssue.createMany({ data: shaped.profile.issues.map((i) => ({ ...i, datasetId: d.id })) }),
   ]);
   await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "dataset.cleaned", detail: d.name, actorId: req.auth!.userId } });
   await refreshAlerts(req.auth!.organizationId); // alerts derive on data change, not on read
-  res.json({ dataset: stripRows(updated), appliedFixes: acceptedTypes, newQualityScore: profile.qualityScore });
+  // `steps` goes back so the client can offer to save exactly what just ran as a recipe.
+  res.json({ dataset: stripRows(updated), steps, appliedFixes: cleaningLog, newQualityScore: shaped.profile.qualityScore });
 }));
