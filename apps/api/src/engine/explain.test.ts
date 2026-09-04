@@ -157,6 +157,34 @@ test("every material change moves the fingerprint", () => {
   assert.notEqual(b, fp({ ...fpBase, schemaSources: ["amount"] }), "schema interpretation");
 });
 
+// ── city as a filter dimension ───────────────────────────────────────────────
+test("a city filter is reported under its own exclusion reason", () => {
+  const cs: SchemaMap = { ...s, city: "city" };
+  const crows = rows.map((r, i) => ({ ...r, city: i % 3 === 0 ? "Fresno" : "San Jose" }));
+  const ex = explainKpi(base({ rows: crows, schema: cs, filters: { city: "Fresno" } }));
+  const city = ex.inputs.exclusions.find((e) => e.reason === "filter:city");
+  assert.ok(city, "the city filter names itself rather than falling through unlabelled");
+  assert.equal(city!.count, crows.length - crows.filter((r) => r.city === "Fresno").length);
+});
+
+// The programme's standing rule: a new feature must not move an existing number.
+// city joined ANALYTICAL_FILTER_KEYS, which feeds the fingerprint, so these are the
+// pre-change digests pinned as literals — any future dimension added to the allowlist
+// must leave them untouched for organizations that do not use it.
+test("adding a filter dimension leaves untouched fingerprints byte-identical", () => {
+  assert.equal(fp(fpBase), "461669ff269290315b6966974ead30b772e1190a87b2f7dc6449b1fed9dfb592");
+  assert.equal(fp({ ...fpBase, filters: { region: "West" } }),
+    "47fbaff5dd57a173c48c9349eb9ac7124a02c977f0a82092e2093b44756a7a69");
+  assert.equal(fp({ ...fpBase, filters: { region: "West", category: "A", product: "P" } }),
+    "2c5eebd56a286ee6436eb39e75cf05750a4896746add9dc2de75b9d056ef165c");
+  assert.equal(fp({ ...fpBase, filters: { region: "West" } }),
+    fp({ ...fpBase, filters: { region: "West", city: undefined } }),
+    "an unset city is not a filter");
+  assert.notEqual(fp({ ...fpBase, filters: { region: "West" } }),
+    fp({ ...fpBase, filters: { region: "West", city: "Fresno" } }),
+    "a set city is material and must move the fingerprint");
+});
+
 test("UI-only state is excluded by construction", () => {
   const withUi = { ...fpBase.filters, page: 3, chart: "bar", sort: "desc" } as unknown as A.Filters;
   assert.deepEqual(normalizeFilters(withUi), normalizeFilters({ ...fpBase.filters } as A.Filters) as never,

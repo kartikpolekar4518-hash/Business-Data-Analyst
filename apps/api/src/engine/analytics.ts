@@ -5,8 +5,9 @@ import { DEFAULT_CALENDAR, periodKey, type CalendarConfig } from "./calendar.js"
 
 export interface Filters {
   dateFrom?: string; dateTo?: string;
-  region?: string | string[]; state?: string | string[]; category?: string | string[];
-  department?: string | string[]; product?: string | string[]; customer?: string | string[];
+  region?: string | string[]; state?: string | string[]; city?: string | string[];
+  category?: string | string[]; department?: string | string[];
+  product?: string | string[]; customer?: string | string[];
 }
 
 export function num(v: unknown): number {
@@ -52,7 +53,7 @@ export function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
       if (!vals.length) return true; if (!s[sem]) return false;
       const cell = str(r[s[sem]!]).toLowerCase(); return vals.some((v) => cell === str(v).toLowerCase());
     };
-    return eq("region", f.region) && eq("state", f.state) && eq("category", f.category) && eq("department", f.department) && eq("product_name", f.product) && eq("customer_name", f.customer);
+    return eq("region", f.region) && eq("state", f.state) && eq("city", f.city) && eq("category", f.category) && eq("department", f.department) && eq("product_name", f.product) && eq("customer_name", f.customer);
   });
 }
 

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { overview, groupBy, timeSeries, rowRevenue } from "./analytics.js";
+import { overview, groupBy, timeSeries, rowRevenue, applyFilters } from "./analytics.js";
 import type { SchemaMap } from "./schema.js";
 import type { Row } from "./parse.js";
 
@@ -43,4 +43,28 @@ test("rowRevenue falls back revenue -> sales -> quantity*unit_price", () => {
   assert.equal(rowRevenue({ net: 30 }, { sales: "net" }), 30);
   assert.equal(rowRevenue({ qty: 3, price: 5 }, { quantity: "qty", unit_price: "price" }), 15);
   assert.equal(rowRevenue({ foo: 1 }, {}), 0, "no revenue signal -> 0");
+});
+
+// city joined the filter dimensions for the region > state > city drill hierarchy. It has
+// to behave exactly like the dimensions that were already there — OR across repeated
+// values, case-insensitive, and matching nothing when the upload has no city column.
+test("applyFilters treats city like every other dimension", () => {
+  const cs: SchemaMap = { revenue: "revenue", region: "region", city: "city" };
+  const crows: Row[] = [
+    { revenue: 10, region: "West", city: "Fresno" },
+    { revenue: 20, region: "West", city: "San Jose" },
+    { revenue: 30, region: "East", city: "Boston" },
+  ];
+  assert.deepEqual(applyFilters(crows, cs, { city: "Fresno" }).map((r) => r.revenue), [10]);
+  assert.equal(applyFilters(crows, cs, { city: "fresno" }).length, 1, "case-insensitive");
+  assert.deepEqual(
+    applyFilters(crows, cs, { city: ["Fresno", "Boston"] }).map((r) => r.revenue), [10, 30],
+    "repeated values OR together",
+  );
+  assert.deepEqual(
+    applyFilters(crows, cs, { region: "West", city: "San Jose" }).map((r) => r.revenue), [20],
+    "dimensions AND together",
+  );
+  assert.equal(applyFilters(crows, {}, { city: "Fresno" }).length, 0, "no city column matches nothing");
+  assert.equal(applyFilters(crows, cs, {}).length, 3, "an absent city filter is not a filter");
 });

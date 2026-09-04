@@ -17,6 +17,7 @@ import type { OverviewResponse } from "../lib/types";
 const FILTERS = [
   { key: "region", label: "Region" },
   { key: "state", label: "State" },
+  { key: "city", label: "City" },
   { key: "category", label: "Category" },
   { key: "department", label: "Department" },
   { key: "product", label: "Product" },
@@ -117,7 +118,7 @@ export default function Analytics() {
             <SavedViews storageKey="diq_saved_views_analytics" currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {FILTERS.map((f) => (
             <div key={f.key}>
               <Label>{f.label}</Label>

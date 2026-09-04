@@ -18,7 +18,7 @@ import { DEFAULT_CALENDAR, describeCalendar, isDefaultCalendar, normalizeCalenda
 // values the engine computed.
 
 export type ExclusionReason =
-  | "filter:date" | "filter:region" | "filter:state" | "filter:category"
+  | "filter:date" | "filter:region" | "filter:state" | "filter:city" | "filter:category"
   | "filter:department" | "filter:product" | "filter:customer"
   | "missing_value" | "non_numeric_value";
 
@@ -97,6 +97,7 @@ const NUMERIC = (v: unknown) => {
 const FILTER_STEPS: { key: keyof A.Filters | "date"; reason: ExclusionReason }[] = [
   { key: "date", reason: "filter:date" },
   { key: "region", reason: "filter:region" }, { key: "state", reason: "filter:state" },
+  { key: "city", reason: "filter:city" },
   { key: "category", reason: "filter:category" }, { key: "department", reason: "filter:department" },
   { key: "product", reason: "filter:product" }, { key: "customer", reason: "filter:customer" },
 ];
@@ -177,7 +178,7 @@ function describeComparison(split: A.PeriodSplit, calendar: CalendarConfig): str
 // normalised (empties dropped, multi-values sorted) so two different UI routes that
 // resolve to the same effective calculation fingerprint identically, and anything
 // UI-only (chart type, pagination, sort, formatting) is excluded by construction.
-const ANALYTICAL_FILTER_KEYS = ["dateFrom", "dateTo", "region", "state", "category", "department", "product", "customer"] as const;
+const ANALYTICAL_FILTER_KEYS = ["dateFrom", "dateTo", "region", "state", "city", "category", "department", "product", "customer"] as const;
 
 export function normalizeFilters(f: A.Filters): Record<string, string | string[]> {
   const out: Record<string, string | string[]> = {};

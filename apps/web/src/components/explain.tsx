@@ -18,6 +18,7 @@ const EXCLUSION_LABEL: Record<string, string> = {
   "filter:date": "outside the selected dates",
   "filter:region": "excluded by the region filter",
   "filter:state": "excluded by the state filter",
+  "filter:city": "excluded by the city filter",
   "filter:category": "excluded by the category filter",
   "filter:department": "excluded by the department filter",
   "filter:product": "excluded by the product filter",

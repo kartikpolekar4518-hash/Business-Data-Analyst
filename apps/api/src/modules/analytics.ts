@@ -30,6 +30,7 @@ const filterSchema = z.object({
   dateTo: isoDate,
   region: dim,
   state: dim,
+  city: dim,
   category: dim,
   department: dim,
   product: dim,
@@ -109,6 +110,7 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     filterOptions: {
       region: A.distinctValues(rows, schema, "region"),
       state: A.distinctValues(rows, schema, "state"),
+      city: A.distinctValues(rows, schema, "city"),
       category: A.distinctValues(rows, schema, "category"),
       department: A.distinctValues(rows, schema, "department"),
       product: A.distinctValues(rows, schema, "product_name"),
