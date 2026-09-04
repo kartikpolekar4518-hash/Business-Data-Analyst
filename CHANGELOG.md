@@ -25,6 +25,35 @@
   sheet of a workbook was read and the rest was thrown away. Now each sheet becomes its
   own file, and we point out the connections between them.
 
+### Cleaning recipes — fix it once, fixed every month after
+
+- **Save the tidy-up you just did, and reuse it.** Tick the fixes on a file's Quality
+  Report, apply them, then save them as a recipe. Next month's version of the same export
+  gets the identical treatment without anyone re-reading a quality report.
+- **A recipe is the instruction, not a memory of one file.** Previously a saved cleaning
+  was just a list of *which kinds* of problem you had accepted, and that list only meant
+  something next to the file it came from — replaying it on a different upload quietly did
+  something different. A recipe now names each column and carries each decision with it,
+  so the same recipe is the same fix on any file.
+- **Pick one recipe to run on everything new.** Settings → Cleaning has a switch that
+  applies one recipe to every new upload, sample and scheduled data sync — including syncs,
+  where nobody is present to accept suggestions. Only one recipe at a time can do this.
+- **"Add more data" combines files into one.** Put March and April into the same file
+  instead of ending up with two the charts have to be pointed at separately. The combined
+  rows are re-cleaned by replaying that file's own recipe, so April is treated exactly as
+  March was.
+- **We refuse to combine files whose columns don't match**, and name what's missing or
+  unexpected on both sides. Keeping only the columns in common would give you a file that
+  is half one shape and half another, with every total wrong and no way to see it.
+- **If the file has no recipe, combining drops its old cleaning and tells you so.**
+  Leaving the previous cleaned-up rows in place over rows they were never computed from
+  would be worse than losing them — and it is the reason to save a recipe.
+- **Deleting a recipe never deletes data it cleaned.** The rows stay exactly as they are;
+  the file just stops knowing how to repeat itself.
+- One number changed on purpose: in "Why this number", the rows-affected count for the
+  "inconsistent capitalisation" fix used to report 0 and now reports the cells it actually
+  changed. Every other count is unchanged.
+
 ### What-if scenarios — move a lever, see the whole forecast move
 
 - **Ask "what if we raised prices 5%?" and get an answer.** The Forecasts page now has
