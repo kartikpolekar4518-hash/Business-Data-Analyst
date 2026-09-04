@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Fixed — ranked bar charts were drawing only one bar
+
+- **Every "top 10" style bar chart was rendering a single bar and no labels.** The chart
+  drew one bar, clipped it half off the top of the box, and left off the category names
+  and the number scale entirely. It looked like the data was missing. It wasn't — the
+  numbers behind it were always right, only the picture was wrong.
+- **This was not caused by drill-down.** The chart had been drawing this way since it was
+  first written; drill-down just takes you to these views far more often, which is why it
+  started being noticed. It is now fixed everywhere the chart is used — dashboard,
+  analytics, AI chat, the dashboard builder and the chart catalog.
+- **Charts with only one or two categories no longer show a single enormous bar.** Bar
+  thickness is now capped, so a drilled-down view with two bars looks like the same chart
+  as one with ten. Charts with roughly four or more categories are unchanged.
+- No number anywhere changed. This was purely a drawing fault.
+
 ### Connected files — use two spreadsheets as one
 
 - **Match one file to another on a shared column.** If your orders are in one file and

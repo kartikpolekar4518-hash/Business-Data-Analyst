@@ -369,13 +369,34 @@ without a single existing number moving.
 
 ---
 
-## Known issue, pre-existing
+## Fixed — `BarRankChart` rendered one bar and no axes
 
-`BarRankChart` renders no visible bar when its data has a single entry, and appears to
-under-render with few entries. Confirmed **identical before and after** the drill-down
-change by rebuilding the previous commit and screenshotting the same two URLs, so it is
-not a drill-down regression — but drilling reaches single-category views far more often,
-which makes it much more visible than it used to be. Worth its own fix.
+Was filed here as "no visible bar with a single entry, under-renders with few entries".
+That framing was wrong: the chart was broken at **every** row count, and had been since
+it was written. It rendered exactly one bar (zero at `data.length === 1`) and no axis
+ticks at all, in both orientations.
+
+Cause: the two axes were wrapped in a Fragment —
+
+```jsx
+{horizontal ? <><XAxis … /><YAxis … /></> : <><XAxis … /><YAxis … /></>}
+```
+
+Recharts 2 scans `<BarChart>`'s **direct** children to discover axes and does not look
+inside a Fragment, so both axes were silently dropped. Without a category axis the band
+scale is degenerate: every bar lands at the same negative `y` (drawn above the plot and
+clipped), and only the first gets a path. Fixed by emitting one axis per child — no
+Fragment. `maxBarSize={44}` came with it, because a 1–3 category chart otherwise gives
+each bar the full plot height; it does not affect charts with ~4+ categories, where the
+band is already narrower than 44px.
+
+Worth knowing generally: **never wrap Recharts chart children in a Fragment.** It fails
+silently — no warning, no error, just a wrong-looking chart. The other two Fragments in
+`charts.tsx` are inside plain `<li>`/`<g>` elements and are fine.
+
+Reproduced and verified by rendering `BarRankChart` at 1/2/3/8 rows in both orientations
+under Vite + headless Chromium, asserting bar counts and axis ticks in the DOM before and
+after.
 
 ## Codebase facts worth not re-deriving
 

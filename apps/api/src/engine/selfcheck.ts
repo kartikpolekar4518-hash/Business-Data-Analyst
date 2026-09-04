@@ -751,4 +751,81 @@ assert(proposed.every((p) => analyzeJoin(
   { leftColumn: p.leftColumn, rightColumn: p.rightColumn, rightName: p.rightDatasetName }).safe),
   "every proposal, measured against the real rows, is one the engine would actually apply");
 
+// ─── 11. Comparison basis switcher ───────────────────────────────────────────
+// The safety claim for this feature is that choosing nothing changes nothing, and that
+// a requested comparison is either honoured exactly or refused. Both are checked here
+// against the same rows, because the risk is a silent fallback: a YoY percentage
+// quietly computed against last month reads as seasonal growth and is unfalsifiable
+// from the dashboard.
+const cmpMap = { date: "date", revenue: "revenue", region: "region" } as const;
+const cmpRows: Row[] = [];
+for (const y of [2025, 2026]) {
+  for (let m = 1; m <= 12; m++) {
+    for (const d of [1, 15]) {
+      cmpRows.push({ date: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`, revenue: y === 2026 ? 300 : 100, region: "West" });
+    }
+  }
+}
+const cmpFilters: A.Filters = { dateFrom: "2026-06-01", dateTo: "2026-06-30" };
+
+// Omitting the argument is byte-identical to the call the dashboard made before.
+assert.deepEqual(
+  A.splitPeriods(cmpRows, cmpMap, cmpFilters),
+  A.splitPeriods(cmpRows, cmpMap, cmpFilters, "previous_period"),
+  "the default comparison is the argument-free one",
+);
+const popSplit = A.splitPeriods(cmpRows, cmpMap, cmpFilters);
+// 30 days back from June 1 is May 2, not May 1: previous_period matches DURATION, so a
+// 30-day month compares against 30 days and never against a 31-day one.
+assert.deepEqual(popSplit.previousRange, ["2026-05-02", "2026-05-31"], "previous_period is the 30 days before June");
+
+const yoySplit = A.splitPeriods(cmpRows, cmpMap, cmpFilters, "previous_year");
+assert.equal(yoySplit.basis, "same_period_last_year");
+assert.deepEqual(yoySplit.previousRange, ["2025-06-01", "2025-06-30"], "previous_year is June a year back");
+assert(yoySplit.previous.length > 0 && yoySplit.previous.every((r) => String(r.date).startsWith("2025-06")),
+  "no row outside last June reaches the comparison window");
+
+// The two bases must actually disagree on the same data, or the switcher is decorative.
+const revOf = (rs: Row[]) => rs.reduce((a, r) => a + A.rowRevenue(r, cmpMap), 0);
+assert.notEqual(revOf(popSplit.previous), revOf(yoySplit.previous),
+  "the two comparisons measure against genuinely different rows");
+
+// Whatever a KPI compares against, the driver breakdown must compare against the same
+// thing — contributions that reconcile to a different change than the headline are worse
+// than no contributions at all.
+for (const compare of ["previous_period", "previous_year"] as const) {
+  const split = A.splitPeriods(cmpRows, cmpMap, cmpFilters, compare);
+  const drivers = analyzeDrivers(cmpRows, cmpMap, "revenue", "region", cmpFilters, 10, compare);
+  assert.equal(drivers.comparisonBasis, split.basis, `${compare}: drivers report the basis they used`);
+  assert.equal(roundTo2(drivers.previousTotal), roundTo2(revOf(split.previous)),
+    `${compare}: the driver baseline is the KPI's baseline`);
+}
+
+// A refusal, not a nearer window: 2024 has no rows at all, so a 2025 YoY request has
+// nothing to answer with and must say so.
+const noHistory = A.splitPeriods(cmpRows, cmpMap, { dateFrom: "2025-06-01", dateTo: "2025-06-30" }, "previous_year");
+assert.equal(noHistory.basis, "unavailable");
+assert.equal(noHistory.reason, "no_prior_data");
+
+// A retail calendar shifts by 52 weeks rather than by date, so the comparison lands on
+// the same weekdays — the entire reason a retail calendar exists.
+const cmpRetailCal: CalendarConfig = { fiscalYearStartMonth: 2, scheme: "445", weekStartDay: 1 };
+const cmpRetailWindow: A.Filters = { dateFrom: "2026-08-03", dateTo: "2026-08-09" };
+const cmpRetailRows: Row[] = [];
+for (const start of ["2026-08-03", "2025-08-04", "2025-08-03"]) {
+  for (let i = 0; i < 7; i++) {
+    cmpRetailRows.push({ date: new Date(Date.parse(start) + i * 86_400_000).toISOString().slice(0, 10), revenue: 10, region: "West" });
+  }
+}
+assert.deepEqual(
+  A.splitPeriods(cmpRetailRows, cmpMap, cmpRetailWindow, "previous_year", cmpRetailCal).previousRange,
+  ["2025-08-04", "2025-08-10"],
+  "a retail calendar compares 52 weeks back, keeping the weekday alignment",
+);
+assert.deepEqual(
+  A.splitPeriods(cmpRetailRows, cmpMap, cmpRetailWindow, "previous_year").previousRange,
+  ["2025-08-03", "2025-08-09"],
+  "the Gregorian default compares the same calendar dates instead",
+);
+
 console.log("✓ engine selfcheck passed");

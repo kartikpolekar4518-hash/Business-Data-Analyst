@@ -7,12 +7,12 @@ import { num } from "../lib/utils";
 import { kpiIcon } from "../lib/kpi";
 import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Label, useToast } from "../components/ui";
 import { DataTable, type Column } from "../components/DataTable";
-import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, type Chip } from "../components/filters";
+import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, CompareSelect, ComparisonNote, type Chip } from "../components/filters";
 import { TrendChart, BarRankChart } from "../components/charts";
 import { DriverBreakdown, SegmentTiers, CorrelationList } from "../components/analytics";
 import { KpiCard } from "../components/Kpi";
 import { BarChart3, ChevronRight } from "lucide-react";
-import type { OverviewResponse, Hierarchy, HierarchyLevel, DateCrumb } from "../lib/types";
+import type { OverviewResponse, Hierarchy, HierarchyLevel, DateCrumb, Comparison } from "../lib/types";
 import { drillPath, drillTo, drillUp, findLevel } from "../lib/hierarchy";
 
 const FILTERS = [
@@ -151,7 +151,14 @@ export default function Analytics() {
   const clear = () => {
     const prev = params.toString();
     if (!prev) return;
-    setParams(new URLSearchParams(), { replace: true });
+    // "Clear filters" clears filters. The comparison basis selects no rows, so wiping it
+    // here would silently move every percentage on the page while claiming to have only
+    // removed a filter.
+    const kept = new URLSearchParams();
+    const keptCompare = params.get("compare");
+    if (keptCompare) kept.set("compare", keptCompare);
+    if (kept.toString() === prev) return;
+    setParams(kept, { replace: true });
     toast("Filters cleared", {
       action: { label: "Undo", onClick: () => setParams(new URLSearchParams(prev), { replace: true }) },
     });
@@ -167,6 +174,15 @@ export default function Analytics() {
     })),
     [table.data?.columns],
   );
+
+  // Read back from the URL so a shared link reproduces the comparison too. An
+  // unrecognised value falls back to the default, matching what the API does with it.
+  const compare: Comparison = params.get("compare") === "previous_year" ? "previous_year" : "previous_period";
+  const setCompare = (v: Comparison) => {
+    const next = new URLSearchParams(params);
+    v === "previous_period" ? next.delete("compare") : next.set("compare", v);
+    setParams(next, { replace: true });
+  };
 
   const chips: Chip[] = [];
   if (query.dateFrom || query.dateTo)
@@ -209,6 +225,7 @@ export default function Analytics() {
             <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setField("dateTo", e.target.value)}
               className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
           </div>
+          <CompareSelect value={compare} onChange={setCompare} />
           <div className="ml-auto">
             <SavedViews currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
           </div>
@@ -231,6 +248,7 @@ export default function Analytics() {
               <KpiCard key={k.key} label={k.label} value={k.value} format={k.format} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} metricKey={k.key} explainQuery={qs ? `&${qs}` : ""} explain />
             ))}
       </div>
+      <ComparisonNote info={ov.data?.comparison} />
 
       {/* Charts — a bar click drills one level down its hierarchy */}
       <div className="flex flex-col gap-1.5">

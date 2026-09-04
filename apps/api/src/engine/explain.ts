@@ -4,7 +4,7 @@ import * as A from "./analytics.js";
 import { analyzeDrivers, type DriverResult } from "./drivers.js";
 import type { IndustryPack, KpiDef, MetricKind } from "./industries.js";
 import { canonicalJson, sha256 } from "./identity.js";
-import { DEFAULT_CALENDAR, describeCalendar, isDefaultCalendar, normalizeCalendar, type CalendarConfig } from "./calendar.js";
+import { DEFAULT_CALENDAR, describeCalendar, isCalendarMonths, isDefaultCalendar, normalizeCalendar, type CalendarConfig } from "./calendar.js";
 
 // Deterministic evidence for one KPI: what formula ran, over which rows, against
 // which comparison window, and under which dataset/engine/configuration identity.
@@ -82,6 +82,8 @@ export interface ExplainInput {
   industryKey: string;
   /** The org's business calendar. Omitted means the Gregorian default. */
   calendar?: CalendarConfig;
+  /** Which prior window to compare against. Omitted means the trailing equal period. */
+  compare?: A.Comparison;
 }
 
 const BLANK = (v: unknown) => v === null || v === undefined || (typeof v === "string" && v.trim() === "");
@@ -165,13 +167,20 @@ function describeComparison(split: A.PeriodSplit, calendar: CalendarConfig): str
   const calendarNote = isDefaultCalendar(calendar) ? "" : ` Periods are bucketed by: ${describeCalendar(calendar)}`;
   if (split.basis === "unavailable") {
     const why = split.reason === "no_date_column" ? "No date column detected — no comparison period."
-      : split.reason === "no_prior_data" ? "No data exists for the preceding period of equal length."
+      : split.reason === "no_prior_data" ? "No data exists for the comparison period."
       : "Not enough dated history for a comparison.";
     return why + calendarNote;
   }
   const [cs, ce] = split.currentRange!, [ps, pe] = split.previousRange!;
   const how = split.currentSource === "filter" ? "your selected range" : "the most recent half of the available data";
-  return `${cs} to ${ce} (${how}) compared with ${ps} to ${pe}, the interval of equal length immediately before it.` + calendarNote;
+  // Naming the basis matters more than it looks: the two windows can be the same length
+  // or not, and a reader who assumes the wrong one misreads the percentage.
+  const which = split.basis === "same_period_last_year"
+    ? isCalendarMonths(calendar)
+      ? "the same dates one year earlier"
+      : "the matching 52-weeks-earlier window, which keeps the retail periods aligned"
+    : "the interval of equal length immediately before it";
+  return `${cs} to ${ce} (${how}) compared with ${ps} to ${pe}, ${which}.` + calendarNote;
 }
 
 // The fingerprint identifies the CALCULATION, not the request: filters are
@@ -228,20 +237,21 @@ export function explainKpi(input: ExplainInput): Explanation {
 
   // Single source of truth: the headline number IS the dashboard's number, taken
   // from the same function the dashboard calls, with the same arguments.
-  const kpi = A.computeKpis(rows, s, pack, filters).find((k) => k.key === metricKey)!;
+  const compare = input.compare ?? "previous_period";
+  const kpi = A.computeKpis(rows, s, pack, filters, compare, calendar).find((k) => k.key === metricKey)!;
 
   const sources = def.sources(s);
-  const split = A.splitPeriods(rows, s, filters);
+  const split = A.splitPeriods(rows, s, filters, compare, calendar);
   const { rows: filtered, exclusions: filterExclusions } = cascadeFilters(rows, s, filters);
   const value = valueInputs(def.kind, filtered, sources, def.countsRowsWhenUnmapped === true);
 
-  const comparable = split.basis === "trailing_equal_period";
+  const comparable = A.isComparable(split.basis);
   const currentValue = comparable ? round(def.value(split.current, s)) : null;
   const previousValue = comparable ? round(def.value(split.previous, s)) : null;
 
   // Attribution only makes sense for additive metrics; a ratio or distinct count
   // cannot be summed across dimension members.
-  const drivers = comparable && def.kind === "sum" ? analyzeDrivers(rows, s, metricKey, undefined, filters) : null;
+  const drivers = comparable && def.kind === "sum" ? analyzeDrivers(rows, s, metricKey, undefined, filters, 10, compare, calendar) : null;
 
   return {
     metric: { key: def.key, label: def.label, format: def.format, kind: def.kind, value: kpi.value, changePct: kpi.changePct },
