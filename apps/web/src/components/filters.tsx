@@ -5,6 +5,7 @@ import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Dropdown, DropdownItem, Badge, Button, Modal, Input, Label, useToast } from "./ui";
+import type { Comparison, ComparisonInfo } from "../lib/types";
 
 // ─────────────────────────────────────────────
 // Relative date presets → fills dateFrom / dateTo (YYYY-MM-DD)
@@ -48,6 +49,67 @@ export const RelativeDateSelect = ({ onSelect }: { onSelect: (r: Range) => void 
     )}
   </Dropdown>
 );
+
+// ─────────────────────────────────────────────
+// CompareSelect — which prior window the change is measured against
+// ─────────────────────────────────────────────
+// Not a filter: it hides no rows. It only chooses the baseline every "vs" percentage on
+// the page is measured from, which is why it sits apart from the chips and survives
+// "clear filters".
+const COMPARISONS: { value: Comparison; label: string; hint: string }[] = [
+  { value: "previous_period", label: "Previous period", hint: "The equally long stretch immediately before this one" },
+  { value: "previous_year", label: "Previous year", hint: "The same window one year earlier — use this when the business is seasonal" },
+];
+
+export const CompareSelect = ({ value, onChange }: { value: Comparison; onChange: (v: Comparison) => void }) => (
+  <div>
+    <Label>Compare to</Label>
+    <div className="inline-flex h-10 items-center rounded-lg border border-border bg-white p-1 dark:border-white/10 dark:bg-slate-900/60">
+      {COMPARISONS.map((c) => (
+        <button
+          key={c.value}
+          type="button"
+          title={c.hint}
+          aria-pressed={value === c.value}
+          onClick={() => onChange(c.value)}
+          className={cn(
+            "rounded-md px-3 py-1.5 text-sm transition",
+            value === c.value
+              ? "bg-brand-500 font-medium text-white"
+              : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+          )}
+        >
+          {c.label}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// States what the engine actually compared, in dates. A percentage whose baseline is
+// unstated cannot be checked, and a requested comparison can come back unavailable —
+// so this reports the resolved answer rather than echoing the request.
+export const ComparisonNote = ({ info }: { info?: ComparisonInfo }) => {
+  if (!info) return null;
+  if (info.basis === "unavailable") {
+    const why = info.reason === "no_date_column" ? "there is no date column in this data"
+      : info.reason === "no_prior_data" ? "there is no data in the comparison window"
+      : "there is not enough dated history";
+    return (
+      <p className="text-xs text-amber-600 dark:text-amber-400">
+        No comparison shown — {why}. The values above are still exact; only the “vs” percentages are missing.
+      </p>
+    );
+  }
+  const [cs, ce] = info.currentRange ?? ["", ""], [ps, pe] = info.previousRange ?? ["", ""];
+  return (
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Comparing <span className="font-medium text-slate-700 dark:text-slate-200">{cs} → {ce}</span> against{" "}
+      <span className="font-medium text-slate-700 dark:text-slate-200">{ps} → {pe}</span>
+      {info.basis === "same_period_last_year" ? " (same window last year)" : " (the period immediately before)"}.
+    </p>
+  );
+};
 
 // ─────────────────────────────────────────────
 // MultiSelect — searchable checklist combobox

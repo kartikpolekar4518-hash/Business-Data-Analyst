@@ -46,6 +46,20 @@ export interface OverviewResponse {
   secondary: RankSection;
   filterOptions: Record<string, string[]>;
   hierarchies?: Hierarchy[];
+  // Which prior window every changePct above was measured against, as the engine
+  // actually resolved it — a requested comparison can come back unavailable, and a
+  // percentage whose basis is unstated is unreadable. Optional: an older API build
+  // does not send it, and the UI then says nothing rather than guessing.
+  comparison?: ComparisonInfo;
+}
+
+export type Comparison = "previous_period" | "previous_year";
+export interface ComparisonInfo {
+  compare: Comparison;
+  basis: "trailing_equal_period" | "same_period_last_year" | "unavailable";
+  reason: "no_date_column" | "insufficient_history" | "no_prior_data" | null;
+  currentRange: [string, string] | null;
+  previousRange: [string, string] | null;
 }
 
 export interface Recommendation {

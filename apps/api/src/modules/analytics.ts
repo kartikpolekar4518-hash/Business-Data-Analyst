@@ -48,6 +48,13 @@ function filtersFrom(query: any): A.Filters {
   ) as A.Filters;
 }
 
+// Not a filter: it removes no rows, it only names which prior window a change is
+// measured against. An unrecognised value falls back to the default rather than
+// erroring, so a stale bookmarked URL still renders the dashboard.
+const compareSchema = z.enum(["previous_period", "previous_year"]).catch("previous_period");
+const comparisonFrom = (query: unknown): A.Comparison =>
+  compareSchema.parse((query as Record<string, unknown> | null)?.compare);
+
 const timeSeries = (metric: "revenue" | "profit") =>
   wrap(async (req, res) => {
     const orgId = req.auth!.organizationId;
@@ -87,7 +94,8 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     ? profitTrend.map((p) => { const r = revByPeriod.get(p.period); return r ? (p.value / r) * 100 : 0; })
     : undefined;
 
-  const kpis = A.computeKpis(rows, schema, pack, f).map((k) => ({
+  const compare = comparisonFrom(req.query);
+  const kpis = A.computeKpis(rows, schema, pack, f, compare, calendar).map((k) => ({
     ...k,
     spark: k.key === "revenue" ? sparkOf(revenueTrend) : k.key === "profit" ? sparkOf(profitTrend) : k.key === "margin" ? marginSpark : undefined,
   }));
@@ -117,6 +125,13 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     suggestedIndustry: cols.length ? suggestIndustry(cols) : pack.key,
     schema,
     kpis,
+    // The windows the comparison actually resolved to. The client shows these rather
+    // than restating the request, because a requested comparison can come back
+    // unavailable and a percentage with no stated basis is unreadable.
+    comparison: (() => {
+      const split = A.splitPeriods(rows, schema, f, compare, calendar);
+      return { compare, basis: split.basis, reason: split.reason, currentRange: split.currentRange, previousRange: split.previousRange };
+    })(),
     // Each bucket carries the date window it covers so a click can narrow to it without
     // the client re-deriving 4-4-5 arithmetic — the calendar rules stay in the engine,
     // written down once. `path` is the breadcrumb back up the grain.
@@ -169,7 +184,7 @@ analyticsRouter.get("/explain", wrap(async (req, res) => {
 
   res.json(explainKpi({
     rows, schema, pack, metricKey, filters: filtersFrom(req.query), detectionRules,
-    industryKey: pack.key, calendar,
+    industryKey: pack.key, calendar, compare: comparisonFrom(req.query),
     dataset: {
       id: dataset.id, name: dataset.name, fileName: dataset.fileName, rowCount: dataset.rowCount,
       datasetHash: dataset.datasetHash, rawFileHash: dataset.rawFileHash, engineVersion: dataset.engineVersion,
@@ -194,7 +209,8 @@ analyticsRouter.get("/drivers", wrap(async (req, res) => {
   const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const metric: DriverMetric = req.query.metric === "profit" ? "profit" : "revenue";
   const dimension = typeof req.query.dimension === "string" ? (req.query.dimension as Semantic) : undefined;
-  res.json(analyzeDrivers(rows, schema, metric, dimension, filtersFrom(req.query)));
+  const { calendar } = await loadOrgConfig(req.auth!.organizationId);
+  res.json(analyzeDrivers(rows, schema, metric, dimension, filtersFrom(req.query), 10, comparisonFrom(req.query), calendar));
 }));
 
 // Anomalies in a metric's time series (deterministic, robust to single outliers).

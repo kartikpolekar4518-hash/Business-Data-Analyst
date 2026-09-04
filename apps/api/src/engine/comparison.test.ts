@@ -1,11 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { splitPeriods } from "./analytics.js";
+import { normalizeCalendar, type CalendarConfig } from "./calendar.js";
 import type { SchemaMap } from "./schema.js";
 import type { Row } from "./parse.js";
 
 const s: SchemaMap = { date: "date", revenue: "revenue", region: "region" };
 const row = (date: string, revenue: number, region = "West"): Row => ({ date, revenue, region });
+const isoAdd = (iso: string, days: number) => new Date(Date.parse(iso) + days * 86_400_000).toISOString().slice(0, 10);
 
 // V1 policy: previous = the interval of EQUAL DURATION immediately preceding the
 // current one. These fixtures check the boundaries are not merely deterministic but
@@ -204,4 +206,71 @@ test("an odd span drops its leftover day from the oldest end, visibly", () => {
   assert.equal(days(split.currentRange!), days(split.previousRange!), "windows stay equal");
   assert.equal(split.previousRange![0], "2024-01-02", "the oldest day is outside both windows");
   assert.equal(split.previous.length, 1, "and the row on it is excluded — boundaries are shown, not implied");
+});
+
+// ─── previous_year ───────────────────────────────────────────────────────────
+// The V2 addition. The default is unchanged and asserted here alongside it, because
+// the whole safety argument for this feature is that opting out changes nothing.
+
+test("previous_year compares the same calendar dates a year earlier, not the window before", () => {
+  const rows: Row[] = [];
+  for (const y of [2024, 2025, 2026]) {
+    for (let d = 1; d <= 31; d++) rows.push(row(`${y}-08-${String(d).padStart(2, "0")}`, y === 2026 ? 30 : y === 2025 ? 20 : 10));
+    for (let d = 1; d <= 31; d++) rows.push(row(`${y}-07-${String(d).padStart(2, "0")}`, 5));
+  }
+  const f = { dateFrom: "2026-08-01", dateTo: "2026-08-31" };
+
+  const yoy = splitPeriods(rows, s, f, "previous_year");
+  assert.equal(yoy.basis, "same_period_last_year");
+  assert.deepEqual(yoy.currentRange, ["2026-08-01", "2026-08-31"]);
+  assert.deepEqual(yoy.previousRange, ["2025-08-01", "2025-08-31"], "August against last August");
+  assert.equal(yoy.previous.length, 31);
+
+  // Same data, same filters, default comparison: still July, still the V1 answer.
+  const pop = splitPeriods(rows, s, f);
+  assert.equal(pop.basis, "trailing_equal_period");
+  assert.deepEqual(pop.previousRange, ["2026-07-01", "2026-07-31"]);
+});
+
+test("previous_year reports no_prior_data rather than reaching for a nearer window", () => {
+  const rows: Row[] = [];
+  for (let d = 1; d <= 31; d++) rows.push(row(`2026-07-${String(d).padStart(2, "0")}`, 10));
+  for (let d = 1; d <= 31; d++) rows.push(row(`2026-08-${String(d).padStart(2, "0")}`, 20));
+  // July exists and would make a comparison — but it is not last August, so refusing is
+  // the only honest answer. Silently falling back would report seasonal growth as YoY.
+  const yoy = splitPeriods(rows, s, { dateFrom: "2026-08-01", dateTo: "2026-08-31" }, "previous_year");
+  assert.equal(yoy.basis, "unavailable");
+  assert.equal(yoy.reason, "no_prior_data");
+});
+
+test("Feb 29 clamps to Feb 28 instead of sliding into March", () => {
+  const rows: Row[] = [];
+  for (let d = 1; d <= 29; d++) rows.push(row(`2024-02-${String(d).padStart(2, "0")}`, 10));
+  for (let d = 1; d <= 28; d++) rows.push(row(`2023-02-${String(d).padStart(2, "0")}`, 10));
+  rows.push(row("2023-03-01", 999));   // must stay out of the comparison window
+  const yoy = splitPeriods(rows, s, { dateFrom: "2024-02-01", dateTo: "2024-02-29" }, "previous_year");
+  assert.equal(yoy.basis, "same_period_last_year");
+  assert.deepEqual(yoy.previousRange, ["2023-02-01", "2023-02-28"]);
+  assert.equal(yoy.previous.length, 28, "the March row is not pulled into February");
+  // The windows are deliberately unequal in length here: 29 days against 28 is what
+  // "the same dates last year" means, and both ranges are reported so it is visible.
+  assert.equal(yoy.current.length, 29);
+});
+
+test("a retail calendar shifts by 52 weeks so weekdays and periods stay aligned", () => {
+  const retail: CalendarConfig = normalizeCalendar({ fiscalYearStartMonth: 2, scheme: "445" });
+  const rows: Row[] = [];
+  // 2026-08-03 is a Monday; 364 days earlier is 2025-08-04, also a Monday.
+  for (let i = 0; i < 7; i++) rows.push(row(isoAdd("2026-08-03", i), 20));
+  for (let i = 0; i < 7; i++) rows.push(row(isoAdd("2025-08-04", i), 10));
+  const f = { dateFrom: "2026-08-03", dateTo: "2026-08-09" };
+
+  const yoy = splitPeriods(rows, s, f, "previous_year", retail);
+  assert.equal(yoy.basis, "same_period_last_year");
+  assert.deepEqual(yoy.previousRange, ["2025-08-04", "2025-08-10"], "52 weeks back, same weekday");
+  assert.equal(yoy.previous.length, 7);
+
+  // Under the Gregorian default the same request shifts by calendar date instead, which
+  // lands on 2025-08-03 — a Sunday, and a different retail week.
+  assert.deepEqual(splitPeriods(rows, s, f, "previous_year").previousRange, ["2025-08-03", "2025-08-09"]);
 });

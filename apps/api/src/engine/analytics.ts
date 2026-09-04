@@ -1,7 +1,7 @@
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import type { IndustryPack, PackMetric } from "./industries.js";
-import { DEFAULT_CALENDAR, grainKey, type CalendarConfig, type Grain } from "./calendar.js";
+import { DEFAULT_CALENDAR, grainKey, isCalendarMonths, type CalendarConfig, type Grain } from "./calendar.js";
 
 export interface Filters {
   dateFrom?: string; dateTo?: string;
@@ -72,8 +72,19 @@ function pctChange(cur: number, prev: number): number | null { if (!prev) return
 // `rows` must be the un-date-filtered set: the previous window lies OUTSIDE any
 // date filter, so date bounds are applied here rather than by the caller. Dimension
 // filters bound the whole comparison universe; date filters bound only `current`.
-export type ComparisonBasis = "trailing_equal_period" | "unavailable";
+//
+// V2 adds ONE alternative, chosen by the caller and never inferred:
+//
+//   previous_year = the same window shifted back a year.
+//
+// Everything else about the policy is unchanged, and `previous_period` remains the
+// default, so every existing call site returns exactly the numbers it always did.
+export type Comparison = "previous_period" | "previous_year";
+export type ComparisonBasis = "trailing_equal_period" | "same_period_last_year" | "unavailable";
 export type ComparisonReason = "no_date_column" | "insufficient_history" | "no_prior_data";
+// Any basis other than "unavailable" carries a real prior window, so drivers,
+// attribution and "Why this number" are all valid against it.
+export const isComparable = (b: ComparisonBasis): boolean => b !== "unavailable";
 // How `current` was chosen: from an explicit date filter, or — with no date filter —
 // the trailing half of the available span (by duration, never by row count).
 export type CurrentSource = "filter" | "trailing_half";
@@ -88,7 +99,27 @@ const MIN_DATED_ROWS = 4;
 const floorDay = (t: number) => Math.floor(t / DAY) * DAY;
 const isoDay = (t: number) => new Date(t).toISOString().slice(0, 10);
 
-export function splitPeriods(rows: Row[], s: SchemaMap, f: Filters = {}): PeriodSplit {
+// A retail year is 52 whole weeks. Shifting a 4-4-5 window by calendar dates would land
+// it on different weekdays and so on a different retail period, which is the one thing a
+// retail calendar exists to prevent — 364 days keeps weekday and period alignment.
+const RETAIL_YEAR = 364 * DAY;
+// Same calendar date one year earlier. Feb 29 has no counterpart in a common year;
+// clamping to Feb 28 keeps the window inside the month the user asked about instead of
+// sliding it into March.
+function sameDateLastYear(t: number): number {
+  const d = new Date(t);
+  const y = d.getUTCFullYear() - 1, m = d.getUTCMonth();
+  const lastOfMonth = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return Date.UTC(y, m, Math.min(d.getUTCDate(), lastOfMonth));
+}
+
+// `compare` and `cal` are optional trailing arguments: omitting them reproduces the V1
+// behaviour exactly. `cal` is consulted only for previous_year, and only to decide
+// between calendar-date and 52-week alignment.
+export function splitPeriods(
+  rows: Row[], s: SchemaMap, f: Filters = {},
+  compare: Comparison = "previous_period", cal: CalendarConfig = DEFAULT_CALENDAR,
+): PeriodSplit {
   const none = (reason: ComparisonReason, current: Row[]): PeriodSplit =>
     ({ current, previous: [], basis: "unavailable", reason, currentSource: null, currentRange: null, previousRange: null });
   if (!s.date) return none("no_date_column", applyFilters(rows, s, f));
@@ -139,18 +170,36 @@ export function splitPeriods(rows: Row[], s: SchemaMap, f: Filters = {}): Period
     const t = d.getTime(); return t >= from && t < toExcl;
   };
   const current = filtered.filter(inWindow(startMs, endExclMs));
-  const previous = scope.filter(inWindow(startMs - duration, startMs));
+
+  // The prior window. previous_period abuts the current one; previous_year lands a year
+  // back and so may cover a different number of days (a leap February against a common
+  // one). That is what "the same dates last year" means, and both ranges are reported
+  // below so the difference is visible rather than hidden inside a percentage.
+  let prevStartMs: number, prevEndExclMs: number, basis: ComparisonBasis;
+  if (compare === "previous_year") {
+    const shift = isCalendarMonths(cal)
+      ? (t: number) => sameDateLastYear(t)
+      : (t: number) => t - RETAIL_YEAR;
+    prevStartMs = shift(startMs); prevEndExclMs = shift(endExclMs);
+    basis = "same_period_last_year";
+  } else {
+    prevStartMs = startMs - duration; prevEndExclMs = startMs;
+    basis = "trailing_equal_period";
+  }
+  if (prevEndExclMs <= prevStartMs) return none("insufficient_history", current.length ? current : filtered);
+
+  const previous = scope.filter(inWindow(prevStartMs, prevEndExclMs));
   if (!previous.length) return none("no_prior_data", current.length ? current : filtered);
 
   return {
-    current, previous, basis: "trailing_equal_period", reason: null, currentSource,
+    current, previous, basis, reason: null, currentSource,
     currentRange: [isoDay(startMs), isoDay(endExclMs - DAY)],
-    previousRange: [isoDay(startMs - duration), isoDay(startMs - DAY)],
+    previousRange: [isoDay(prevStartMs), isoDay(prevEndExclMs - DAY)],
   };
 }
 
-export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
-  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(rows, s, f);
+export function overview(rows: Row[], s: SchemaMap, f: Filters = {}, compare: Comparison = "previous_period", cal: CalendarConfig = DEFAULT_CALENDAR) {
+  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(rows, s, f, compare, cal);
   const sum = (rs: Row[], fn: (r: Row) => number) => rs.reduce((a, r) => a + fn(r), 0);
   const orderCount = (rs: Row[]) => s.order_id ? new Set(rs.map((r) => str(r[s.order_id!]))).size : rs.length;
   const customerCount = (rs: Row[]) => s.customer_id ? new Set(rs.map((r) => str(r[s.customer_id!]))).size : s.customer_name ? new Set(rs.map((r) => str(r[s.customer_name!]))).size : 0;
@@ -161,8 +210,8 @@ export function overview(rows: Row[], s: SchemaMap, f: Filters = {}) {
 }
 
 export interface KpiResult { key: string; label: string; icon: string; format: "money" | "number" | "percent"; value: number; changePct: number | null; tooltip?: string; spark?: number[]; }
-export function computeKpis(rows: Row[], s: SchemaMap, pack: IndustryPack, f: Filters = {}): KpiResult[] {
-  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(rows, s, f);
+export function computeKpis(rows: Row[], s: SchemaMap, pack: IndustryPack, f: Filters = {}, compare: Comparison = "previous_period", cal: CalendarConfig = DEFAULT_CALENDAR): KpiResult[] {
+  const filtered = applyFilters(rows, s, f); const { current, previous } = splitPeriods(rows, s, f, compare, cal);
   return pack.kpis.map((def) => ({ key: def.key, label: def.label, icon: def.icon, format: def.format, tooltip: def.tooltip, value: round(def.value(filtered, s)), changePct: def.noChange ? null : pctChange(def.value(current, s), def.value(previous, s)) }));
 }
 

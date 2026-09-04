@@ -2,6 +2,7 @@ import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
 import type { PackMetric } from "./industries.js";
+import type { CalendarConfig } from "./calendar.js";
 
 export type DriverMetric = "revenue" | "profit" | "quantity" | "orders";
 export interface DriverContribution { dimension:Semantic; label:string; delta:number; currentValue:number; previousValue:number; changePct:number|null; shareOfDelta:number; }
@@ -14,8 +15,12 @@ export interface DriverResult {
   currentRange:[string,string]|null; previousRange:[string,string]|null;
 }
 function sumMetric(rows:Row[],s:SchemaMap,m:PackMetric|string):number{if(typeof m==="object")return m.compute(rows,s);switch(m){case"revenue":return rows.reduce((a,r)=>a+A.rowRevenue(r,s),0);case"profit":return rows.reduce((a,r)=>a+A.rowProfit(r,s),0);case"quantity":return rows.reduce((a,r)=>a+(s.quantity?A.num(r[s.quantity]):1),0);case"orders":return s.order_id?new Set(rows.map(r=>A.str(r[s.order_id!]))).size:rows.length;default:return 0;}}
-export function analyzeDrivers(rows:Row[],s:SchemaMap,metric:PackMetric|string="revenue",dimension?:Semantic,f:A.Filters={},limit=10):DriverResult{
- const split=A.splitPeriods(rows,s,f),{current,previous}=split,comparisonAvailable=split.basis==="trailing_equal_period";const col=dimension?(s[dimension]?dimension:null):(s.product_name?"product_name":s.category?"category":s.region?"region":s.customer_name?"customer_name":null);const m=typeof metric==="object"?metric.id:metric;
+// `compare`/`cal` are optional trailing arguments, defaulting to the V1 comparison so
+// every existing call site is unchanged. Whoever picks the comparison for a KPI must
+// pass the same one here, or the attribution would explain a different change than
+// the one on screen.
+export function analyzeDrivers(rows:Row[],s:SchemaMap,metric:PackMetric|string="revenue",dimension?:Semantic,f:A.Filters={},limit=10,compare:A.Comparison="previous_period",cal?:CalendarConfig):DriverResult{
+ const split=A.splitPeriods(rows,s,f,compare,cal),{current,previous}=split,comparisonAvailable=A.isComparable(split.basis);const col=dimension?(s[dimension]?dimension:null):(s.product_name?"product_name":s.category?"category":s.region?"region":s.customer_name?"customer_name":null);const m=typeof metric==="object"?metric.id:metric;
  const curTotal=sumMetric(current,s,metric),prevTotal=comparisonAvailable?sumMetric(previous,s,metric):0,delta=comparisonAvailable?curTotal-prevTotal:0;
  const empty:DriverResult={metric:m,dimension:col,totalDelta:round(delta),currentTotal:round(curTotal),previousTotal:round(prevTotal),contributions:[],totalPrevious:round(prevTotal),totalCurrent:round(curTotal),totalChange:round(delta),totalChangePct:prevTotal?round(delta/Math.abs(prevTotal)*100):null,drivers:[],otherCount:0,otherContribution:0,reconciled:true,comparisonAvailable,comparisonBasis:split.basis,comparisonReason:split.reason,currentRange:split.currentRange,previousRange:split.previousRange};
  if(!col||!comparisonAvailable)return empty;
