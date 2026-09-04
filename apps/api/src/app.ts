@@ -21,6 +21,7 @@ import { alertsRouter } from "./modules/alerts.js";
 import { schedulesRouter } from "./modules/schedules.js";
 import { billingRouter } from "./modules/billing.js";
 import { settingsRouter } from "./modules/settings.js";
+import { viewsRouter } from "./modules/views.js";
 import { INDUSTRIES } from "./engine/industries.js";
 import { PLANS } from "./billing/plans.js";
 
@@ -98,6 +99,7 @@ app.use("/api/reports", reportsRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/schedules", schedulesRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/views", viewsRouter);
 app.use("/api/billing", billingRouter);
 
 // Serve the built web app if present (single-container / production mode).
