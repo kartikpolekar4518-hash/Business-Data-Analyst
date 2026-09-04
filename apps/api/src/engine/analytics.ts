@@ -244,5 +244,9 @@ export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: 
   return [...buckets.entries()].map(([label, value]) => ({ label, value: round(value) })).sort((a, b) => b.value - a.value).slice(0, limit);
 }
 export function distinctValues(rows: Row[], s: SchemaMap, dimension: Semantic): string[] { const col = s[dimension]; if (!col) return []; const set = new Set<string>(); for (const r of rows) { const v = str(r[col]); if (v) set.add(v); } return [...set].sort().slice(0, 100); }
-function round(n: number): number { return Math.round(n * 100) / 100; }
+export function round(n: number): number { return Math.round(n * 100) / 100; }
+export function fmt(n: number): string {
+  const v = num(n);
+  return Math.abs(v) >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(round(v));
+}
 export function fmtMoney(n: unknown): string { return "$" + Math.round(num(n)).toLocaleString("en-US"); }

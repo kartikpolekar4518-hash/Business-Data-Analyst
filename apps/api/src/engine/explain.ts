@@ -178,7 +178,7 @@ function describeComparison(split: A.PeriodSplit, calendar: CalendarConfig): str
   const which = split.basis === "same_period_last_year"
     ? isCalendarMonths(calendar)
       ? "the same dates one year earlier"
-      : "the matching 52-weeks-earlier window, which keeps the retail periods aligned"
+      : "the matcing 52-weeks-earlier window, which keeps the retail periods aligned"
     : "the interval of equal length immediately before it";
   return `${cs} to ${ce} (${how}) compared with ${ps} to ${pe}, ${which}.` + calendarNote;
 }
@@ -246,8 +246,8 @@ export function explainKpi(input: ExplainInput): Explanation {
   const value = valueInputs(def.kind, filtered, sources, def.countsRowsWhenUnmapped === true);
 
   const comparable = A.isComparable(split.basis);
-  const currentValue = comparable ? round(def.value(split.current, s)) : null;
-  const previousValue = comparable ? round(def.value(split.previous, s)) : null;
+  const currentValue = comparable ? A.round(def.value(split.current, s)) : null;
+  const previousValue = comparable ? A.round(def.value(split.previous, s)) : null;
 
   // Attribution only makes sense for additive metrics; a ratio or distinct count
   // cannot be summed across dimension members.
@@ -299,4 +299,3 @@ export function explainKpi(input: ExplainInput): Explanation {
   };
 }
 
-function round(n: number): number { return Math.round(n * 100) / 100; }
