@@ -10,6 +10,7 @@ import { suggestIndustry, type RankSectionDef } from "../engine/industries.js";
 import { analyzeDrivers, type DriverMetric } from "../engine/drivers.js";
 import { detectAnomalies } from "../engine/anomaly.js";
 import { analyzeCorrelations } from "../engine/correlate.js";
+import { availableHierarchies } from "../engine/hierarchy.js";
 import { segmentEntities, type SegmentEntity } from "../engine/segment.js";
 import { explainKpi } from "../engine/explain.js";
 import { detectSchema } from "../engine/schema.js";
@@ -87,8 +88,12 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     spark: k.key === "revenue" ? sparkOf(revenueTrend) : k.key === "profit" ? sparkOf(profitTrend) : k.key === "margin" ? marginSpark : undefined,
   }));
 
+  // `dimension` is what makes a chart drillable: a clicked bar carries only its label,
+  // so the client needs to know which dimension produced it. Emitted alongside
+  // `hierarchies` below so the semantic -> filter-key mapping stays in one place.
   const section = (def: RankSectionDef) => ({
     title: def.title, subtitle: def.subtitle, emptyText: def.emptyText, format: def.format,
+    dimension: def.dimension,
     data: A.groupBy(rows, schema, def.dimension, def.metric, f, def.limit),
   });
   const compDim = schema[pack.composition.dimension] ? pack.composition.dimension : pack.composition.fallback;
@@ -103,10 +108,12 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     trend: { title: pack.trend.title, subtitle: pack.trend.subtitle, revenue: revenueTrend, profit: profitTrend },
     composition: {
       title: pack.composition.title, subtitle: pack.composition.subtitle, centerLabel: pack.composition.centerLabel,
+      dimension: compDim ?? null,
       data: compDim ? A.groupBy(rows, schema, compDim, "revenue", f, 8) : [],
     },
     ranking: section(pack.ranking),
     secondary: section(pack.secondary),
+    hierarchies: availableHierarchies(schema),
     filterOptions: {
       region: A.distinctValues(rows, schema, "region"),
       state: A.distinctValues(rows, schema, "state"),

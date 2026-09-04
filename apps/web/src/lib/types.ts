@@ -10,17 +10,28 @@ export interface KpiResult {
 export interface RankSection {
   title: string; subtitle: string; emptyText: string;
   format: "money" | "number"; data: Rank[];
+  // Which dimension produced `data`. A clicked bar carries only its label, so this is
+  // what lets the client turn a click into the right filter. Optional: a section from
+  // an older API build simply is not drillable.
+  dimension?: string;
 }
+
+// Drill-down hierarchies, as sent by the API. `filterKey` is deliberately carried
+// alongside `semantic` rather than derived from it — the two disagree (product_name ->
+// product) and the engine owns that mapping. Never restate it here.
+export interface HierarchyLevel { semantic: string; filterKey: string; label: string }
+export interface Hierarchy { id: string; label: string; levels: HierarchyLevel[] }
 export interface OverviewResponse {
   datasetId: string; datasetName: string;
   industry: string; suggestedIndustry: string;
   schema: Record<string, string>;
   kpis: KpiResult[];
   trend: { title: string; subtitle: string; revenue: Point[]; profit: Point[] };
-  composition: { title: string; subtitle: string; centerLabel: string; data: Rank[] };
+  composition: { title: string; subtitle: string; centerLabel: string; data: Rank[]; dimension?: string | null };
   ranking: RankSection;
   secondary: RankSection;
   filterOptions: Record<string, string[]>;
+  hierarchies?: Hierarchy[];
 }
 
 export interface Recommendation {
