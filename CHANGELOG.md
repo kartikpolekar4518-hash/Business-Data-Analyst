@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### What-if scenarios — move a lever, see the whole forecast move
+
+- **Ask "what if we raised prices 5%?" and get an answer.** The Forecasts page now has
+  sliders for unit price, quantity, cost and revenue. Move one and generate: the change
+  is applied to every row of your data first, so the trend, the KPIs and the projection
+  all move together and stay consistent with each other.
+- **Your data is never changed.** The adjustment happens in memory, for that one
+  forecast. Nothing is written back to your uploaded file.
+- **It tells you when a lever cannot reach the bottom line.** If your file stores a
+  revenue column rather than quantity and unit price, then changing the price cannot
+  change revenue or profit — and the panel says exactly that, instead of showing you an
+  unchanged profit and leaving you to guess why.
+- **A saved what-if forecast is labelled as one.** Saved forecasts now record the levers
+  that produced them, so a scenario is no longer indistinguishable from a plain forecast
+  of the same metric.
+- The old free-text "what-if delta" box is gone: the sliders replace it and can express
+  changes it never could.
+
 ### Saved views are now shared with your team
 
 - **A saved view lives with your organisation, not in one browser.** Naming a filter

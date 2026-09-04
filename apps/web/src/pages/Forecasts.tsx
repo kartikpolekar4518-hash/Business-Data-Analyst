@@ -1,17 +1,40 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TrendingUp, Info } from "lucide-react";
+import { TrendingUp, Info, AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Label, Skeleton, EmptyState, ErrorState, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Input, Label, Slider, Skeleton, EmptyState, ErrorState, Badge, useToast } from "../components/ui";
 import { ForecastChart } from "../components/charts";
+import { useDebounced } from "../lib/debounce";
 import { money, num, timeAgo } from "../lib/utils";
 
 interface ForecastPoint { period: string; value: number; lower: number; upper: number; best?: number; worst?: number; }
-interface Forecast { id: string; metric: string; horizon: number; method: string; history: { period: string; value: number }[]; points: ForecastPoint[]; createdAt: string; }
+interface SavedScenario { levers: Lever[]; goal: number | null; driverDelta: number | null; }
+interface Forecast { id: string; metric: string; horizon: number; method: string; history: { period: string; value: number }[]; points: ForecastPoint[]; scenario?: SavedScenario | null; createdAt: string; }
 interface GoalStatus { goal: number; forecastValue: number; status: "on_track" | "at_risk" | "missed"; gap: number; gapPct: number; }
-interface ForecastResponse { forecast: Forecast; goal?: GoalStatus | null; }
+interface LeverEffect { field: LeverField; changePct: number; column: string | null; applied: boolean; propagatesTo: ("revenue" | "profit")[]; note: string | null; }
+interface ScenarioImpact { levers: LeverEffect[]; revenueExpression: string; revenueDerived: boolean; profitDerived: boolean; }
+interface ForecastResponse { forecast: Forecast; goal?: GoalStatus | null; impact?: ScenarioImpact | null; }
+
+// What-if levers. Each is one percentage change to one business quantity — the whole
+// vocabulary the engine accepts, so there is nothing here to keep in sync with a parser.
+// The URL carries them (`?lv_unit_price=5`) like every other bit of page state.
+type LeverField = "revenue" | "unit_price" | "quantity" | "cost";
+interface Lever { field: LeverField; changePct: number }
+const LEVERS: { field: LeverField; label: string }[] = [
+  { field: "unit_price", label: "Unit price" },
+  { field: "quantity", label: "Quantity" },
+  { field: "cost", label: "Cost" },
+  { field: "revenue", label: "Revenue" },
+];
+const LEVER_RANGE = 50;   // ±50%: the band a business actually models, not the engine's limit
+const leverParam = (field: LeverField) => `lv_${field}`;
+type LeverState = Record<LeverField, number>;
+const NO_LEVERS: LeverState = { revenue: 0, unit_price: 0, quantity: 0, cost: 0 };
+const activeLevers = (state: LeverState): Lever[] =>
+  LEVERS.filter((l) => state[l.field] !== 0).map((l) => ({ field: l.field, changePct: state[l.field] }));
+const pctLabel = (n: number) => `${n > 0 ? "+" : ""}${n}%`;
 
 type Scenario = "value" | "best" | "worst";
 const SCENARIOS: { key: Scenario; label: string }[] = [
@@ -30,12 +53,25 @@ export default function Forecasts() {
   const [params, setParams] = useSearchParams();
   const [running, setRunning] = useState(false);
   const [goalInput, setGoalInput] = useState("");
-  const [driverInput, setDriverInput] = useState("");
   const [goalStatus, setGoalStatus] = useState<GoalStatus | null>(null);
+  const [impact, setImpact] = useState<ScenarioImpact | null>(null);
 
   const metric = METRICS.includes(params.get("metric") ?? "") ? params.get("metric")! : "revenue";
   const horizon = HORIZONS.includes(Number(params.get("horizon"))) ? Number(params.get("horizon")) : 3;
   const scenario: Scenario = (["value", "best", "worst"].includes(params.get("scenario") ?? "") ? params.get("scenario") : "value") as Scenario;
+
+  // Slider state is local so dragging stays instant; the URL is written from the
+  // settled value, so one gesture leaves one entry instead of one per pixel.
+  const [levers, setLevers] = useState<LeverState>(() => {
+    const initial = { ...NO_LEVERS };
+    for (const l of LEVERS) {
+      const raw = Number(params.get(leverParam(l.field)));
+      if (Number.isFinite(raw) && raw !== 0) initial[l.field] = Math.max(-LEVER_RANGE, Math.min(LEVER_RANGE, Math.round(raw)));
+    }
+    return initial;
+  });
+  const settledLevers = useDebounced(levers, 300);
+  const anyLever = LEVERS.some((l) => levers[l.field] !== 0);
 
   const setParam = (key: string, value: string, dflt: string) =>
     setParams((prev) => {
@@ -44,18 +80,29 @@ export default function Forecasts() {
       return next;
     }, { replace: true });
 
+  useEffect(() => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      for (const l of LEVERS) {
+        const v = settledLevers[l.field];
+        if (v === 0) next.delete(leverParam(l.field)); else next.set(leverParam(l.field), String(v));
+      }
+      return next;
+    }, { replace: true });
+  }, [settledLevers, setParams]);
+
   const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["forecasts"], queryFn: () => api.get<{ forecasts: Forecast[] }>("/forecasts") });
 
   async function run() {
     setRunning(true);
     setGoalStatus(null);
+    setImpact(null);
     try {
       const goal = goalInput.trim() === "" ? undefined : Number(goalInput);
-      const driverDelta = driverInput.trim() === "" ? undefined : Number(driverInput);
       if (goal !== undefined && !Number.isFinite(goal)) throw new Error("Invalid goal");
-      if (driverDelta !== undefined && !Number.isFinite(driverDelta)) throw new Error("Invalid what-if delta");
-      const response = await api.post<ForecastResponse>("/forecasts", { metric, horizon, goal, driverDelta });
+      const response = await api.post<ForecastResponse>("/forecasts", { metric, horizon, goal, levers: activeLevers(levers) });
       setGoalStatus(response.goal ?? null);
+      setImpact(response.impact ?? null);
       toast("Forecast generated", "success");
       qc.invalidateQueries({ queryKey: ["forecasts"] });
     } catch {
@@ -74,15 +121,32 @@ export default function Forecasts() {
               {METRICS.map((m) => <option key={m} value={m}>{cap(m.replace(/_/g, " "))}</option>)}
             </Select></div>
             <div className="w-40"><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setParam("horizon", e.target.value, "3")}>{HORIZONS.map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
-            <div className="w-36"><Label>Goal (optional)</Label><input type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder="Target" className="w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm dark:border-slate-700" /></div>
-            <div className="w-36"><Label>What-if delta</Label><input type="number" value={driverInput} onChange={(e) => setDriverInput(e.target.value)} placeholder="e.g. 5000" className="w-full rounded-md border border-slate-200 bg-transparent px-3 py-2 text-sm dark:border-slate-700" /></div>
+            <div className="w-36"><Label htmlFor="goal">Goal (optional)</Label><Input id="goal" type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder="Target" /></div>
             <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button>
+          </div>
+
+          <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4 text-slate-400" />What-if scenario</div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 dark:text-slate-400">Move a lever, then generate. Your data is never changed.</span>
+                {anyLever && <button onClick={() => setLevers(NO_LEVERS)} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Reset</button>}
+              </div>
+            </div>
+            <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+              {LEVERS.map((l) => (
+                <Slider key={l.field} label={l.label} aria-label={`${l.label} change`} value={levers[l.field]}
+                  min={-LEVER_RANGE} max={LEVER_RANGE} step={1} format={pctLabel}
+                  onChange={(v) => setLevers((prev) => ({ ...prev, [l.field]: v }))} />
+              ))}
+            </div>
           </div>
           {goalStatus && (
             <div className="mt-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
               Goal: <strong>{money(goalStatus.goal)}</strong> · Forecast: <strong>{money(goalStatus.forecastValue)}</strong> · <Badge tone={goalStatus.status === "on_track" ? "green" : goalStatus.status === "at_risk" ? "amber" : "red"}>{goalStatus.status.replace("_", " ")}</Badge>
             </div>
           )}
+          <ImpactPanel impact={impact} />
         </CardBody></Card>
       )}
 
@@ -106,7 +170,11 @@ export default function Forecasts() {
           {data.forecasts.map((f) => {
             const fmt = f.metric === "orders" ? num : money;
             return <Card key={f.id}>
-              <CardHeader title={`${cap(f.metric)} forecast · ${f.horizon} months`} subtitle={`${f.method.replace(/_/g, " ")} · ${timeAgo(f.createdAt)}`} action={<Badge tone="amber">estimate</Badge>} />
+              <CardHeader
+                title={`${cap(f.metric)} forecast · ${f.horizon} months`}
+                subtitle={`${f.method.replace(/_/g, " ")} · ${timeAgo(f.createdAt)}${scenarioSummary(f.scenario) ? ` · ${scenarioSummary(f.scenario)}` : ""}`}
+                action={<div className="flex items-center gap-2">{scenarioSummary(f.scenario) && <Badge tone="blue">what-if</Badge>}<Badge tone="amber">estimate</Badge></div>}
+              />
               <CardBody>
                 <ForecastChart history={f.history} points={f.points} />
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -126,6 +194,41 @@ export default function Forecasts() {
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const leverLabel = (field: LeverField) => LEVERS.find((l) => l.field === field)?.label ?? field;
+
+// A saved forecast says which levers produced it. Before the scenario column existed
+// a what-if forecast and a plain one of the same metric were indistinguishable here.
+function scenarioSummary(scenario: Forecast["scenario"]): string | null {
+  const levers = scenario?.levers?.filter((l) => l.changePct !== 0) ?? [];
+  if (!levers.length) return null;
+  return levers.map((l) => `${leverLabel(l.field)} ${pctLabel(l.changePct)}`).join(", ");
+}
+
+// What the levers could and could not reach, stated by the engine against this
+// dataset's actual shape. A price lever moves profit only where revenue is derived as
+// quantity × unit price; where revenue is a stored column it cannot, and saying so is
+// the point — an unchanged profit with no explanation reads as "price does not matter".
+function ImpactPanel({ impact }: { impact: ScenarioImpact | null }) {
+  if (!impact?.levers.length) return null;
+  const caveats = impact.levers.filter((l) => l.note);
+  const moved = impact.levers.filter((l) => l.propagatesTo.length);
+  return (
+    <div className="mt-3 space-y-2 text-sm">
+      {moved.length > 0 && (
+        <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          Applied to your rows before anything was calculated: {moved.map((l) => `${leverLabel(l.field)} ${pctLabel(l.changePct)} → ${l.propagatesTo.join(" and ")}`).join(" · ")}.
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Revenue is read as {impact.revenueExpression}.</div>
+        </div>
+      )}
+      {caveats.map((l) => (
+        <div key={l.field} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span><strong>{leverLabel(l.field)} {pctLabel(l.changePct)}:</strong> {l.note}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function ForecastsSkeleton() {
   return <div className="space-y-4">{[0, 1].map((i) => <Card key={i}><CardHeader title={<Skeleton className="h-4 w-48" />} subtitle={<Skeleton className="mt-1 h-3 w-32" />} /><CardBody><Skeleton className="h-56 w-full" /><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{[0, 1, 2, 3].map((j) => <Skeleton key={j} className="h-16 w-full" />)}</div></CardBody></Card>)}</div>;

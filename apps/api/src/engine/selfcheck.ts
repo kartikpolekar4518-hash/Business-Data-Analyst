@@ -14,6 +14,8 @@ import { explainKpi } from "./explain.js";
 import { DEFAULT_CALENDAR, periodRange, type CalendarConfig } from "./calendar.js";
 import { compileKpiDef, compileMetric, validateMetricSpec } from "./metricSpec.js";
 import { availableHierarchies, currentLevel, nextLevel, drillPath, drillTo, drillUp, findLevel, dateDrillPath, drillToDate, trendGrain } from "./hierarchy.js";
+import { applyScenario, scenarioImpact } from "./scenario.js";
+import { analyzeDrivers } from "./drivers.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -435,6 +437,106 @@ assert.equal(
   Math.round((new Date(retailP03.to).getTime() - new Date(retailP03.from).getTime()) / 86_400_000) + 1,
   35,
   "a 4-4-5 period 3 window is five weeks long",
+);
+
+
+// ---- Phase 8: what-if scenario modelling ----
+// The claim the feature rests on is that a scenario is a pure ROW TRANSFORM applied
+// before the analytics, not a second implementation of them. So: an untouched scenario
+// changes nothing at all, an applied one changes every analytic consistently and by the
+// exact arithmetic the slider promised, and — the honest part — a lever the dataset's
+// shape cannot propagate is reported as such instead of showing an unmoved profit.
+const scenarioColumns = ["order_date", "region", "qty", "price", "cost"];
+const scenarioRows: Row[] = [];
+for (let i = 0; i < 24; i++) {
+  scenarioRows.push({
+    order_date: `2025-${String((i % 12) + 1).padStart(2, "0")}-1${(i % 9) + 1}`,
+    region: i % 2 ? "West" : "East", qty: String(10 + i), price: "20", cost: String(100 + i),
+  });
+}
+// quantity x unit_price: the one shape in which a price lever reaches the bottom line.
+const scenarioMap = detectSchema(profileDataset(scenarioRows, scenarioColumns).columns).map;
+assert.equal(scenarioMap.revenue, undefined, "the fixture has no revenue column — revenue must be derived");
+assert(scenarioMap.quantity && scenarioMap.unit_price, "quantity x unit_price is the fixture's revenue formula");
+
+// An organization that never opens the scenario panel must see the numbers it always
+// saw. Asserted on the rows themselves, not on a total: identical rows cannot produce
+// a different anything, anywhere downstream.
+assert.equal(applyScenario(scenarioRows, scenarioMap, []), scenarioRows,
+  "no lever returns the very same array — the standing rule for this programme, at its strongest");
+assert.equal(applyScenario(scenarioRows, scenarioMap, [{ field: "unit_price", changePct: 0 }]), scenarioRows,
+  "a slider left at 0% is not a scenario");
+
+// "Raise price 5%" — the sentence the old whatIf (an absolute delta on the last history
+// point) could not express — must land as exactly 5% on every analytic at once.
+const raised = applyScenario(scenarioRows, scenarioMap, [{ field: "unit_price", changePct: 5 }]);
+const scenarioPack = PACKS.generic!;
+const roundTo2 = (n: number) => Math.round(n * 100) / 100;
+assert.equal(
+  A.overview(raised, scenarioMap).revenue.value,
+  roundTo2(A.overview(scenarioRows, scenarioMap).revenue.value * 1.05),
+  "a 5% price lever is a 5% revenue lever when revenue is quantity x unit_price",
+);
+const baseKpis = A.computeKpis(scenarioRows, scenarioMap, scenarioPack, {});
+const scenarioKpis = A.computeKpis(raised, scenarioMap, scenarioPack, {});
+assert.equal(
+  scenarioKpis.find((k) => k.key === "revenue")!.value,
+  roundTo2(baseKpis.find((k) => k.key === "revenue")!.value * 1.05),
+  "the dashboard KPI moves with the scenario, with no change to computeKpis",
+);
+assert.equal(
+  scenarioKpis.find((k) => k.key === "orders")!.value,
+  baseKpis.find((k) => k.key === "orders")!.value,
+  "a lever moves the quantities it names and nothing else — the order count is untouched",
+);
+// Every bucket of the trend, not just the total: a per-row transform must move each
+// period by the same factor, which is what makes the forecast built on it meaningful.
+const baseTrend = A.timeSeries(scenarioRows, scenarioMap, "revenue", {}, DEFAULT_CALENDAR);
+const scenarioTrend = A.timeSeries(raised, scenarioMap, "revenue", {}, DEFAULT_CALENDAR);
+assert.deepEqual(scenarioTrend.map((p) => p.period), baseTrend.map((p) => p.period), "a scenario re-buckets nothing");
+for (let i = 0; i < baseTrend.length; i++) {
+  assert.equal(scenarioTrend[i].value, roundTo2(baseTrend[i].value * 1.05), `period ${baseTrend[i].period} moves by exactly the lever`);
+}
+// forecast and analyzeDrivers consume the adjusted rows with no changes of their own.
+const scenarioForecast = forecast(scenarioTrend.map((p) => ({ period: p.period, value: p.value })), 3);
+assert.equal(scenarioForecast.points.length, 3, "a scenario forecast is still a forecast");
+assert(
+  scenarioForecast.points[0].value > forecast(baseTrend.map((p) => ({ period: p.period, value: p.value })), 3).points[0].value,
+  "the projection built on adjusted rows sits above the base one",
+);
+assert.equal(
+  analyzeDrivers(raised, scenarioMap, "revenue", "region").drivers.length,
+  analyzeDrivers(scenarioRows, scenarioMap, "revenue", "region").drivers.length,
+  "driver analysis runs on adjusted rows unchanged",
+);
+// A scenario is per row, so it commutes with filtering. If it did not, a scenario read
+// on a filtered page would disagree with the same scenario read on the whole business.
+assert.deepEqual(
+  A.applyFilters(raised, scenarioMap, { region: "West" }),
+  applyScenario(A.applyFilters(scenarioRows, scenarioMap, { region: "West" }), scenarioMap, [{ field: "unit_price", changePct: 5 }]),
+  "filtering an adjusted view equals adjusting a filtered one",
+);
+
+// The honest limitation, pinned. Given a STORED revenue column the identical price lever
+// still rewrites the price column, but revenue and profit cannot follow — and the impact
+// report has to say exactly that rather than leaving the user to read an unchanged
+// profit as "price does not matter".
+const storedRows = scenarioRows.map((r) => ({ ...r, revenue: String(A.num(r.qty) * A.num(r.price)) }));
+const storedMap = detectSchema(profileDataset(storedRows, [...scenarioColumns, "revenue"]).columns).map;
+assert.equal(storedMap.revenue, "revenue", "this fixture reads revenue from a stored column");
+const storedRaised = applyScenario(storedRows, storedMap, [{ field: "unit_price", changePct: 5 }]);
+assert.equal(A.overview(storedRaised, storedMap).revenue.value, A.overview(storedRows, storedMap).revenue.value,
+  "a price lever cannot move a stored revenue column");
+assert.equal(A.overview(storedRaised, storedMap).profit.value, A.overview(storedRows, storedMap).profit.value,
+  "and therefore cannot move profit either");
+const storedImpact = scenarioImpact(storedMap, [{ field: "unit_price", changePct: 5 }]);
+assert.deepEqual(storedImpact.levers[0].propagatesTo, [], "the report claims no propagation it cannot deliver");
+assert(storedImpact.levers[0].applied && storedImpact.levers[0].note !== null,
+  "the lever IS applied to the rows, so the panel must state why the headline numbers stand still");
+assert.deepEqual(
+  scenarioImpact(scenarioMap, [{ field: "unit_price", changePct: 5 }, { field: "cost", changePct: -10 }]).levers.map((l) => l.propagatesTo),
+  [["revenue", "profit"], ["profit"]],
+  "on a derived shape the same lever reaches revenue and profit, and cost reaches profit",
 );
 
 
