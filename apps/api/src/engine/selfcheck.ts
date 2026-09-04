@@ -11,9 +11,9 @@ import { deriveInsights } from "./insights.js";
 import { investigate } from "./investigate.js";
 import { detectPack, packMetric, PACKS } from "./industries.js";
 import { explainKpi } from "./explain.js";
-import { DEFAULT_CALENDAR } from "./calendar.js";
+import { DEFAULT_CALENDAR, periodRange, type CalendarConfig } from "./calendar.js";
 import { compileKpiDef, compileMetric, validateMetricSpec } from "./metricSpec.js";
-import { availableHierarchies, currentLevel, nextLevel, drillPath, drillTo, drillUp, findLevel } from "./hierarchy.js";
+import { availableHierarchies, currentLevel, nextLevel, drillPath, drillTo, drillUp, findLevel, dateDrillPath, drillToDate, trendGrain } from "./hierarchy.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -334,6 +334,108 @@ assert.deepEqual(A.overview(geoRows, geoMap, drillUp(atLeaf, geoH, null)), A.ove
 // The semantic -> filterKey mapping is data, and it is not the identity function.
 assert.equal(findLevel(geoHierarchies, "product_name")!.level.filterKey, "product", "product_name drills through the `product` filter key");
 assert.equal(findLevel(geoHierarchies, "customer_name"), null, "a dimension in no hierarchy is not drillable");
+
+
+// ---- Phase 7: date-grain drill-down ----
+// Drilling a date is only trustworthy if the window a bucket hands back contains exactly
+// the rows that built the bucket. That is one claim, and it is the whole feature: if the
+// window is a day out, the drilled total quietly disagrees with the bar that was clicked,
+// and under a retail 4-4-5 calendar — where a "period" is five weeks, not a month — a
+// window derived from the key's digits instead of from the calendar would be out by days
+// every single time.
+const dateColumns = ["order_date", "region", "revenue", "cost"];
+const dateRows: Row[] = [];
+for (let d = new Date(2025, 0, 1); d < new Date(2027, 0, 1); d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+  const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  // Distinct daily amounts, so any window that is one day out lands on a different total.
+  dateRows.push({ order_date: iso, region: d.getDate() % 2 ? "West" : "East", revenue: String(100 + dateRows.length), cost: "10" });
+}
+const dateMap = detectSchema(profileDataset(dateRows, dateColumns).columns).map;
+
+const RETAIL_445: CalendarConfig = { fiscalYearStartMonth: 1, scheme: "445", weekStartDay: 0 };
+const APRIL_FISCAL: CalendarConfig = { fiscalYearStartMonth: 4, scheme: "calendar", weekStartDay: 1 };
+
+for (const [calName, cal] of [["default", DEFAULT_CALENDAR], ["April fiscal", APRIL_FISCAL], ["retail 4-4-5", RETAIL_445]] as [string, CalendarConfig][]) {
+  // Every bucket in view is drillable, drilling into it reproduces the bucket's OWN
+  // number exactly, and the buckets partition the view — nothing double-counted, nothing
+  // lost. Asserted at each grain in turn, because this is the claim a user checks by
+  // eye every time they click a bar and read the KPI tile above it.
+  const checkLevel = (filters: A.Filters, label: string) => {
+    const grain = trendGrain(filters, cal);
+    const series = A.timeSeries(dateRows, dateMap, "revenue", filters, cal, grain);
+    assert(series.length > 1, `${calName}/${label}: the trend must offer more than one ${grain} to drill into`);
+    for (const point of series) {
+      assert.equal(
+        A.overview(dateRows, dateMap, drillToDate(filters, point.period, cal)).revenue.value,
+        point.value,
+        `${calName}/${label}: drilling ${point.period} must total exactly what its bucket showed`,
+      );
+    }
+    assert.equal(
+      Math.round(series.reduce((sum, p) => sum + p.value, 0) * 100) / 100,
+      A.overview(dateRows, dateMap, filters).revenue.value,
+      `${calName}/${label}: the ${grain} buckets must sum to the total they were drawn from`,
+    );
+    return series;
+  };
+
+  // The default view: no window, periods on the trend, every one of them a destination.
+  const periods = checkLevel({}, "no window");
+
+  // The full ladder is reached the way the UI reaches it — up the breadcrumb from a
+  // period to the year above it, then back down year > quarter > period.
+  const midPeriod = periods[Math.floor(periods.length / 2)]!.period;
+  const crumbs = dateDrillPath(drillToDate({}, midPeriod, cal), cal).map((c) => c.key);
+  assert.deepEqual(crumbs.slice(-1), [midPeriod], `${calName}: the breadcrumb ends where the drill did`);
+  assert.equal(crumbs.length, 4, `${calName}: All dates > year > quarter > period`);
+
+  let filters = drillToDate({}, crumbs[1]!, cal);
+  const visited = [crumbs[1]!];
+  for (const label of ["a year", "a quarter"]) {
+    const series = checkLevel(filters, label);
+    const chosen = series[Math.floor(series.length / 2)]!.period;
+    visited.push(chosen);
+    filters = drillToDate(filters, chosen, cal);
+  }
+  assert.deepEqual(dateDrillPath(filters, cal).map((c) => c.key), [null, ...visited], `${calName}: the breadcrumb reads the trail back`);
+
+  // Stepping back up must restore the earlier total EXACTLY — the round trip a user makes
+  // constantly, and where a stale bound would silently understate the business.
+  assert.equal(
+    A.overview(dateRows, dateMap, drillToDate(filters, visited[0]!, cal)).revenue.value,
+    A.overview(dateRows, dateMap, drillToDate({}, visited[0]!, cal)).revenue.value,
+    `${calName}: stepping back up to the year restores its total exactly`,
+  );
+  assert.deepEqual(A.overview(dateRows, dateMap, drillToDate(filters, null, cal)), A.overview(dateRows, dateMap, {}),
+    `${calName}: All dates returns the unfiltered view exactly`);
+
+  // A date drill is a filter like any other, so it composes with a dimension drill rather
+  // than replacing it.
+  const both = drillToDate({ region: ["West"] }, visited[1]!, cal);
+  assert.deepEqual(
+    A.applyFilters(dateRows, dateMap, both),
+    A.applyFilters(dateRows, dateMap, { region: ["West"], ...drillToDate({}, visited[1]!, cal) }),
+    `${calName}: a date drill and a region filter compose`,
+  );
+}
+
+// The default view is unchanged by this feature existing. An organization that never
+// clicks the trend sees the same series it always saw — the standing rule for the whole
+// programme, checked here rather than assumed.
+assert.deepEqual(
+  A.timeSeries(dateRows, dateMap, "revenue", {}, DEFAULT_CALENDAR, trendGrain({}, DEFAULT_CALENDAR)),
+  A.timeSeries(dateRows, dateMap, "revenue", {}),
+  "with nothing drilled, the trend is byte-identical to the pre-feature series",
+);
+
+// A retail period is not a month, and the window has to prove it: P03 of a 4-4-5 quarter
+// is five weeks. A window built from the key's digits would be a 28-31 day month.
+const retailP03 = periodRange("FY2026-P03", RETAIL_445)!;
+assert.equal(
+  Math.round((new Date(retailP03.to).getTime() - new Date(retailP03.from).getTime()) / 86_400_000) + 1,
+  35,
+  "a 4-4-5 period 3 window is five weeks long",
+);
 
 
 console.log("✓ engine selfcheck passed");

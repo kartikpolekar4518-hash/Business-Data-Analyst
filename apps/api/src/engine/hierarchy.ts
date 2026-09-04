@@ -1,5 +1,9 @@
 import type { Filters } from "./analytics.js";
 import { str } from "./analytics.js";
+import {
+  childGrain, grainKey, grainOf, parentGrain, periodLabel, periodRange,
+  type CalendarConfig, type Grain,
+} from "./calendar.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 
 // Drill-down hierarchies. Pure data plus pure Filters -> Filters transforms: drilling
@@ -118,4 +122,96 @@ export function findLevel(hs: Hierarchy[], semantic: Semantic): { hierarchy: Hie
     if (level) return { hierarchy, level };
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// The date axis, drilled the same way: year > quarter > period.
+//
+// A dimension drill sets a dimension filter; a date drill sets dateFrom/dateTo. Both are
+// Filters -> Filters, both compose with each other, and neither touches aggregation —
+// applyFilters was already date-aware. What makes this one calendar-shaped is that the
+// window it writes comes from calendar.periodRange, so a retail 4-4-5 period narrows to
+// the exact days that periodKey buckets into that period and not to a Gregorian month.
+
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function localDay(iso: string): Date | null {
+  const m = DATE_ONLY.exec(iso);
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null;
+}
+
+/**
+ * The key whose range the current window is EXACTLY, or null when there is no window,
+ * only one bound, or a span the user typed by hand.
+ *
+ * Exactness is the whole test. "1 Mar - 31 Mar" is March; "3 Mar - 28 Mar" is a
+ * hand-typed window, and treating it as March would let the breadcrumb claim a period
+ * the numbers underneath do not cover. Checked finest grain first so the answer is
+ * deterministic whatever the calendar.
+ */
+export function dateWindowKey(f: Filters, c: CalendarConfig): string | null {
+  const from = f.dateFrom;
+  const start = from && f.dateTo ? localDay(from) : null;
+  if (!start) return null;
+  for (const grain of ["period", "quarter", "year"] as Grain[]) {
+    const key = grainKey(start, c, grain);
+    const range = periodRange(key, c);
+    if (range && range.from === from && range.to === f.dateTo) return key;
+  }
+  return null;
+}
+
+/**
+ * The grain the trend should bucket at: the children of wherever the window sits.
+ *
+ * With no window — the default view — that is periods, which is exactly what the trend
+ * showed before this feature existed, so an untouched dashboard keeps every number it
+ * had. A window that is already one period has no finer grain to offer and stays at
+ * period, showing the single bucket it covers.
+ */
+export function trendGrain(f: Filters, c: CalendarConfig): Grain {
+  const key = dateWindowKey(f, c);
+  const grain = key ? grainOf(key) : null;
+  return (grain ? childGrain(grain) : null) ?? "period";
+}
+
+export interface DateCrumb { key: string | null; label: string; from?: string; to?: string }
+
+function parentKey(key: string, c: CalendarConfig): string | null {
+  const grain = grainOf(key);
+  const parent = grain ? parentGrain(grain) : null;
+  const range = parent ? periodRange(key, c) : null;
+  const start = range ? localDay(range.from) : null;
+  return parent && start ? grainKey(start, c, parent) : null;
+}
+
+/**
+ * The date breadcrumb, root first: All dates > FY2026 > FY2026 Q1 > FY2026 P02. Empty
+ * when the window is not a calendar unit — a hand-typed range has no trail to draw, and
+ * inventing one would offer a way "back up" to a year the user never drilled through.
+ */
+export function dateDrillPath(f: Filters, c: CalendarConfig): DateCrumb[] {
+  const key = dateWindowKey(f, c);
+  if (!key) return [];
+  const crumbs: DateCrumb[] = [];
+  for (let k: string | null = key; k; k = parentKey(k, c)) {
+    const range = periodRange(k, c)!;
+    crumbs.unshift({ key: k, label: periodLabel(k, c), from: range.from, to: range.to });
+  }
+  return [{ key: null, label: "All dates" }, ...crumbs];
+}
+
+/**
+ * Drill the date axis: the window becomes exactly the clicked bucket, or clears entirely
+ * at the "All dates" root. Dimension filters are left alone, so a date drill and a
+ * geography drill compose. A key with no range is not drillable and changes nothing
+ * rather than silently clearing the window.
+ */
+export function drillToDate(f: Filters, key: string | null, c: CalendarConfig): Filters {
+  const out: Filters = { ...f };
+  delete out.dateFrom;
+  delete out.dateTo;
+  if (!key) return out;
+  const range = periodRange(key, c);
+  return range ? { ...out, dateFrom: range.from, dateTo: range.to } : { ...f };
 }

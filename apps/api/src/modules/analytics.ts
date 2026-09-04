@@ -10,9 +10,10 @@ import { suggestIndustry, type RankSectionDef } from "../engine/industries.js";
 import { analyzeDrivers, type DriverMetric } from "../engine/drivers.js";
 import { detectAnomalies } from "../engine/anomaly.js";
 import { analyzeCorrelations } from "../engine/correlate.js";
-import { availableHierarchies } from "../engine/hierarchy.js";
+import { availableHierarchies, dateDrillPath, trendGrain } from "../engine/hierarchy.js";
 import { segmentEntities, type SegmentEntity } from "../engine/segment.js";
 import { explainKpi } from "../engine/explain.js";
+import { periodRange } from "../engine/calendar.js";
 import { detectSchema } from "../engine/schema.js";
 import type { Semantic } from "../engine/schema.js";
 
@@ -73,8 +74,11 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
   const prof = await prisma.dataset.findUnique({ where: { id: dataset.id }, select: { profile: true } });
   const cols = ((prof?.profile as { columns?: ColumnProfile[] } | null)?.columns) ?? [];
 
-  const revenueTrend = A.timeSeries(rows, schema, "revenue", f, calendar);
-  const profitTrend = A.timeSeries(rows, schema, "profit", f, calendar);
+  // Date-grain drill: the trend buckets one level below wherever the date window sits.
+  // With no window that is periods, i.e. exactly the series this route always returned.
+  const grain = trendGrain(f, calendar);
+  const revenueTrend = A.timeSeries(rows, schema, "revenue", f, calendar, grain);
+  const profitTrend = A.timeSeries(rows, schema, "profit", f, calendar, grain);
   const sparkOf = (t: { value: number }[]) => (t.length > 1 ? t.map((p) => p.value) : undefined);
   // Margin series by period-keyed lookup (not index) so it stays correct even if
   // the revenue/profit trend arrays ever diverge in length or ordering.
@@ -105,7 +109,19 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     suggestedIndustry: cols.length ? suggestIndustry(cols) : pack.key,
     schema,
     kpis,
-    trend: { title: pack.trend.title, subtitle: pack.trend.subtitle, revenue: revenueTrend, profit: profitTrend },
+    // Each bucket carries the date window it covers so a click can narrow to it without
+    // the client re-deriving 4-4-5 arithmetic — the calendar rules stay in the engine,
+    // written down once. `path` is the breadcrumb back up the grain.
+    trend: {
+      title: pack.trend.title, subtitle: pack.trend.subtitle, revenue: revenueTrend, profit: profitTrend,
+      grain,
+      ranges: Object.fromEntries(
+        [...new Set([...revenueTrend, ...profitTrend].map((p) => p.period))]
+          .map((key) => [key, periodRange(key, calendar)] as const)
+          .filter(([, range]) => range !== null),
+      ),
+      path: dateDrillPath(f, calendar),
+    },
     composition: {
       title: pack.composition.title, subtitle: pack.composition.subtitle, centerLabel: pack.composition.centerLabel,
       dimension: compDim ?? null,
