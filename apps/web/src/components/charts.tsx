@@ -286,16 +286,19 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
         <defs><linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.55} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={1} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={!horizontal} vertical={horizontal} />
-        {horizontal ? <>
-          <XAxis type="number" tick={tick} axisLine={false} tickLine={false} tickFormatter={fmtK} />
-          <YAxis type="category" dataKey="label" tick={tick} axisLine={false} tickLine={false} width={130} />
-        </> : <>
-          <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
-          <YAxis tick={tick} axisLine={false} tickLine={false} width={48} />
-        </>}
+        {/* One axis per child: Recharts scans BarChart's direct children for axes and does
+            not look inside a Fragment, so wrapping a pair in one drops both silently. */}
+        {horizontal
+          ? <XAxis type="number" tick={tick} axisLine={false} tickLine={false} tickFormatter={fmtK} />
+          : <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />}
+        {horizontal
+          ? <YAxis type="category" dataKey="label" tick={tick} axisLine={false} tickLine={false} width={130} />
+          : <YAxis tick={tick} axisLine={false} tickLine={false} width={48} />}
         <Tooltip content={<ShareTooltip total={total} />} cursor={{ fill: "rgba(91,140,255,0.08)" }} />
         {/* Ranked bars of one metric share one hue — varied color would encode nothing but rank. */}
-        <Bar dataKey="value" fill={`url(#${gradId})`} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
+        {/* maxBarSize only bites below ~4 categories, where the band is wider than a bar
+            should ever be; drilling down reaches those views constantly. */}
+        <Bar dataKey="value" fill={`url(#${gradId})`} maxBarSize={44} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
       </BarChart>
     </ResponsiveContainer>
   );
