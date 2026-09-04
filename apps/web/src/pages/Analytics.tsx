@@ -12,7 +12,7 @@ import { TrendChart, BarRankChart } from "../components/charts";
 import { DriverBreakdown, SegmentTiers, CorrelationList } from "../components/analytics";
 import { KpiCard } from "../components/Kpi";
 import { BarChart3, ChevronRight } from "lucide-react";
-import type { OverviewResponse, Hierarchy, HierarchyLevel } from "../lib/types";
+import type { OverviewResponse, Hierarchy, HierarchyLevel, DateCrumb } from "../lib/types";
 import { drillPath, drillTo, drillUp, findLevel } from "../lib/hierarchy";
 
 const FILTERS = [
@@ -25,6 +25,40 @@ const FILTERS = [
   { key: "customer", label: "Customer" },
 ] as const;
 
+// One breadcrumb trail. Shared by the dimension drill and the date drill, which differ
+// only in what a crumb points at — the markup, and the rule that the crumb you are ON is
+// a position rather than a destination, are the same for both.
+function Trail({ label, crumbs, onNavigate }: {
+  label: string;
+  crumbs: { id: string; text: string }[];
+  onNavigate: (index: number) => void;
+}) {
+  return (
+    <nav aria-label={`${label} drill-down`} className="flex flex-wrap items-center gap-1 text-sm">
+      <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</span>
+      {crumbs.map((crumb, i) => {
+        const last = i === crumbs.length - 1;
+        return (
+          <span key={crumb.id} className="flex items-center gap-1">
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-slate-600" />}
+            {last ? (
+              <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-slate-900 dark:text-white">{crumb.text}</span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onNavigate(i)}
+                className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+              >
+                {crumb.text}
+              </button>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
+
 // One trail per hierarchy the user has drilled into. Rendered only when something is
 // actually set, so the page looks unchanged until a chart is clicked.
 function DrillBreadcrumb({ hierarchies, params, onNavigate }: {
@@ -35,44 +69,33 @@ function DrillBreadcrumb({ hierarchies, params, onNavigate }: {
   const trails = hierarchies
     .map((h) => ({ h, path: drillPath(h, params) }))
     .filter((t) => t.path.length > 0);
-  if (!trails.length) return null;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <>
       {trails.map(({ h, path }) => (
-        <nav key={h.id} aria-label={`${h.label} drill-down`} className="flex flex-wrap items-center gap-1 text-sm">
-          <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">{h.label}</span>
-          <button
-            type="button"
-            onClick={() => onNavigate(h, null)}
-            className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
-          >
-            All
-          </button>
-          {path.map((crumb, i) => {
-            const last = i === path.length - 1;
-            const text = crumb.values.join(", ");
-            return (
-              <span key={crumb.level.filterKey} className="flex items-center gap-1">
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-slate-600" />
-                {last ? (
-                  // The level you are on is a position, not a destination.
-                  <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-slate-900 dark:text-white">{text}</span>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => onNavigate(h, crumb.level)}
-                    className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
-                  >
-                    {text}
-                  </button>
-                )}
-              </span>
-            );
-          })}
-        </nav>
+        <Trail
+          key={h.id}
+          label={h.label}
+          crumbs={[{ id: "__all", text: "All" }, ...path.map((c) => ({ id: c.level.filterKey, text: c.values.join(", ") }))]}
+          // Index 0 is the "All" root; every other crumb is the level it sits on.
+          onNavigate={(i) => onNavigate(h, i === 0 ? null : path[i - 1].level)}
+        />
       ))}
-    </div>
+    </>
+  );
+}
+
+// The date trail: All dates > 2026 > Q2 2026 > May 2026. Every crumb carries the window
+// it covers, computed by the engine's calendar — a fiscal or retail 4-4-5 period is not
+// a month, so the client never derives a date from a period key of its own accord.
+function DateBreadcrumb({ path, onNavigate }: { path: DateCrumb[]; onNavigate: (crumb: DateCrumb) => void }) {
+  if (path.length < 2) return null;
+  return (
+    <Trail
+      label="Date"
+      crumbs={path.map((c) => ({ id: c.key ?? "__all", text: c.label }))}
+      onNavigate={(i) => onNavigate(path[i])}
+    />
   );
 }
 
@@ -117,6 +140,14 @@ export default function Analytics() {
     to ? next.set("dateTo", to) : next.delete("dateTo");
     setParams(next, { replace: true });
   };
+
+  // Drilling the trend is the same write as drilling a bar — it just sets the date bounds
+  // instead of a dimension. Both the bucket windows and the breadcrumb come from the API,
+  // so fiscal and retail calendars stay correct without any calendar code living here.
+  const trendRanges = ov.data?.trend.ranges;
+  const drillTrend = trendRanges
+    ? (key: string) => { const range = trendRanges[key]; if (range) setDates(range.from, range.to); }
+    : undefined;
   const clear = () => {
     const prev = params.toString();
     if (!prev) return;
@@ -202,9 +233,12 @@ export default function Analytics() {
       </div>
 
       {/* Charts — a bar click drills one level down its hierarchy */}
-      <DrillBreadcrumb hierarchies={hierarchies} params={params} onNavigate={navigateUp} />
+      <div className="flex flex-col gap-1.5">
+        <DrillBreadcrumb hierarchies={hierarchies} params={params} onNavigate={navigateUp} />
+        <DateBreadcrumb path={ov.data?.trend.path ?? []} onNavigate={(crumb) => setDates(crumb.from, crumb.to)} />
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card><CardHeader title={ov.data?.trend.title ?? "Revenue trend"} /><CardBody>{ov.data ? <TrendChart data={ov.data.trend.revenue} /> : <Spinner />}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.trend.title ?? "Revenue trend"} /><CardBody>{ov.data ? <TrendChart data={ov.data.trend.revenue} onSelect={drillTrend} /> : <Spinner />}</CardBody></Card>
         <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} onSelect={drillHandler(ov.data.composition.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
         <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} onSelect={drillHandler(ov.data.ranking.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
         <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} onSelect={drillHandler(ov.data.secondary.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>

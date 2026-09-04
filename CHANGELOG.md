@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Date drill-down — click the trend to zoom into a period
+
+- **The trend chart is now clickable.** Clicking a point filters the whole page to the
+  date range that bucket covers, and a `Date` breadcrumb — `All dates → 2026 → Q2 2026 →
+  May 2026` — steps back up. Stepping up to a year or a quarter re-buckets the trend to
+  its quarters or its periods, so the date axis drills both ways.
+- **Correct for fiscal and retail calendars.** A period's date window comes from the
+  business calendar, never from the digits in its label: under a retail 4-4-5 calendar,
+  period 3 is five weeks and the year-closing period is six weeks in a 53-week year. The
+  engine pins the round trip day by day, in every scheme it supports — the window a
+  bucket hands back contains exactly the rows that built it.
+- **Fixed: retail periods could be bucketed a week out around daylight saving.** Retail
+  weeks were counted in milliseconds, so a date after a clock change fell an hour short
+  and, at a week boundary, into the previous period. Invisible on a UTC server, wrong on
+  a local one. Now counted in whole days.
+- A date drill and a chart drill compose — filtering to Q2 and to `West` at once is one
+  URL, and clearing either leaves the other alone. A hand-typed date range is left as a
+  hand-typed range rather than being passed off as a period it does not cover.
+
 ### Drill-down — click a chart to filter to it
 
 - **Ranked charts are now clickable.** Clicking a bar filters the whole page to that

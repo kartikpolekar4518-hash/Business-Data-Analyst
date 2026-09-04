@@ -4,8 +4,9 @@ Working document. Tracks a six-feature programme derived from auditing NoPS agai
 Power BI's full published feature inventory (~120 features across DAX, modelling,
 visuals, transforms and workspace/security).
 
-**Status: 3 of 6 shipped.** Features 1–2 in PR #70 (merged); feature 3 on branch
-`claude/new-session-pxpdfv`.
+**Status: 3 of 6 shipped, plus follow-up 3b.** Features 1–2 in PR #70 (merged); feature 3
+in PR #72 (merged); date-grain drill-down (3b) on branch
+`claude/date-grain-drill-down-yhz1x8`. Next up: 3a, shareable saved views.
 
 ---
 
@@ -92,12 +93,48 @@ back up.
 - Selfcheck Phase 6 pins the claim the feature rests on: a drilled view equals the
   identical hand-set filter for rows, KPIs, rankings and evidence, and stepping back up
   restores the earlier total exactly.
-- **Deliberate limitation:** no date-grain drill (year → quarter → month).
-  `engine/calendar.ts` can label a period but has no period → date-range function, so a
-  date drill needs a new `periodRange(key, cal)` primitive with its own correctness tests
-  against 4-4-5. Feature-sized; listed under Remaining below.
+- **Was deferred, now shipped as 3b below:** the date-grain drill (year → quarter →
+  period), which needed a period → date-range function `engine/calendar.ts` did not have.
 - **Not done here:** promoting `SavedViews` from `localStorage` to an org-scoped model.
   Also under Remaining.
+
+### 3b. Date-grain drill-down ✅
+
+Click a point on the trend and the page filters to that bucket's date range; a `Date`
+breadcrumb steps back up through quarter and year, and the trend re-buckets to whatever
+sits one level below the window.
+
+- `periodRange(key, cal)` in `engine/calendar.ts` is the inverse of `periodKey`, plus
+  `grainKey(d, cal, grain)` for the two coarser grains. Key formats keep the existing
+  scheme split — `2026` / `2026-Q1` / `2026-03` for calendar months, `FY2026` /
+  `FY2026-Q1` / `FY2026-P03` for retail. **Year and quarter are fiscal under both
+  schemes** (fiscalYearOf's rule), so under an April start, year `2026` runs to March
+  2027 and contains the period key `2027-03`. Month bucketing stays Gregorian — that is
+  `periodKey`'s existing contract and it did not move.
+- **Correctness is by construction, not by table.** Retail bounds are counted in the same
+  weeks-from-year-start that `periodKey` counts, and the 53rd week folds into P12's
+  *range* exactly as `periodKey` folds it into P12. `calendar.test.ts` walks four years
+  day by day, at every grain, in five calendars, asserting the day before and after a
+  bucket's range belong to a different bucket, and that consecutive ranges tile with no
+  gap and no overlap.
+- **Bug found and fixed on the way in:** `periodKey` counted retail weeks in
+  milliseconds, so a date after a DST change was an hour short and, at a week boundary, a
+  whole week short — i.e. in the wrong period. Invisible in UTC (where the server runs),
+  wrong on a local-time host. Now counted in whole days; a test forces
+  `TZ=America/New_York` to keep it fixed.
+- Grain is derived from the date window, never stored: `dateWindowKey` returns the key
+  whose range the window *exactly* is. With no window the trend shows periods — byte
+  identical to the pre-feature series, which the selfcheck pins. A hand-typed range
+  (`3 Mar – 28 Mar`) matches no key, so it draws no breadcrumb rather than claiming a
+  period whose rows the view does not contain.
+- Threaded as an **optional trailing argument** (`timeSeries(…, cal, grain = "period")`),
+  like the calendar before it. No existing call site changed.
+- The client gets each bucket's window and the breadcrumb from `/analytics/overview`
+  (`trend.grain`, `trend.ranges`, `trend.path`) and does no calendar arithmetic of its
+  own — the 4-4-5 rules stay written down once, in the engine.
+- Selfcheck Phase 7 pins the claim the feature rests on, in three calendars: every bucket
+  in view is drillable, drilling it totals exactly what the bucket showed, the buckets sum
+  to the total they were drawn from, and stepping back up restores the earlier total.
 
 ---
 
@@ -111,13 +148,6 @@ model (`ReportTemplate` is the shape to copy, `templates.itest.ts` the test to c
 Keep the stored shape and `onApply` works unchanged. Needs a migration, CRUD routes with
 the usual `requireRole` gating, and an `*.itest.ts` covering CRUD, RBAC and tenant
 isolation.
-
-### 3b. Date-grain drill-down (small)
-
-Deferred out of feature 3. Needs `periodRange(key, cal)` in `engine/calendar.ts` — the
-inverse of `periodKey` — so drilling a period can set `dateFrom`/`dateTo`. Must be
-correct for fiscal and retail 4-4-5 calendars, which is the whole reason it was not
-squeezed into the drill-down change.
 
 ### 4. What-if scenario modelling
 
@@ -200,13 +230,13 @@ which makes it much more visible than it used to be. Worth its own fix.
 - Query keys are flat primitive arrays; filter-scoped keys carry the raw query string.
 - Migrations are hand-written SQL with a leading prose comment explaining intent and any
   data decision. Timestamp naming: `YYYYMMDDHHMMSS_add_snake_case_thing`.
-- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.3.0`.
+- Bump `engine/version.ts` and `apps/api/package.json` together. Currently `0.4.0`.
 
 ## Verification
 
 ```bash
 npm run typecheck                  # api + web
-npm test                           # 180 unit tests + engine selfcheck
+npm test                           # 198 unit tests + engine selfcheck
 ```
 
 Integration tests need Postgres. Docker is unavailable in the web sandbox, so run one

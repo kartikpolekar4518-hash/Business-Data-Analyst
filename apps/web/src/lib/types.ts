@@ -19,6 +19,10 @@ export interface RankSection {
 // Drill-down hierarchies, as sent by the API. `filterKey` is deliberately carried
 // alongside `semantic` rather than derived from it — the two disagree (product_name ->
 // product) and the engine owns that mapping. Never restate it here.
+export type DateGrain = "year" | "quarter" | "period";
+export interface DateRange { from: string; to: string }
+export interface DateCrumb { key: string | null; label: string; from?: string; to?: string }
+
 export interface HierarchyLevel { semantic: string; filterKey: string; label: string }
 export interface Hierarchy { id: string; label: string; levels: HierarchyLevel[] }
 export interface OverviewResponse {
@@ -26,7 +30,17 @@ export interface OverviewResponse {
   industry: string; suggestedIndustry: string;
   schema: Record<string, string>;
   kpis: KpiResult[];
-  trend: { title: string; subtitle: string; revenue: Point[]; profit: Point[] };
+  // The date axis drills like a hierarchy, but its levels are calendar units, so the
+  // engine sends the arithmetic rather than the client re-deriving it: `ranges` is the
+  // date window each visible bucket covers (fiscal and retail 4-4-5 windows are not
+  // months, and must never be guessed from the key), and `path` is the breadcrumb back
+  // up. Optional throughout — an older API build simply is not date-drillable.
+  trend: {
+    title: string; subtitle: string; revenue: Point[]; profit: Point[];
+    grain?: DateGrain;
+    ranges?: Record<string, DateRange>;
+    path?: DateCrumb[];
+  };
   composition: { title: string; subtitle: string; centerLabel: string; data: Rank[]; dimension?: string | null };
   ranking: RankSection;
   secondary: RankSection;

@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  childGrain,
   DEFAULT_CALENDAR,
+  GRAINS,
+  grainKey,
+  grainOf,
+  parentGrain,
+  periodRange,
   describeCalendar,
   fiscalYearOf,
   nextPeriodKey,
@@ -176,4 +182,185 @@ test("periodLabel renders both key formats for display", () => {
   assert.equal(periodLabel("2026-03"), "Mar 2026");
   assert.equal(periodLabel("FY2026-P03"), "FY2026 P3");
   assert.equal(periodLabel("whatever"), "whatever", "an unknown key is passed through unchanged");
+});
+
+// ---------------------------------------------------------------------------
+// Grains and periodRange — the date-grain drill-down.
+//
+// periodRange is the inverse of periodKey, and "inverse" is not a figure of speech
+// here: a drilled date window becomes the dateFrom/dateTo that every downstream number
+// is computed from, so a range that is one day out silently moves revenue between
+// periods. The round-trip tests below check that day by day rather than spot-checking
+// boundaries, against every calendar this product supports.
+
+const RETAIL_445: CalendarConfig = { fiscalYearStartMonth: 1, scheme: "445", weekStartDay: 0 };
+const RETAIL_454_APRIL: CalendarConfig = { fiscalYearStartMonth: 4, scheme: "454", weekStartDay: 1 };
+const CAL_APRIL: CalendarConfig = { fiscalYearStartMonth: 4, scheme: "calendar", weekStartDay: 1 };
+
+const ALL_CALENDARS: [string, CalendarConfig][] = [
+  ["default", DEFAULT_CALENDAR],
+  ["calendar months, April fiscal start", CAL_APRIL],
+  ["retail 4-4-5, January, Sunday weeks", RETAIL_445],
+  ["retail 4-5-4, April, Monday weeks", RETAIL_454_APRIL],
+  ["retail 5-4-4, October, Saturday weeks", { fiscalYearStartMonth: 10, scheme: "544", weekStartDay: 6 }],
+];
+
+const day = (iso: string) => new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+
+// THE invariant. For every day of four years, in every calendar, at every grain: the key
+// that day buckets into covers a range that contains that day, and the day before the
+// range and the day after it belong to a DIFFERENT key. That is what makes drilling into
+// a bucket select exactly the rows the bucket was drawn from — no more, no fewer.
+test("periodRange is the exact inverse of grainKey, for every grain and calendar", () => {
+  for (const [name, cal] of ALL_CALENDARS) {
+    for (const grain of GRAINS) {
+      for (let d = day("2024-01-01"); d < day("2028-01-01"); d = addDays(d, 1)) {
+        const key = grainKey(d, cal, grain);
+        const range = periodRange(key, cal);
+        assert(range, `${name}/${grain}: ${key} must have a range`);
+        assert(range!.from <= isoOf(d) && isoOf(d) <= range!.to, `${name}/${grain}: ${isoOf(d)} must lie inside ${key} (${range!.from}..${range!.to})`);
+        assert.notEqual(grainKey(addDays(day(range!.from), -1), cal, grain), key, `${name}/${grain}: the day before ${key} must be another ${grain}`);
+        assert.notEqual(grainKey(addDays(day(range!.to), 1), cal, grain), key, `${name}/${grain}: the day after ${key} must be another ${grain}`);
+      }
+    }
+  }
+});
+const isoOf = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// Ranges must tile: no gap (a day belonging to nothing) and no overlap (a day counted
+// twice). The inverse test above proves containment; this proves coverage.
+test("consecutive periods tile the year with no gap and no overlap", () => {
+  for (const [name, cal] of ALL_CALENDARS) {
+    for (const grain of GRAINS) {
+      let key = grainKey(day("2025-06-15"), cal, grain);
+      let range = periodRange(key, cal)!;
+      for (let i = 0; i < 8; i++) {
+        const nextKey = grainKey(addDays(day(range.to), 1), cal, grain);
+        const next = periodRange(nextKey, cal)!;
+        assert.equal(next.from, isoOf(addDays(day(range.to), 1)), `${name}/${grain}: ${nextKey} must start the day after ${key} ends`);
+        assert(nextKey > key, `${name}/${grain}: keys must still sort chronologically (${key} -> ${nextKey})`);
+        key = nextKey;
+        range = next;
+      }
+    }
+  }
+});
+
+// The 53-week year is the case the whole feature was deferred for. FY2011 in a Sunday
+// 4-4-5 starting January is 53 weeks long, and periodKey folds the extra week into P12 —
+// so P12's RANGE must be 6 weeks, not 5, or a drill into it would drop a week of revenue.
+test("a 53-week retail year gives period 12 a six-week range", () => {
+  const cal = RETAIL_445;
+  const years = Array.from({ length: 30 }, (_, i) => 2010 + i);
+  const long = years.find((y) => Math.round((retailYearStart(y + 1, cal).getTime() - retailYearStart(y, cal).getTime()) / 86_400_000) === 371);
+  assert(long, "a 4-4-5 calendar must produce a 53-week year within thirty years");
+  const p12 = periodRange(`FY${long}-P12`, cal)!;
+  const weeks = (day(p12.to).getTime() - day(p12.from).getTime()) / (7 * 86_400_000);
+  assert.equal(Math.round(weeks * 7 + 1) / 7, 6, "period 12 of a 53-week year runs six weeks");
+  // And it closes the year: the next day opens the next fiscal year's period 1.
+  assert.equal(periodKey(addDays(day(p12.to), 1), cal), `FY${long! + 1}-P01`);
+  // Quarter 4 must close on the same day, for the same reason.
+  assert.equal(periodRange(`FY${long}-Q4`, cal)!.to, p12.to, "Q4 ends where P12 ends");
+  assert.equal(periodRange(`FY${long}`, cal)!.to, p12.to, "the year ends where P12 ends");
+});
+
+// A quarter is exactly its three periods; a year is exactly its four quarters. If these
+// disagree, drilling down loses or double-counts rows on the way.
+test("grains nest exactly: year = 4 quarters = 12 periods", () => {
+  for (const [name, cal] of ALL_CALENDARS) {
+    const yearKey = grainKey(day("2026-05-20"), cal, "year");
+    const year = periodRange(yearKey, cal)!;
+    const quarters = [1, 2, 3, 4].map((q) => periodRange(`${yearKey}-Q${q}`, cal)!);
+    assert.equal(quarters[0].from, year.from, `${name}: Q1 opens the year`);
+    assert.equal(quarters[3].to, year.to, `${name}: Q4 closes the year`);
+    for (let i = 1; i < 4; i++) assert.equal(quarters[i].from, isoOf(addDays(day(quarters[i - 1].to), 1)), `${name}: quarters are contiguous`);
+
+    const periodOf = (n: number) => periodRange(cal.scheme === "calendar"
+      ? `${day(year.from).getFullYear() + Math.floor((day(year.from).getMonth() + n - 1) / 12)}-${String(((day(year.from).getMonth() + n - 1) % 12) + 1).padStart(2, "0")}`
+      : `${yearKey}-P${String(n).padStart(2, "0")}`, cal)!;
+    assert.equal(periodOf(1).from, year.from, `${name}: period 1 opens the year`);
+    assert.equal(periodOf(12).to, year.to, `${name}: period 12 closes the year`);
+    for (let n = 2; n <= 12; n++) assert.equal(periodOf(n).from, isoOf(addDays(day(periodOf(n - 1).to), 1)), `${name}: periods are contiguous`);
+  }
+});
+
+// Retail bucketing counts weeks from the year start. Doing that in milliseconds puts
+// every date after a spring-forward an hour short, which floors to the wrong WEEK twice a
+// year and silently moves rows into the previous period. The engine runs in UTC, where
+// the bug is invisible — so this test forces a DST timezone to keep it fixed.
+test("retail periods survive daylight saving in a DST timezone", () => {
+  const tz = process.env.TZ;
+  process.env.TZ = "America/New_York";
+  try {
+    for (const cal of [RETAIL_445, RETAIL_454_APRIL]) {
+      for (let d = day("2026-01-01"); d < day("2027-01-01"); d = addDays(d, 1)) {
+        const key = periodKey(d, cal);
+        const range = periodRange(key, cal)!;
+        assert(range.from <= isoOf(d) && isoOf(d) <= range.to, `${isoOf(d)} must lie inside ${key} across a DST change`);
+      }
+      // Every period is a whole number of weeks (five or six for the year-closing one).
+      for (let n = 1; n <= 12; n++) {
+        const r = periodRange(`FY2026-P${String(n).padStart(2, "0")}`, cal)!;
+        const days = Math.round((day(r.to).getTime() - day(r.from).getTime()) / 86_400_000) + 1;
+        assert.equal(days % 7, 0, `period ${n} must be a whole number of weeks, got ${days} days`);
+      }
+    }
+  } finally {
+    if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
+  }
+});
+
+test("grainOf reads the grain out of a key, and rejects anything else", () => {
+  assert.equal(grainOf("2026"), "year");
+  assert.equal(grainOf("FY2026"), "year");
+  assert.equal(grainOf("2026-Q3"), "quarter");
+  assert.equal(grainOf("FY2026-Q3"), "quarter");
+  assert.equal(grainOf("2026-03"), "period");
+  assert.equal(grainOf("FY2026-P03"), "period");
+  for (const bad of ["2026-13", "2026-Q5", "FY2026-P13", "FY2026-P3", "2026-3", "", "March"]) {
+    assert.equal(grainOf(bad), null, `${bad} is not a period key`);
+  }
+});
+
+test("grains walk up and down and stop at both ends", () => {
+  assert.equal(childGrain("year"), "quarter");
+  assert.equal(childGrain("quarter"), "period");
+  assert.equal(childGrain("period"), null, "there is no day grain");
+  assert.equal(parentGrain("period"), "quarter");
+  assert.equal(parentGrain("year"), null);
+});
+
+// A key the module never produces must not resolve to a plausible-looking range: a
+// hand-edited URL has to fail visibly as "not drillable", never as a silently wrong window.
+test("periodRange refuses keys it cannot invert", () => {
+  assert.equal(periodRange("FY2026-P03", DEFAULT_CALENDAR), null, "no retail pattern under the calendar scheme");
+  assert.equal(periodRange("FY2026-P13", RETAIL_445), null);
+  assert.equal(periodRange("2026-13", DEFAULT_CALENDAR), null);
+  assert.equal(periodRange("nonsense", RETAIL_445), null);
+});
+
+// Under an April fiscal start the year is fiscal at every grain — the one reading
+// consistent with fiscalYearOf, and the reason the label says FY.
+test("a non-January fiscal start moves the year and quarter boundaries", () => {
+  assert.equal(grainKey(day("2026-04-01"), CAL_APRIL, "year"), "2026");
+  assert.equal(grainKey(day("2027-03-31"), CAL_APRIL, "year"), "2026", "March 2027 still belongs to FY2026");
+  assert.equal(grainKey(day("2026-03-31"), CAL_APRIL, "year"), "2025");
+  assert.deepEqual(periodRange("2026", CAL_APRIL), { from: "2026-04-01", to: "2027-03-31" });
+  assert.equal(grainKey(day("2026-04-01"), CAL_APRIL, "quarter"), "2026-Q1");
+  assert.equal(grainKey(day("2026-07-01"), CAL_APRIL, "quarter"), "2026-Q2");
+  assert.deepEqual(periodRange("2026-Q4", CAL_APRIL), { from: "2027-01-01", to: "2027-03-31" });
+  // Month bucketing is untouched by the fiscal start — that is periodKey's contract.
+  assert.equal(grainKey(day("2026-04-01"), CAL_APRIL, "period"), "2026-04");
+});
+
+test("periodLabel renders the new grains, and names a fiscal year as one", () => {
+  assert.equal(periodLabel("2026"), "2026");
+  assert.equal(periodLabel("2026-Q2"), "Q2 2026");
+  assert.equal(periodLabel("FY2026"), "FY2026");
+  assert.equal(periodLabel("FY2026-Q2"), "FY2026 Q2");
+  assert.equal(periodLabel("2026", CAL_APRIL), "FY2026", "an April fiscal year is not the calendar year 2026");
+  assert.equal(periodLabel("2026-Q2", CAL_APRIL), "FY2026 Q2");
+  assert.equal(periodLabel("2026-03", CAL_APRIL), "Mar 2026", "months stay Gregorian, as they are bucketed");
 });

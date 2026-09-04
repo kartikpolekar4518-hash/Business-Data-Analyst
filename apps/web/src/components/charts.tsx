@@ -140,14 +140,23 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
 }
 
 /* ───────── Single-series area trend ───────── */
-export const TrendChart = memo(function TrendChart({ data, color = BRAND, height = 260 }: { data: { label?: string; period?: string; value: number }[]; color?: string; height?: number }) {
+// `onSelect` receives the clicked point's label — for the dashboard trend that is the
+// period key, which is what the date drill filters by. The handler sits on the chart
+// rather than on the series: an area is a thin target, and Recharts' chart-level click
+// already resolves to the nearest x category, which is the bucket the user aimed at.
+export const TrendChart = memo(function TrendChart({ data, color = BRAND, height = 260, onSelect }: { data: { label?: string; period?: string; value: number }[]; color?: string; height?: number; onSelect?: (label: string) => void }) {
   const { grid, tick, tooltipStyle } = useAxis();
   const anim = useSeriesAnimation();
   const gradientId = useId();
   const norm = data.map((d) => ({ label: d.label ?? d.period, value: d.value }));
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={norm} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <AreaChart
+        data={norm}
+        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+        style={onSelect ? { cursor: "pointer" } : undefined}
+        onClick={onSelect ? (state: { activeLabel?: string }) => { const l = String(state?.activeLabel ?? "").trim(); if (l) onSelect(l); } : undefined}
+      >
         <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.35} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
