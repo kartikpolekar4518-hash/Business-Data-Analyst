@@ -3,14 +3,15 @@ import { Card, CardHeader, CardBody } from "../components/ui";
 import { cn } from "../lib/utils";
 import { Reveal } from "../lib/motion";
 import {
-  ComboChart, WaterfallChart, FunnelStages, ScatterBubbleChart, RadarProfile, GaugeChart, TreemapChart, Heatmap,
+  WaterfallChart, FunnelStages, ScatterBubbleChart, RadarProfile, GaugeChart, TreemapChart, Heatmap,
   TrendChart, DonutChart, BarRankChart,
 } from "../components/charts";
+import { ComboChart } from "../components/charts.families";
 
 // A living catalog of the chart library. Sample data only — the analytics pages
 // feed these the same shapes from the deterministic engine.
 const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
-const combo = months.map((label, i) => ({ label, bar: 120000 + i * 26000 + (i % 2) * 12000, line: 18 + i * 1.4 }));
+const combo = months.map((label, i) => ({ label, Revenue: 120000 + i * 26000 + (i % 2) * 12000, "Margin %": 18 + i * 1.4 }));
 const waterfall = [
   { label: "Opening", value: 240000 },
   { label: "New", value: 86000 },
@@ -108,7 +109,7 @@ export default function ChartLibrary() {
       <div className="grid gap-4 lg:grid-cols-2">
         {show("comparison") && (
           <Panel wide title="Combo (bar + line)" subtitle="Two metrics, two axes — e.g. revenue vs margin %">
-            <ComboChart data={combo} />
+            <ComboChart data={combo} bars={["Revenue"]} lines={["Margin %"]} />
           </Panel>
         )}
         {show("composition") && (
