@@ -2,8 +2,10 @@
   "name": "nops",
   "version": "0.1.0",
   "private": true,
-  "description": "NoPS — AI Decision Intelligence Platform (deterministic analyst, no LLM key required)",
-  "workspaces": ["apps/*"],
+  "description": "NoPS \u2014 AI Decision Intelligence Platform (deterministic analyst, no LLM key required)",
+  "workspaces": [
+    "apps/*"
+  ],
   "overrides": {
     "@types/express": "^4.17.21",
     "@types/express-serve-static-core": "^4.19.6"
@@ -13,7 +15,7 @@
     "dev:api": "npm run dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web",
     "build": "npm run build --workspace apps/api && npm run build --workspace apps/web",
-    "test": "npm run test --workspace apps/api",
+    "test": "npm run test --workspace apps/api && npm run test --workspace apps/web",
     "typecheck": "npm run typecheck --workspace apps/api && npm run typecheck --workspace apps/web",
     "db:migrate": "npm run prisma:migrate --workspace apps/api",
     "db:seed": "npm run seed --workspace apps/api",
