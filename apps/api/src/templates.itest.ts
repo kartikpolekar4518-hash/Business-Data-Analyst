@@ -8,19 +8,27 @@ import { randomUUID } from "node:crypto";
 import { app } from "./app.js";
 import { prisma } from "./prisma.js";
 import { signToken } from "./auth/middleware.js";
-import { setupOrg as baseSetupOrg, makeEmail, orgIds, cleanupOrgs } from "./testHelpers.js";
 
 const RUN = randomUUID().slice(0, 8);
-const email = makeEmail("tpl", RUN);
+const email = (tag: string) => `tpl-${RUN}-${tag}@example.test`;
+const orgIds = new Set<string>();
 
 async function setupOrg(tag: string, withData = true) {
-  return baseSetupOrg(tag, { email, withSampleData: withData });
+  const res = await request(app).post("/api/auth/signup").send({
+    name: `User ${tag}`, email: email(tag), password: "password123", organizationName: `Org ${tag}`,
+  });
+  const orgId = res.body.organization.id as string;
+  orgIds.add(orgId);
+  const token = `Bearer ${res.body.token}`;
+  if (withData) await request(app).post("/api/uploads/sample").set("Authorization", token);
+  return { orgId, token };
 }
-
 
 before(async () => { await prisma.$connect(); });
 after(async () => {
-  await cleanupOrgs("tpl", RUN);
+  for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch(() => {});
+  await prisma.user.deleteMany({ where: { email: { startsWith: `tpl-${RUN}-` } } });
+  await prisma.$disconnect();
 });
 
 test("CRUD: create, list, and delete a template", async () => {
@@ -31,7 +39,8 @@ test("CRUD: create, list, and delete a template", async () => {
   const id = created.body.template.id;
   const list = await request(app).get("/api/reports/templates").set("Authorization", token);
   assert.ok(list.body.templates.some((t: any) => t.id === id));
-  assert.equal((await request(app).delete(`/api/reports/templates/${id}`).set("Authorization", token)).status, 204);  assert.ok(!(await request(app).get("/api/reports/templates").set("Authorization", token)).body.templates.some((t: any) => t.id === id)));
+  assert.equal((await request(app).delete(`/api/reports/templates/${id}`).set("Authorization", token)).status, 204);
+  assert.ok(!(await request(app).get("/api/reports/templates").set("Authorization", token)).body.templates.some((t: any) => t.id === id));
 });
 
 test("generate with a template drops the deselected blocks", async () => {

@@ -63,10 +63,10 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   const split = A.splitPeriods(rows, s);
   const { current, previous } = split;
   const comparisonAvailable = split.basis === "trailing_equal_period";
-  const currentTotal = A.round(metric.compute(current, s));
-  const previousTotal = comparisonAvailable ? A.round(metric.compute(previous, s)) : 0;
-  const totalDelta = comparisonAvailable ? A.round(currentTotal - previousTotal) : 0;
-  const changePct = comparisonAvailable && previousTotal !== 0 ? A.round((totalDelta / Math.abs(previousTotal)) * 100) : null;
+  const currentTotal = round(metric.compute(current, s));
+  const previousTotal = comparisonAvailable ? round(metric.compute(previous, s)) : 0;
+  const totalDelta = comparisonAvailable ? round(currentTotal - previousTotal) : 0;
+  const changePct = comparisonAvailable && previousTotal !== 0 ? round((totalDelta / Math.abs(previousTotal)) * 100) : null;
 
   // Driver attribution only makes sense for additive metrics — summing a ratio
   // (churn, ARPU) or a distinct count across dimension members is meaningless. For
@@ -136,4 +136,9 @@ function buildNarrative(metric: PackMetric, comparisonAvailable: boolean, curren
   if (anomalyCount) parts.push(`${anomalyCount} anomalous period${anomalyCount === 1 ? " was" : "s were"} detected.`);
   return parts.join(" ");
 }
+
+// Coercing round: a ratio metric that divides by zero yields NaN/Infinity, and the
+// narrative must not print it. A.round alone does not coerce, so the num() step is
+// load-bearing here and is not shared with the other call sites of A.round.
+function round(n: number): number { return A.round(A.num(n)); }
 

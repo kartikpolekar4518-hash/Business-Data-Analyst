@@ -9,15 +9,21 @@ import { randomUUID } from "node:crypto";
 import { app } from "./app.js";
 import { prisma } from "./prisma.js";
 import { signToken } from "./auth/middleware.js";
-import { setupOrg as baseSetupOrg, makeEmail, orgIds, cleanupOrgs } from "./testHelpers.js";
 
 const RUN = randomUUID().slice(0, 8);
-const email = makeEmail("metric", RUN);
+const email = (tag: string) => `metric-${RUN}-${tag}@example.test`;
+const orgIds = new Set<string>();
 
 async function setupOrg(tag: string, withData = true) {
-  return baseSetupOrg(tag, { email, withSampleData: withData });
+  const res = await request(app).post("/api/auth/signup").send({
+    name: `User ${tag}`, email: email(tag), password: "password123", organizationName: `Org ${tag}`,
+  });
+  const orgId = res.body.organization.id as string;
+  orgIds.add(orgId);
+  const token = `Bearer ${res.body.token}`;
+  if (withData) await request(app).post("/api/uploads/sample").set("Authorization", token);
+  return { orgId, token, userId: res.body.user.id as string };
 }
-
 
 const costRatio = {
   key: "cost_ratio", label: "Cost Ratio", kind: "ratio", format: "percent",
@@ -27,7 +33,9 @@ const costRatio = {
 
 before(async () => { await prisma.$connect(); });
 after(async () => {
-  await cleanupOrgs("metric", RUN);
+  for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch(() => {});
+  await prisma.user.deleteMany({ where: { email: { startsWith: `metric-${RUN}-` } } });
+  await prisma.$disconnect();
 });
 
 test("a custom metric can be created, listed and deleted", async () => {
@@ -42,7 +50,7 @@ test("a custom metric can be created, listed and deleted", async () => {
   assert.equal(listed.body.metrics.length, 1);
   assert.equal(listed.body.metrics[0].label, "Cost Ratio");
 
-  const deleted = await request(app).delete `/api/metrics/${created.body.metric.id}`).set("Authorization", token);
+  const deleted = await request(app).delete(`/api/metrics/${created.body.metric.id}`).set("Authorization", token);
   assert.equal(deleted.status, 204);
 
   const after = await request(app).get("/api/metrics").set("Authorization", token);
@@ -94,7 +102,7 @@ test("a VIEWER can read metrics but not change them", async () => {
     .send({ ...costRatio, key: "viewer_metric" });
   assert.equal(write.status, 403);
 
-  const del = await request(app).delete `/api/metrics/${created.body.metric.id}`).set("Authorization", viewerToken);
+  const del = await request(app).delete(`/api/metrics/${created.body.metric.id}`).set("Authorization", viewerToken);
   assert.equal(del.status, 403);
 });
 
@@ -106,7 +114,7 @@ test("one organization cannot see or delete another's metrics", async () => {
   const bList = await request(app).get("/api/metrics").set("Authorization", b.token);
   assert.equal(bList.body.metrics.length, 0, "org B sees none of org A's metrics");
 
-  const bDelete = await request(app).delete `/api/metrics/${created.body.metric.id}`).set("Authorization", b.token);
+  const bDelete = await request(app).delete(`/api/metrics/${created.body.metric.id}`).set("Authorization", b.token);
   assert.equal(bDelete.status, 404, "org B gets 404, not 403, for an id it does not own");
 
   // Org B may reuse the same key: keys are unique per organization, not globally.
@@ -154,7 +162,7 @@ test("a metric in use by an alert rule cannot be deleted", async () => {
     .send({ name: "Cost ratio too high", metric: "cost_ratio", comparator: "GT", threshold: 50, frequency: "DAILY" });
   assert.equal(rule.status, 201, "an alert rule can target a custom metric");
 
-  const blocked = await request(app).delete `/api/metrics/${created.body.metric.id}`).set("Authorization", token);
+  const blocked = await request(app).delete(`/api/metrics/${created.body.metric.id}`).set("Authorization", token);
   assert.equal(blocked.status, 409);
   assert.match(blocked.body.error, /alert rule/i);
 });
