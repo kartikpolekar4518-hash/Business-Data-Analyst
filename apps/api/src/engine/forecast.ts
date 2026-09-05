@@ -5,6 +5,7 @@
 // same history always yields the same forecast.
 
 import { nextPeriodKey, periodIndexInYear } from "./calendar.js";
+import { round } from "./analytics.js";
 
 export interface HistoryPoint { period: string; value: number; }
 export interface ForecastPoint {
@@ -188,7 +189,6 @@ export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
   return { method: model.method, history, points };
 }
 
-function round(n: number): number { return Math.round(n * 100) / 100; }
 
 /**
  * Evaluate a forecast against a goal/target. Deterministic band-based judgement:

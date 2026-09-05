@@ -63,10 +63,10 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   const split = A.splitPeriods(rows, s);
   const { current, previous } = split;
   const comparisonAvailable = split.basis === "trailing_equal_period";
-  const currentTotal = round(metric.compute(current, s));
-  const previousTotal = comparisonAvailable ? round(metric.compute(previous, s)) : 0;
-  const totalDelta = comparisonAvailable ? round(currentTotal - previousTotal) : 0;
-  const changePct = comparisonAvailable && previousTotal !== 0 ? round((totalDelta / Math.abs(previousTotal)) * 100) : null;
+  const currentTotal = A.round(metric.compute(current, s));
+  const previousTotal = comparisonAvailable ? A.round(metric.compute(previous, s)) : 0;
+  const totalDelta = comparisonAvailable ? A.round(currentTotal - previousTotal) : 0;
+  const changePct = comparisonAvailable && previousTotal !== 0 ? A.round((totalDelta / Math.abs(previousTotal)) * 100) : null;
 
   // Driver attribution only makes sense for additive metrics — summing a ratio
   // (churn, ARPU) or a distinct count across dimension members is meaningless. For
@@ -90,14 +90,14 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   for (const d of drivers.slice(0, 3)) {
     const top = d.drivers[0];
     if (!top) continue;
-    claims.push({ kind: "driver", metric: metric.id, period: comparisonLabel(split), dimension: d.dimension ?? undefined, detail: `${top.label} contribution ${fmt(top.contribution)}`, rows: d.drivers.length, value: top.contribution });
+    claims.push({ kind: "driver", metric: metric.id, period: comparisonLabel(split), dimension: d.dimension ?? undefined, detail: `${top.label} contribution ${A.fmt(top.contribution)}`, rows: d.drivers.length, value: top.contribution });
   }
 
   if (decomposition?.canDecompose) {
     const parts: string[] = [];
-    if (Math.abs(decomposition.volumeDelta) > 0.01) parts.push(`volume ${fmt(decomposition.volumeDelta)}`);
-    if (Math.abs(decomposition.priceDelta) > 0.01) parts.push(`price ${fmt(decomposition.priceDelta)}`);
-    if (Math.abs(decomposition.mixDelta) > 0.01) parts.push(`mix ${fmt(decomposition.mixDelta)}`);
+    if (Math.abs(decomposition.volumeDelta) > 0.01) parts.push(`volume ${A.fmt(decomposition.volumeDelta)}`);
+    if (Math.abs(decomposition.priceDelta) > 0.01) parts.push(`price ${A.fmt(decomposition.priceDelta)}`);
+    if (Math.abs(decomposition.mixDelta) > 0.01) parts.push(`mix ${A.fmt(decomposition.mixDelta)}`);
     if (parts.length) claims.push({ kind: "decomposition", metric: metric.id, period: comparisonLabel(split), detail: `Revenue change: ${parts.join(", ")}`, rows: rows.length, value: totalDelta });
   }
 
@@ -107,7 +107,7 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
   }
 
   for (const a of (anomalies?.anomalies ?? []).slice(0, 2)) {
-    claims.push({ kind: "anomaly", metric: metric.id, period: a.period, detail: `${a.period} was anomalous (${fmt(a.deviation)} vs expected ${fmt(a.expected)})`, rows: rows.length, value: a.deviation });
+    claims.push({ kind: "anomaly", metric: metric.id, period: a.period, detail: `${a.period} was anomalous (${A.fmt(a.deviation)} vs expected ${A.fmt(a.expected)})`, rows: rows.length, value: a.deviation });
   }
 
   const narrative = buildNarrative(metric, comparisonAvailable, currentTotal, totalDelta, changePct, drivers, decomposition, correlation, anomalies);
@@ -115,13 +115,13 @@ export function investigate(rows: Row[], s: SchemaMap, metricId: string, packId?
 }
 
 function buildNarrative(metric: PackMetric, comparisonAvailable: boolean, currentTotal: number, totalDelta: number, changePct: number | null, drivers: DriverResult[], decomposition: Decomposition | null, correlation: CorrelationResult | null, anomalies: AnomalyResult | null): string {
-  if (!comparisonAvailable) return `${metric.label} is ${fmt(currentTotal)}. There is not enough dated history for a period-over-period comparison.`;
+  if (!comparisonAvailable) return `${metric.label} is ${A.fmt(currentTotal)}. There is not enough dated history for a period-over-period comparison.`;
   const direction = totalDelta > 0 ? "increased" : totalDelta < 0 ? "decreased" : "was flat";
-  const change = changePct === null ? fmt(totalDelta) : `${fmt(totalDelta)} (${Math.abs(changePct).toFixed(1)}%)`;
+  const change = changePct === null ? A.fmt(totalDelta) : `${A.fmt(totalDelta)} (${Math.abs(changePct).toFixed(1)}%)`;
   const parts = [`${metric.label} ${direction} by ${change}.`];
 
   const top = drivers[0]?.drivers[0];
-  if (top) parts.push(`${top.label} was the largest identified driver, contributing ${fmt(top.contribution)} to the change.`);
+  if (top) parts.push(`${top.label} was the largest identified driver, contributing ${A.fmt(top.contribution)} to the change.`);
 
   if (decomposition?.canDecompose) {
     const components = [["volume", decomposition.volumeDelta], ["price", decomposition.priceDelta], ["mix", decomposition.mixDelta]] as const;
@@ -137,8 +137,3 @@ function buildNarrative(metric: PackMetric, comparisonAvailable: boolean, curren
   return parts.join(" ");
 }
 
-function round(n: number): number { return Math.round(A.num(n) * 100) / 100; }
-function fmt(n: number): string {
-  const v = A.num(n);
-  return Math.abs(v) >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(Math.round(v * 100) / 100);
-}

@@ -133,7 +133,7 @@ export async function executeAlertRule(rule: AlertRuleJob, now = new Date()): Pr
           data: {
             organizationId: rule.organizationId, type: "custom_alert", severity: "MEDIUM", metric: rule.metric, ruleId: rule.id,
             currentValue: value, threshold: rule.threshold,
-            description: `${rule.name}: ${rule.metric} is ${round(value)} (${CMP_TEXT[rule.comparator as Comparator]} ${rule.threshold}).`,
+            description: `${rule.name}: ${rule.metric} is ${A.round(value)} (${CMP_TEXT[rule.comparator as Comparator]} ${rule.threshold}).`,
           },
         });
       }
@@ -165,7 +165,6 @@ export async function runDueJobs(now = new Date()): Promise<{ reports: number; r
   return { reports: await runDueReports(now), rules: await runDueAlertRules(now) };
 }
 
-function round(n: number): number { return Math.round(n * 100) / 100; }
 function errMsg(e: unknown): string { return String((e as Error)?.message ?? e).slice(0, 500); }
 
 // ─── timer ───

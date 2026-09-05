@@ -8,24 +8,13 @@ import { randomUUID } from "node:crypto";
 import { app } from "./app.js";
 import { prisma } from "./prisma.js";
 import { signToken } from "./auth/middleware.js";
+import { setupOrg as baseSetupOrg, makeEmail, orgIds, cleanupOrgs } from "./testHelpers.js";
 
 const RUN = randomUUID().slice(0, 8);
-const email = (tag: string) => `fc-${RUN}-${tag}@example.test`;
-const orgIds = new Set<string>();
-
-// Revenue is DERIVED here (quantity x unit_price), which is the one shape in which a
-// price lever reaches revenue and profit — the limitation the panel has to state.
-const rows = Array.from({ length: 18 }, (_, i) => ({
-  order_date: `2025-${String((i % 12) + 1).padStart(2, "0")}-14`,
-  qty: 10 + i, price: 20, cost: 100 + i, region: i % 2 ? "West" : "East",
-}));
+const email = makeEmail("fc", RUN);
 
 async function setupOrg(tag: string) {
-  const res = await request(app).post("/api/auth/signup").send({
-    name: `User ${tag}`, email: email(tag), password: "password123", organizationName: `Org ${tag}`,
-  });
-  const orgId = res.body.organization.id as string;
-  orgIds.add(orgId);
+  const { orgId, token } = await baseSetupOrg(tag, { email });
   await prisma.dataset.create({
     data: {
       organizationId: orgId, name: "Sales", fileName: "sales.csv", fileType: "csv", fileSize: 1024,
@@ -34,14 +23,20 @@ async function setupOrg(tag: string) {
       schemaMap: { date: "order_date", quantity: "qty", unit_price: "price", cost: "cost", region: "region" },
     },
   });
-  return { orgId, token: `Bearer ${res.body.token}` };
+  return { orgId, token };
 }
+
+// Revenue is DERIVED here (quantity x unit_price), which is the one shape in which a
+// price level reaches revenue and profit — the limitation the panel has to state.
+const rows = Array.from({ length: 18 }, (_, i) => ({
+  order_date: `2025-${String((i % 12) + 1).padStart(2, "0")}-14`,
+  qty: 10 + i, price: 20, cost: 100 + i, region: i % 2 ? "West" : "East",
+}));
+
 
 before(async () => { await prisma.$connect(); });
 after(async () => {
-  for (const id of orgIds) await prisma.organization.delete({ where: { id } }).catch(() => {});
-  await prisma.user.deleteMany({ where: { email: { startsWith: `fc-${RUN}-` } } });
-  await prisma.$disconnect();
+  await cleanupOrgs("fc", RUN);
 });
 
 test("a plain forecast stores no scenario and is unchanged by the feature existing", async () => {

@@ -38,7 +38,6 @@ export interface SegmentResult {
 
 const MEMBER_CAP = 12;
 
-function round(n: number): number { return Math.round(n * 100) / 100; }
 
 function pickEntity(s: SchemaMap, override?: SegmentEntity): SegmentEntity | null {
   if (override) return s[override] ? override : null;
@@ -75,13 +74,13 @@ export function segmentEntities(rows: Row[], s: SchemaMap, entity?: SegmentEntit
 
   const segments = (["high", "mid", "low"] as Segment["key"][]).map((key) => {
     const members = buckets[key];
-    const total = round(members.reduce((a, m) => a + m.value, 0));
+    const total = A.round(members.reduce((a, m) => a + m.value, 0));
     return {
       key, label: label[key], count: members.length,
       members: members.slice(0, MEMBER_CAP).map((m) => m.label),
       totalRevenue: total,
-      avgRevenue: members.length ? round(total / members.length) : 0,
-      shareOfRevenue: grand ? round((total / grand) * 100) : 0,
+      avgRevenue: members.length ? A.round(total / members.length) : 0,
+      shareOfRevenue: grand ? A.round((total / grand) * 100) : 0,
       rule: rule[key],
     };
   }).filter((seg) => seg.count > 0);
