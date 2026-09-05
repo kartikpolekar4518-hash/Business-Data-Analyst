@@ -74,8 +74,11 @@ export const CategoryChart = memo(function CategoryChart({
   const vertical = orientation === "bar";
   const valueAxis = {
     tick, axisLine: false as const, tickLine: false as const,
-    tickFormatter: percent ? (v: number) => `${v}%` : fmtK,
+    tickFormatter: percent ? (v: number) => `${Math.round(v)}%` : fmtK,
     domain: percent ? ([0, 100] as [number, number]) : undefined,
+    // Shares are computed by division, so a stack can land on 100.00000000000001.
+    // Without this the axis grows to fit that dust and prints it as a tick label.
+    allowDataOverflow: percent,
   };
   const catAxis = { dataKey: "label", type: "category" as const, tick, axisLine: false as const, tickLine: false as const };
 
@@ -83,9 +86,11 @@ export const CategoryChart = memo(function CategoryChart({
     <ResponsiveContainer width="100%" height={height}>
       <ComposedChart data={rows} layout={vertical ? "vertical" : "horizontal"} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={!vertical} vertical={vertical} />
-        {vertical
-          ? <><XAxis type="number" {...valueAxis} /><YAxis width={92} {...catAxis} /></>
-          : <><XAxis {...catAxis} /><YAxis type="number" width={52} {...valueAxis} /></>}
+        {/* Both axes stay direct children of the chart: Recharts discovers them by walking
+            its own children, and a fragment wrapper hides them — which drops the axes and,
+            in vertical layout, collapses every bar into one band. */}
+        <XAxis {...(vertical ? { type: "number" as const, ...valueAxis } : catAxis)} />
+        <YAxis {...(vertical ? { width: 92, ...catAxis } : { type: "number" as const, width: 52, ...valueAxis })} />
         <Tooltip content={<SeriesTooltip percent={percent} />} cursor={{ fill: "rgba(91,140,255,0.06)" }} />
         {legend && series.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />}
         {series.map((s, i) => (
@@ -141,8 +146,9 @@ export const SeriesChart = memo(function SeriesChart({
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis
           tick={tick} axisLine={false} tickLine={false} width={52}
-          tickFormatter={percent ? (v: number) => `${v}%` : fmtK}
+          tickFormatter={percent ? (v: number) => `${Math.round(v)}%` : fmtK}
           domain={percent ? [0, 100] : undefined}
+          allowDataOverflow={percent}
         />
         <Tooltip content={<SeriesTooltip percent={percent} />} />
         {legend && series.length > 1 && <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, paddingTop: 8 }} />}

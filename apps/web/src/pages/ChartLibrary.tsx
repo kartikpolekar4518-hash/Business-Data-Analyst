@@ -59,7 +59,9 @@ export default function ChartLibrary() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {shown.map((v) => (
-          <div key={v.id} className={v.wide ? "lg:col-span-2" : ""}>
+          // min-w-0: a grid track is minmax(auto, 1fr), so without it the widest panel
+          // sets the column width and every card overflows the viewport on a phone.
+          <div key={v.id} className={cn("min-w-0", v.wide && "lg:col-span-2")}>
             <Reveal>
               <Card>
                 <CardHeader title={v.name} subtitle={v.subtitle} />
