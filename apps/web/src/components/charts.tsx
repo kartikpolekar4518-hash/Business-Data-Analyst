@@ -10,7 +10,7 @@ import { DUR, EASE } from "../lib/motion";
 
 // Recharts draws its own series; one shared read keeps every chart in step.
 const DRAW_MS = 700;
-function useSeriesAnimation() {
+export function useSeriesAnimation() {
   const reduced = useReducedMotion();
   return {
     isAnimationActive: !reduced,
@@ -36,7 +36,7 @@ export const CHART = {
 export const SERIES = ["#56b4e9", "#e69f00", "#009e73", "#d55e00", "#cc79a7", "#f0e442"];
 const BRAND = CHART.blue;
 
-function useAxis() {
+export function useAxis() {
   const { theme } = useTheme();
   const dark = theme === "dark";
   return {
@@ -54,24 +54,24 @@ function useAxis() {
   };
 }
 
-const fmtK = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`);
+export const fmtK = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`);
 
 /* ───────── Drill-down plumbing shared by the clickable charts ───────── */
 // Recharts hands click/tooltip payloads back in a few different shapes depending on the
 // series type, so unwrap defensively and drill only on a real label.
-type ChartPayload = { label?: string; value?: number; payload?: { label?: string; value?: number } };
-function labelOf(d: unknown): string {
+export type ChartPayload = { label?: string; value?: number; payload?: { label?: string; value?: number } };
+export function labelOf(d: unknown): string {
   const p = d as ChartPayload | undefined;
   return String(p?.payload?.label ?? p?.label ?? "").trim();
 }
-const clickProps = (onSelect?: (label: string) => void) =>
+export const clickProps = (onSelect?: (label: string) => void) =>
   onSelect
     ? { cursor: "pointer", onClick: (d: unknown) => { const l = labelOf(d); if (l) onSelect(l); } }
     : {};
 
 // label · value · share of the total shown. The default tooltip printed a bare number,
 // which is the one thing the axis already tells you.
-function ShareTooltip({ total, active, payload }: { total: number; active?: boolean; payload?: ChartPayload[] }) {
+export function ShareTooltip({ total, active, payload }: { total: number; active?: boolean; payload?: ChartPayload[] }) {
   const { tooltipStyle } = useAxis();
   const entry = payload?.[0];
   if (!active || !entry) return null;
@@ -221,7 +221,10 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
 });
 
 /* ───────── Donut composition chart ───────── */
-export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190, onSelect }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number; onSelect?: (label: string) => void }) {
+// `variant="pie"` is Power BI's Pie chart: the same composition visual with the hole
+// closed. A filled centre has no room for the running total, so that overlay is dropped
+// rather than drawn on top of a slice.
+export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190, variant = "donut", onSelect }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number; variant?: "donut" | "pie"; onSelect?: (label: string) => void }) {
   const anim = useSeriesAnimation();
   const top = data.slice(0, 6);
   const total = top.reduce((s, d) => s + d.value, 0);
@@ -230,16 +233,18 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
       <div className="relative shrink-0" style={{ width: height, height }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie data={top} dataKey="value" nameKey="label" innerRadius="62%" outerRadius="92%" paddingAngle={2} stroke="none" cornerRadius={4} {...anim} {...clickProps(onSelect)}>
+            <Pie data={top} dataKey="value" nameKey="label" innerRadius={variant === "pie" ? 0 : "62%"} outerRadius="92%" paddingAngle={variant === "pie" ? 1 : 2} stroke="none" cornerRadius={variant === "pie" ? 0 : 4} {...anim} {...clickProps(onSelect)}>
               {top.map((_, i) => <Cell key={i} fill={SERIES[i % SERIES.length]} />)}
             </Pie>
             <Tooltip content={<ShareTooltip total={total} />} />
           </PieChart>
         </ResponsiveContainer>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xl font-bold text-slate-900 dark:text-white">{fmtK(total)}</span>
-          <span className="text-[11px] text-slate-500 dark:text-slate-400">{centerLabel ?? "Total"}</span>
-        </div>
+        {variant === "donut" && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+            <span className="text-xl font-bold text-slate-900 dark:text-white">{fmtK(total)}</span>
+            <span className="text-[11px] text-slate-500 dark:text-slate-400">{centerLabel ?? "Total"}</span>
+          </div>
+        )}
       </div>
       <ul className="w-full min-w-0 flex-1 space-y-2">
         {top.map((d, i) => {
@@ -328,28 +333,7 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
   );
 });
 
-const clamp = (n: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n));
-
-/* ───────── Combo — bars + line on a secondary axis ───────── */
-export const ComboChart = memo(function ComboChart({ data, barName = "Revenue", lineName = "Margin %", lineFormat = (v: number) => `${v}%`, height = 300 }: { data: { label: string; bar: number; line: number }[]; barName?: string; lineName?: string; lineFormat?: (v: number) => string; height?: number }) {
-  const { grid, tick, tooltipStyle } = useAxis();
-  const anim = useSeriesAnimation();
-  const gid = useId();
-  return (
-    <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={1} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0.55} /></linearGradient></defs>
-        <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
-        <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
-        <YAxis yAxisId="left" tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
-        <YAxis yAxisId="right" orientation="right" tick={tick} axisLine={false} tickLine={false} width={44} tickFormatter={lineFormat} />
-        <Tooltip contentStyle={tooltipStyle} />
-        <Bar yAxisId="left" dataKey="bar" name={barName} fill={`url(#${gid})`} radius={[6, 6, 0, 0]} maxBarSize={38} {...anim} />
-        <Line yAxisId="right" dataKey="line" name={lineName} stroke={CHART.violet} strokeWidth={2.5} dot={false} type="monotone" {...anim} />
-      </ComposedChart>
-    </ResponsiveContainer>
-  );
-});
+export const clamp = (n: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n));
 
 /* ───────── Waterfall — running total of signed deltas ───────── */
 export const WaterfallChart = memo(function WaterfallChart({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
