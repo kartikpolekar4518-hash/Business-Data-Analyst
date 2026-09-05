@@ -23,12 +23,10 @@ const VB_H = 460;
 
 // Parsed once at module load — the topology is static, and re-deriving it per render
 // would re-walk 177 countries' arcs on every theme toggle.
-const WORLD: FeatureCollection<Geometry, { name?: string }> = feature(
+export const WORLD: FeatureCollection<Geometry, { name?: string }> = feature(
   worldTopo as unknown as Topology,
   (worldTopo as unknown as Topology).objects.countries as GeometryCollection,
 ) as FeatureCollection<Geometry, { name?: string }>;
-
-export const WORLD_REGION_NAMES = WORLD.features.map((f) => f.properties?.name ?? "").filter(Boolean);
 
 export function GeoMap({
   data,
