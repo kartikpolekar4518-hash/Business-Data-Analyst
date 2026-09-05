@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+### Work together — comments, mentions, and a visible activity trail
+
+- **Leave a note on a report, a file, or a saved view.** Anyone in your organisation
+  can ask "why is this number down?" right where the number is, instead of in a
+  separate chat where nobody can find it later. Reports and files have a Comments tab;
+  saved views have a comment icon in the Saved views menu.
+- **Everyone can comment, including view-only people.** Someone who can only look at
+  the dashboard is often the first to spot a wrong figure, so they can say so. You can
+  delete your own comments; only an admin can delete someone else's.
+- **Mention a teammate with @.** Start typing `@` and pick a name. They get an email
+  if your workspace has email set up — and if it doesn't, the mention still shows in
+  the thread, so nothing is lost. Mentions of people outside your organisation are
+  refused rather than quietly ignored.
+- **The activity trail is now visible.** Uploads, cleanups, reports, share links,
+  comments, and settings changes have been recorded all along, but nothing could show
+  them. There is now an Activity page for the whole team, and a per-item Activity tab
+  answering "what happened to this report?" or "who changed this file?".
+- **Nothing about your numbers changed.** Comments and activity sit alongside your
+  data; they never touch it, and no figure anywhere moves as a result of this.
+- Your workspace is still walled off from every other: comments and activity are only
+  ever visible inside your own organisation.
+
+### Fixed — damage from the shared-utility refactor
+
+- **20 of the 66 automated safety checks had been deleted** and two test files were
+  corrupted. These are the checks that prove one customer cannot see another's data
+  and that permissions hold, so they are restored in full.
+- **The "what's driving this change" analysis was reading from an undefined value**
+  (`povious` for `previous`), and the evidence panel printed "matcing" for "matching".
+- **A rounding change could have printed `NaN`** in an investigation narrative where a
+  custom metric divides by zero; the coercion that turned that into `0` is restored.
+- The good half of that refactor — one shared `round`/`fmt` instead of five copies —
+  is kept and verified.
+
 ### Fixed — ranked bar charts were drawing only one bar
 
 - **Every "top 10" style bar chart was rendering a single bar and no labels.** The chart

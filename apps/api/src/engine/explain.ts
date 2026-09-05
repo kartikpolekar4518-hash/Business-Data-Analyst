@@ -178,7 +178,7 @@ function describeComparison(split: A.PeriodSplit, calendar: CalendarConfig): str
   const which = split.basis === "same_period_last_year"
     ? isCalendarMonths(calendar)
       ? "the same dates one year earlier"
-      : "the matcing 52-weeks-earlier window, which keeps the retail periods aligned"
+      : "the matching 52-weeks-earlier window, which keeps the retail periods aligned"
     : "the interval of equal length immediately before it";
   return `${cs} to ${ce} (${how}) compared with ${ps} to ${pe}, ${which}.` + calendarNote;
 }

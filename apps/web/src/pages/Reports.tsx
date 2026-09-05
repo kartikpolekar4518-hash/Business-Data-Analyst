@@ -3,9 +3,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FileText, Download, Plus, Eye, Share2, Link2, Copy, Check, Trash2, SlidersHorizontal } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Input, Label, Checkbox, Skeleton, EmptyState, ErrorState, Modal, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Input, Label, Checkbox, Skeleton, EmptyState, ErrorState, Modal, Badge, Tabs, useToast } from "../components/ui";
 import { ScheduledReportsSection } from "../components/schedules";
 import { ReportView, type ReportContent } from "../components/ReportView";
+import { CommentThread, ActivityFeed } from "../components/comments";
 import { timeAgo } from "../lib/utils";
 
 interface ReportRow { id: string; title: string; createdAt: string; }
@@ -28,6 +29,7 @@ export default function Reports() {
   const { toast } = useToast();
   const [generating, setGenerating] = useState(false);
   const [viewId, setViewId] = useState<string>();
+  const [viewTab, setViewTab] = useState("report");
   const [shareFor, setShareFor] = useState<ReportRow>();
   const [templateId, setTemplateId] = useState("");
   const [manageOpen, setManageOpen] = useState(false);
@@ -95,14 +97,27 @@ export default function Reports() {
       {/* Scheduled reports (automation) */}
       <ScheduledReportsSection />
 
-      {/* Report viewer */}
-      <Modal open={!!viewId} onClose={() => setViewId(undefined)} title={view.data?.report.title ?? "Report"}>
+      {/* Report viewer — the report itself, plus the team's discussion of it */}
+      <Modal open={!!viewId} onClose={() => { setViewId(undefined); setViewTab("report"); }} title={view.data?.report.title ?? "Report"}>
         {view.isError ? (
           <ErrorState message="We couldn't open this report. Please try again." retry={() => view.refetch()} />
         ) : !r ? <ReportViewSkeleton /> : (
-          <div className="max-h-[70vh] overflow-y-auto">
-            <ReportView content={r} onDownload={() => downloadPdf(view.data!.report.id, view.data!.report.title)} />
-          </div>
+          <>
+            <Tabs
+              tabs={[{ id: "report", label: "Report" }, { id: "comments", label: "Comments" }, { id: "activity", label: "Activity" }]}
+              active={viewTab}
+              onChange={setViewTab}
+            />
+            <div className="max-h-[70vh] overflow-y-auto pt-4">
+              {viewTab === "report" ? (
+                <ReportView content={r} onDownload={() => downloadPdf(view.data!.report.id, view.data!.report.title)} />
+              ) : viewTab === "comments" ? (
+                <CommentThread entityType="report" entityId={view.data!.report.id} />
+              ) : (
+                <ActivityFeed entityType="report" entityId={view.data!.report.id} />
+              )}
+            </div>
+          </>
         )}
       </Modal>
 

@@ -128,7 +128,7 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
     prisma.dataQualityIssue.deleteMany({ where: { datasetId: d.id } }),
     prisma.dataQualityIssue.createMany({ data: shaped.profile.issues.map((i) => ({ ...i, datasetId: d.id })) }),
   ]);
-  await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "dataset.cleaned", detail: d.name, actorId: req.auth!.userId } });
+  await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "dataset.cleaned", detail: d.name, actorId: req.auth!.userId, entityType: "dataset", entityId: d.id } });
   await refreshAlerts(req.auth!.organizationId); // alerts derive on data change, not on read
   // `steps` goes back so the client can offer to save exactly what just ran as a recipe.
   res.json({ dataset: stripRows(updated), steps, appliedFixes: cleaningLog, newQualityScore: shaped.profile.qualityScore });

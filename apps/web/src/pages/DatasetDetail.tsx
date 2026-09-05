@@ -6,6 +6,7 @@ import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Badge, Button, Input, Label, Modal, Select, Tabs, Spinner, ErrorState, useToast } from "../components/ui";
 import { useRecipes, type CleaningStep } from "../components/recipes";
+import { CommentThread, ActivityFeed } from "../components/comments";
 import { num } from "../lib/utils";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
@@ -111,7 +112,7 @@ export default function DatasetDetail() {
         </div>
       </div>
 
-      <Tabs tabs={[{ id: "preview", label: "Preview" }, { id: "quality", label: `Quality Report${quality.data ? ` (${quality.data.issues.length})` : ""}` }, { id: "schema", label: "Detected Schema" }]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{ id: "preview", label: "Preview" }, { id: "quality", label: `Quality Report${quality.data ? ` (${quality.data.issues.length})` : ""}` }, { id: "schema", label: "Detected Schema" }, { id: "comments", label: "Comments" }, { id: "activity", label: "Activity" }]} active={tab} onChange={setTab} />
 
       {tab === "preview" && (
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
@@ -189,6 +190,19 @@ export default function DatasetDetail() {
           </CardBody>
         </Card>
       )}
+
+      {tab === "comments" && datasetId && (
+        <Card><CardHeader title="Comments" subtitle="Questions and notes about this data, for everyone in your organisation" />
+          <CardBody><CommentThread entityType="dataset" entityId={datasetId} /></CardBody>
+        </Card>
+      )}
+
+      {tab === "activity" && datasetId && (
+        <Card><CardHeader title="Activity" subtitle="What has happened to this file, and who did it" />
+          <CardBody><ActivityFeed entityType="dataset" entityId={datasetId} /></CardBody>
+        </Card>
+      )}
+
       <Modal open={!!lastSteps} onClose={() => setLastSteps(null)} title="Save these fixes as a recipe?">
         <div className="space-y-4">
           <p className="text-sm text-slate-500 dark:text-slate-400">

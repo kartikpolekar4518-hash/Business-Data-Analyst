@@ -159,7 +159,7 @@ uploadsRouter.post("/:id/append", uploadLimiter, requireRole("ADMIN", "MANAGER")
     prisma.dataQualityIssue.deleteMany({ where: { datasetId: dataset.id } }),
     prisma.dataQualityIssue.createMany({ data: shaped.profile.issues.map((i) => ({ ...i, datasetId: dataset.id })) }),
   ]);
-  await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.combined", detail: `${req.file.originalname} -> ${dataset.name}`, actorId: auth.userId } });
+  await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.combined", detail: `${req.file.originalname} -> ${dataset.name}`, actorId: auth.userId, entityType: "dataset", entityId: dataset.id } });
   await refreshAlerts(auth.organizationId); // alerts derive on data change, not on read
   res.json({
     dataset: stripRows(updated),

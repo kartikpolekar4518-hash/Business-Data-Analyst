@@ -58,7 +58,7 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 | 20 | Forms | 🟡 | Input/Select ✅; **this batch adds Checkbox, Switch, Textarea**. Gaps: combobox/multi-select, radio, time/color picker, tags, formula/expression |
 | 21 | Modal / overlay | 🟡 | Modal, Toast ✅; **this batch adds Tooltip, Dropdown**. Gaps: Drawer/Sheet, Popover, context menu, command palette |
 | 22 | User / workspace | 🟡 | User menu, roles, org, **activity/audit log** ✅. Gaps: permission matrix, invite modal polish |
-| 23 | Collaboration | ⬜ | Not started: share dialog, comments, mentions, activity feed, version history |
+| 23 | Collaboration | 🟡→✅ | **Phase 6:** comments + @mentions on reports/datasets/saved views, entity-scoped and org-wide activity feed, `/activity` page. Share dialog already shipped (public report links). Version history deliberately not built — see below |
 | 24 | Settings | 🟡 | Tabbed settings, profile, API-key vault, theme ✅. Gaps: AI/notification/billing/integration panels |
 | 25 | Design-system primitives | 🟡 | Most exist; **this batch adds Checkbox/Switch/Tooltip/Dropdown/Pagination**. Gaps: Accordion, Popover, Sheet, Calendar, Command menu |
 | 26 | Premium "wow" | 🟡 | Count-up, animated KPIs, glass panels, layout animations ✅. Gaps: bento layout, drag-drop widgets, spotlight/command palette, magnetic buttons |
@@ -84,8 +84,9 @@ Legend: ✅ built · 🟡 partial (exists, needs generalizing/extending) · ⬜ 
 - **Phase 5 — Dashboard widget system  ← shipped.** Configurable widget grid
   (drag-reorder, resize, duplicate, remove, fullscreen, add-from-palette,
   persisted) + goal card + a `/builder` page. See "Shipped in Phase 5" below.
-- **Phase 6 — Reports & collaboration.** Report builder + templates + scheduling;
-  then sharing, comments, activity feed, version history.
+- **Phase 6 — Reports & collaboration  ← shipped.** Report builder + templates +
+  scheduling shipped earlier; comments, @mentions and the activity feed land here.
+  See "Shipped in Phase 6" below.
 
 Overlay primitives still owed after this batch (Drawer/Sheet, Popover, Command
 palette, Accordion, Calendar) get pulled in by whichever phase first needs them,
@@ -195,3 +196,53 @@ shown is one the engine already computed, in keeping with the product's
   `ConfidenceMeter` (per answer), and follow-up chips after each answer.
 
 Web typecheck + `npm run build` pass.
+
+## Shipped in this batch (Phase 6)
+
+**Backend** — `apps/api/src/modules/comments.ts` (two routers, `/api/comments` and
+`/api/activity`):
+- `Comment` is flat and chronological, not threaded, and polymorphic over the three
+  things that are both stored server-side and shared org-wide: `report`, `dataset`,
+  `saved_view`. The `/builder` layout is per-user `localStorage` and Analytics is a
+  live computed view, so neither is an anchor a second person would resolve to the
+  same thing.
+- `authorId` / `mentionedUserIds` are plain scalars, not relations — the choice
+  `ActivityLog.actorId` already makes. Removing someone from the organization must
+  not cascade away the discussion they took part in; the route resolves names against
+  `OrganizationMember` and renders a departed member as "Former member".
+- **Any role may comment, VIEWER included.** Writes elsewhere are ADMIN/MANAGER
+  because they change what the numbers *are*; a comment does not, and a viewer
+  noticing a wrong figure is exactly who needs to be able to say so. Delete is author
+  or ADMIN — deleting another person's words is moderation, not data editing, so a
+  MANAGER cannot.
+- Every read and write goes through `assertEntityInOrg` (`findFirst` on
+  id + organizationId, never `findUnique`), so another org's report id is a 404 that
+  does not confirm the row exists.
+- **Mentions notify by email only.** The `Alert` model is the organization's "your
+  business changed" feed; per-person pings would make two different things share one
+  unread count. Email is best-effort behind `isEmailEnabled()` — with no SMTP the
+  mention still shows in the thread, and an SMTP failure never fails the comment.
+  A mentioned id that is not a member is a 400, not a silent drop.
+
+**ActivityLog gains an optional subject** (`entityType` / `entityId`, nullable, no
+backfill — every pre-existing entry is org-wide by nature and NULL is what it already
+was). The ~15 existing write sites for reports and datasets now name their entity, and
+report generation and view saving log for the first time. `GET /api/activity` is the
+model's **first reader**: entries have been written since it was introduced and
+nothing has ever been able to show them.
+
+**Web** — `apps/web/src/components/comments.tsx` (`CommentThread`, `ActivityFeed`),
+wired into the report viewer (`Reports.tsx`, as tabs), `DatasetDetail.tsx` (as tabs),
+the `SavedViews` dropdown (`filters.tsx`, comment icon → modal), plus a new
+`/activity` page. Mention ids are resolved from the comment text at submit time, so a
+hand-typed name counts the same as a picked one and deleting the text un-mentions.
+
+**Deliberately not built: version history.** Nothing here is a hand-edited document —
+a Report is an immutable snapshot regenerated wholesale, and the Reports list is
+already its own history (every Generate is a new dated row). A diff/version system
+over content that is never edited would be scope without substance.
+
+`comments.itest.ts` covers CRUD, all three entity types, RBAC (viewer posts,
+author-or-admin deletes, manager cannot), mention validation, entity validation,
+tenant isolation, and both feed modes. 87 integration tests pass; typecheck and
+`npm run build` clean.

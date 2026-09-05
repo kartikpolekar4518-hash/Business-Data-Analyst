@@ -55,6 +55,7 @@ reportsRouter.post("/generate", requireRole("ADMIN", "MANAGER"), wrap(async (req
       industryKeyAtGeneration: prov.industryKeyAtGeneration ?? null,
     },
   });
+  await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.generated", detail: report.title, actorId: req.auth!.userId, entityType: "report", entityId: report.id } });
   res.status(201).json({ report });
 }));
 
@@ -130,7 +131,7 @@ reportsRouter.post("/:id/shares", requireRole("ADMIN", "MANAGER"), wrap(async (r
   const share = await prisma.reportShare.create({
     data: { token: randomBytes(24).toString("base64url"), expiresAt, reportId: report.id, organizationId: req.auth!.organizationId, createdById: req.auth!.userId },
   });
-  await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.shared", detail: report.title, actorId: req.auth!.userId } });
+  await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.shared", detail: report.title, actorId: req.auth!.userId, entityType: "report", entityId: report.id } });
   res.status(201).json({ share: shareView(share) });
 }));
 
@@ -139,7 +140,7 @@ reportsRouter.delete("/:id/shares/:shareId", requireRole("ADMIN", "MANAGER"), wr
   if (!share) throw new HttpError(404, "Share link not found");
   if (!share.revokedAt) {
     await prisma.reportShare.update({ where: { id: share.id }, data: { revokedAt: new Date() } });
-    await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.shareRevoked", detail: share.report.title, actorId: req.auth!.userId } });
+    await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "report.shareRevoked", detail: share.report.title, actorId: req.auth!.userId, entityType: "report", entityId: share.reportId } });
   }
   res.status(204).end();
 }));
