@@ -1,10 +1,11 @@
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calendar, ChevronDown, Check, Search, X, Bookmark, Trash2, Plus } from "lucide-react";
+import { Calendar, ChevronDown, Check, Search, X, Bookmark, Trash2, Plus, MessageSquare } from "lucide-react";
 import { cn } from "../lib/utils";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Dropdown, DropdownItem, Badge, Button, Modal, Input, Label, useToast } from "./ui";
+import { CommentThread } from "./comments";
 import type { Comparison, ComparisonInfo } from "../lib/types";
 
 // ─────────────────────────────────────────────
@@ -252,6 +253,7 @@ export const SavedViews = ({
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
+  const [discussing, setDiscussing] = useState<SavedView | null>(null);
 
   const { data } = useQuery({ queryKey: ["saved-views"], queryFn: () => api.get<{ views: SavedView[] }>("/analytics/views") });
   const views = data?.views ?? [];
@@ -308,6 +310,15 @@ export const SavedViews = ({
                   <button onClick={() => { onApply(v.query); close(); }} className="flex-1 truncate px-2.5 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200">
                     {v.name}
                   </button>
+                  {/* A saved view is the one shared, stored anchor for "the numbers
+                      we are all looking at", so it is where a discussion belongs. */}
+                  <button
+                    onClick={() => { setDiscussing(v); close(); }}
+                    aria-label={`Comments on ${v.name}`}
+                    className="px-2 text-slate-400 opacity-0 transition hover:text-brand-500 group-hover:opacity-100"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </button>
                   {canEdit && (
                     <button
                       onClick={() => remove(v.id)}
@@ -337,6 +348,10 @@ export const SavedViews = ({
           <Button variant="ghost" onClick={() => setSaving(false)}>Cancel</Button>
           <Button onClick={save} loading={busy} disabled={!name.trim()}>Save</Button>
         </div>
+      </Modal>
+
+      <Modal open={!!discussing} onClose={() => setDiscussing(null)} title={discussing ? `Comments — ${discussing.name}` : "Comments"}>
+        {discussing && <CommentThread entityType="saved_view" entityId={discussing.id} />}
       </Modal>
     </>
   );

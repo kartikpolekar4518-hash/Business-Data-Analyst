@@ -23,6 +23,7 @@ import { alertsRouter } from "./modules/alerts.js";
 import { schedulesRouter } from "./modules/schedules.js";
 import { billingRouter } from "./modules/billing.js";
 import { settingsRouter } from "./modules/settings.js";
+import { commentsRouter, activityRouter } from "./modules/comments.js";
 import { INDUSTRIES } from "./engine/industries.js";
 import { PLANS } from "./billing/plans.js";
 
@@ -101,6 +102,8 @@ app.use("/api/forecasts", forecastingRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/alerts", alertsRouter);
 app.use("/api/schedules", schedulesRouter);
+app.use("/api/comments", commentsRouter);
+app.use("/api/activity", activityRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/billing", billingRouter);
 

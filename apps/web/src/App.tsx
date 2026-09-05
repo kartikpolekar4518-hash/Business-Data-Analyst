@@ -22,6 +22,7 @@ const AiChat = lazy(() => import("./pages/AiChat"));
 const Forecasts = lazy(() => import("./pages/Forecasts"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Alerts = lazy(() => import("./pages/Alerts"));
+const Activity = lazy(() => import("./pages/Activity"));
 const SettingsPage = lazy(() => import("./pages/Settings"));
 const Profile = lazy(() => import("./pages/Profile"));
 const SharedReport = lazy(() => import("./pages/SharedReport"));
@@ -86,6 +87,7 @@ export default function App() {
             <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
             <Route path="/reports" element={<Protected><Reports /></Protected>} />
             <Route path="/alerts" element={<Protected><Alerts /></Protected>} />
+            <Route path="/activity" element={<Protected><Activity /></Protected>} />
             <Route path="/settings" element={<Protected><SettingsPage /></Protected>} />
             <Route path="/settings/:tab" element={<Protected><SettingsPage /></Protected>} />
             <Route path="/profile" element={<Protected><Profile /></Protected>} />

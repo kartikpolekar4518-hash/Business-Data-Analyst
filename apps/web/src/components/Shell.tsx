@@ -10,6 +10,7 @@ import {
   TrendingUp,
   FileText,
   Bell,
+  History,
   Settings,
   Menu,
   Sun,
@@ -72,6 +73,7 @@ const NAV_SECTIONS = [
   {
     label: "Settings",
     items: [
+      { to: "/activity", label: "Activity", icon: History },
       { to: "/settings", label: "Settings", icon: Settings },
     ],
   },

@@ -106,7 +106,7 @@ export async function ingestRows(input: IngestInput) {
     include: { issues: true },
   });
 
-  await prisma.activityLog.create({ data: { organizationId, action: input.activityAction, detail: input.activityDetail, actorId } });
+  await prisma.activityLog.create({ data: { organizationId, action: input.activityAction, detail: input.activityDetail, actorId, entityType: "dataset", entityId: dataset.id } });
   await refreshAlerts(organizationId); // alerts derive on data change, not on read
   return { dataset: stripRows(dataset), suggestedIndustry, recipeApplied: recipe ? { id: recipe.id, name: recipe.name } : null };
 }

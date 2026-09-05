@@ -96,6 +96,7 @@ model Organization {
   savedViews      SavedView[]
   cleaningRecipes CleaningRecipe[]
   datasetRelations DatasetRelation[]
+  comments        Comment[]
 }
 
 model OrganizationMember {
@@ -426,11 +427,38 @@ model ActivityLog {
   action         String
   detail         String?
   actorId        String?
+  // What the entry is about, when it is about one thing: "report" | "dataset" |
+  // "saved_view". Nullable because every entry written before this existed is
+  // org-wide by nature (a user invite, a plan change) and stays that way.
+  entityType     String?
+  entityId       String?
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
 
   @@index([organizationId])
+  @@index([organizationId, entityType, entityId])
+}
+
+// A note left by one member of the organization on a report, a dataset, or a saved
+// view. Flat and chronological, not threaded: a small team discussing one number
+// needs a conversation, not a tree.
+//
+// `authorId` and `mentionedUserIds` are plain scalars rather than relations, the same
+// choice ActivityLog.actorId already makes — display names are resolved by the route
+// against OrganizationMember, so removing a user never orphans a comment row.
+model Comment {
+  id               String       @id @default(uuid())
+  entityType       String       // "report" | "dataset" | "saved_view"
+  entityId         String
+  body             String
+  mentionedUserIds String[]     @default([])
+  authorId         String
+  createdAt        DateTime     @default(now())
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId   String
+
+  @@index([organizationId, entityType, entityId])
 }
 
 // A report the scheduler regenerates on a cadence (and optionally emails). The

@@ -297,6 +297,7 @@ analyticsRouter.post("/views", requireRole("ADMIN", "MANAGER"), wrap(async (req,
     update: { query: body.query },
     create: { ...body, organizationId },
   });
+  await prisma.activityLog.create({ data: { organizationId, action: "view.saved", detail: view.name, actorId: req.auth!.userId, entityType: "saved_view", entityId: view.id } });
   res.status(201).json({ view });
 }));
 
