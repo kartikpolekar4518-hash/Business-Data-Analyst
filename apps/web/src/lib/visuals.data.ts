@@ -188,7 +188,7 @@ export const normalizeRegion = (s: string): string =>
 // Spellings business data actually carries, mapped to the Natural Earth names the bundled
 // boundary set uses. Not exhaustive — it exists so the common cases don't get reported as
 // unmatched, and `unmatched` exists so the uncommon ones are never silently dropped.
-const ALIASES: Record<string, string> = {
+export const REGION_ALIASES: Record<string, string> = {
   usa: "United States of America",
   us: "United States of America",
   unitedstates: "United States of America",
@@ -202,7 +202,8 @@ const ALIASES: Record<string, string> = {
   southkorea: "South Korea",
   korea: "South Korea",
   republicofkorea: "South Korea",
-  northkorea: "Dem. Rep. Korea",
+  northkorea: "North Korea",
+  democraticpeoplesrepublicofkorea: "North Korea",
   russia: "Russia",
   russianfederation: "Russia",
   czechrepublic: "Czechia",
@@ -211,7 +212,7 @@ const ALIASES: Record<string, string> = {
   democraticrepublicofthecongo: "Dem. Rep. Congo",
   burma: "Myanmar",
   swaziland: "eSwatini",
-  macedonia: "North Macedonia",
+  northmacedonia: "Macedonia",
   bosnia: "Bosnia and Herz.",
   dominicanrepublic: "Dominican Rep.",
   centralafricanrepublic: "Central African Rep.",
@@ -235,7 +236,7 @@ export function matchRegions(rows: { label: string; value: number }[], mapNames:
 
   for (const row of rows) {
     const norm = normalizeRegion(row.label);
-    const alias = ALIASES[norm];
+    const alias = REGION_ALIASES[norm];
     const name = byNorm.get(norm) ?? (alias ? byNorm.get(normalizeRegion(alias)) : undefined);
     if (!name) {
       unmatched.push(row.label);
