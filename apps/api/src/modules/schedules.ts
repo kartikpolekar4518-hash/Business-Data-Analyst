@@ -30,6 +30,16 @@ const reportCreate = z.object({
 });
 const reportUpdate = reportCreate.partial();
 
+// A schedule may only name a dataset this organization owns. Without this the id is
+// stored unchecked and every run then fails in loadDataset with a 404 the user only
+// discovers days later in lastError — the wrong place to learn you picked a file that
+// isn't yours (or was deleted).
+async function assertOwnDataset(organizationId: string, datasetId: string | undefined) {
+  if (!datasetId) return;
+  const dataset = await prisma.dataset.findFirst({ where: { id: datasetId, organizationId }, select: { id: true } });
+  if (!dataset) throw new HttpError(404, "Dataset not found");
+}
+
 schedulesRouter.get("/reports", wrap(async (req, res) => {
   const reports = await prisma.scheduledReport.findMany({ where: { organizationId: req.auth!.organizationId }, orderBy: { createdAt: "desc" } });
   res.json({ reports });
@@ -37,6 +47,7 @@ schedulesRouter.get("/reports", wrap(async (req, res) => {
 
 schedulesRouter.post("/reports", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
   const body = reportCreate.parse(req.body ?? {});
+  await assertOwnDataset(req.auth!.organizationId, body.datasetId);
   const report = await prisma.scheduledReport.create({
     data: { ...body, organizationId: req.auth!.organizationId, nextRunAt: nextRun(body.frequency as Frequency, new Date()) },
   });
@@ -47,6 +58,7 @@ schedulesRouter.patch("/reports/:id", requireRole("ADMIN", "MANAGER"), wrap(asyn
   const body = reportUpdate.parse(req.body ?? {});
   const existing = await prisma.scheduledReport.findFirst({ where: { id: req.params.id, organizationId: req.auth!.organizationId } });
   if (!existing) throw new HttpError(404, "Scheduled report not found");
+  await assertOwnDataset(req.auth!.organizationId, body.datasetId);
   // If the cadence changes, re-anchor the next run so it takes effect immediately.
   const nextRunAt = body.frequency ? nextRun(body.frequency as Frequency, new Date()) : undefined;
   const report = await prisma.scheduledReport.update({ where: { id: existing.id }, data: { ...body, ...(nextRunAt ? { nextRunAt } : {}) } });

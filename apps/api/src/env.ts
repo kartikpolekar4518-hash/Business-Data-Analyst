@@ -1,5 +1,26 @@
 const isProd = process.env.NODE_ENV === "production";
 
+// Number(undefined-or-junk) is NaN, and NaN silently poisons whatever it reaches:
+// a bad MAX_SYNC_ROWS becomes "LIMIT NaN" in a connector query, a bad MAX_FILE_SIZE
+// makes multer accept nothing. A typo in the environment should stop the boot, not
+// produce a server that misbehaves in a way nobody can trace back.
+function numberEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) throw new Error(`${name} must be a positive number (got "${raw}")`);
+  return n;
+}
+
+// Same fail-fast reading, but 0 is the meaningful default (no proxy in front).
+function hopsEnv(name: string): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return 0;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${name} must be a non-negative whole number of proxy hops (got "${raw}")`);
+  return n;
+}
+
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required");
 }
@@ -7,11 +28,11 @@ if (!process.env.DATABASE_URL) {
 export const env = {
   isProd,
   databaseUrl: process.env.DATABASE_URL,
-  port: Number(process.env.PORT ?? 4000),
+  port: numberEnv("PORT", 4000),
   jwtSecret: process.env.JWT_SECRET ?? "dev-insecure-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   appUrl: process.env.APP_URL ?? "http://localhost:5173",
-  maxFileSize: Number(process.env.MAX_FILE_SIZE ?? 15 * 1024 * 1024),
+  maxFileSize: numberEnv("MAX_FILE_SIZE", 15 * 1024 * 1024),
   // Billing: set STRIPE_SECRET_KEY to enable real checkout. When unset, plan
   // changes fall back to a dev-only mock (never allowed in production).
   stripeSecretKey: process.env.STRIPE_SECRET_KEY ?? "",
@@ -27,17 +48,23 @@ export const env = {
   // by default so a saved connector can't be pointed at internal infra (SSRF).
   allowPrivateConnectorHosts: process.env.ALLOW_PRIVATE_CONNECTOR_HOSTS === "true",
   // Hard cap on rows pulled per connector sync, to bound memory/JSON storage.
-  maxSyncRows: Number(process.env.MAX_SYNC_ROWS ?? 100_000),
+  maxSyncRows: numberEnv("MAX_SYNC_ROWS", 100_000),
   // Same bound for direct file uploads: the byte limit alone lets a narrow-column
   // file exceed the ~100k-row JSON row-storage assumption (see schema.prisma).
-  maxUploadRows: Number(process.env.MAX_UPLOAD_ROWS ?? 100_000),
+  maxUploadRows: numberEnv("MAX_UPLOAD_ROWS", 100_000),
   // Email delivery for scheduled reports (optional). SMTP_URL like
   // "smtp://user:pass@host:587". Unset = reports are generated and stored but not
   // emailed — same opt-in pattern as OPENAI_API_KEY / STRIPE_SECRET_KEY.
   smtpUrl: process.env.SMTP_URL ?? "",
   reportFrom: process.env.REPORT_FROM ?? "NoPS Reports <reports@nops.local>",
+  // How many reverse proxies sit in front of the API (0 = none). Every rate limiter
+  // keys on the client IP, and behind a proxy that IP is the proxy's unless Express is
+  // told how far to look into X-Forwarded-For — which would put every user in the world
+  // into one shared bucket. A hop COUNT, not `true`: trusting the whole chain lets a
+  // caller forge the header and dodge the limiter entirely.
+  trustProxyHops: hopsEnv("TRUST_PROXY_HOPS"),
   // Scheduler tick interval (ms). Lower in tests/dev if needed; default 60s.
-  schedulerIntervalMs: Number(process.env.SCHEDULER_INTERVAL_MS ?? 60_000),
+  schedulerIntervalMs: numberEnv("SCHEDULER_INTERVAL_MS", 60_000),
 };
 
 // Fail fast: never sign tokens or encrypt credentials with a secret that is
@@ -51,8 +78,7 @@ if (KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
   console.warn("[security] JWT_SECRET is the public default — fine for local demos, never for production.");
 }
 
-const WEAK_CONNECTOR_KEY = "dev-insecure-connector-key-change-me";
-if (env.connectorEncryptionKey === WEAK_CONNECTOR_KEY) {
+if (KNOWN_WEAK_SECRETS.has(env.connectorEncryptionKey) || env.connectorEncryptionKey === "dev-insecure-connector-key-change-me") {
   if (!isLocalDev) throw new Error("CONNECTOR_ENCRYPTION_KEY must be set to a real secret (connector credentials are encrypted with it). Set NODE_ENV=development for local demos.");
   console.warn("[security] CONNECTOR_ENCRYPTION_KEY is the public default — fine for local demos, never for production.");
 }

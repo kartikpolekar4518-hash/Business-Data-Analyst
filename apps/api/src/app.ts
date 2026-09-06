@@ -32,6 +32,15 @@ import { PLANS } from "./billing/plans.js";
 export const app = express();
 app.disable("x-powered-by");
 
+// Every rate limiter below keys on req.ip. Behind a reverse proxy (Replit, a load
+// balancer, an ingress) that is the proxy's address unless Express is told how many
+// hops to skip in X-Forwarded-For — which silently collapses every caller in the world
+// into ONE bucket, so the first busy tenant locks everybody else out. Configured as a
+// hop count rather than `true`: trusting the entire chain lets any caller prepend a
+// forged X-Forwarded-For and get a fresh bucket per request, i.e. no limiting at all.
+// Default 0 = no proxy, req.ip is the socket address.
+if (env.trustProxyHops > 0) app.set("trust proxy", env.trustProxyHops);
+
 // Security response headers. Hand-rolled (like the rate limiters and SSRF guard)
 // so we add no dependency. HSTS is prod-only — sending it over plain http on a
 // real domain would wrongly pin the browser to https. The CSP is scoped for a
