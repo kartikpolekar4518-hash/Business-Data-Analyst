@@ -18,6 +18,7 @@ export function KpiCard({
   explain = false,
   metricKey,
   explainQuery,
+  variant = "card",
 }: {
   label: string;
   value: number;
@@ -31,10 +32,14 @@ export function KpiCard({
   explain?: boolean;
   metricKey?: string;
   explainQuery?: string;
+  // "strip" is the supporting-role treatment: cells of one ruled band rather than
+  // a row of competing cards, for pages where something else is the headline.
+  variant?: "card" | "strip";
 }) {
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
+  const strip = variant === "strip";
 
   return (
     <div
@@ -42,8 +47,11 @@ export function KpiCard({
         // A tile is a figure on paper: the accent variant is marked by a rule
         // down its edge, not by lifting, glowing or washing colour behind the
         // number it is supposed to be showing.
-        "group relative rounded-xl border border-rule bg-surface p-4 transition-colors duration-100",
-        accent && "border-l-2 border-l-accent",
+        "group relative transition-colors duration-100",
+        strip
+          ? "px-4 py-3 text-ink-faint first:pl-0 last:pr-0"
+          : "rounded-xl border border-rule bg-surface p-4",
+        !strip && accent && "border-l-2 border-l-accent",
       )}
     >
       {/* Header row: label + icon */}
@@ -51,17 +59,19 @@ export function KpiCard({
         <span className="label">{label}</span>
         <div className="flex items-center gap-1">
         {explain && metricKey && <ExplainMetric metricKey={metricKey} label={label} query={explainQuery} />}
-        <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />
+        {/* In the strip the icon is chrome competing with the figure; the label
+            already says which number this is. */}
+        {!strip && <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />}
         </div>
       </div>
 
       {/* Value */}
-      <div className="mt-2.5 text-data-lg tabular-nums text-ink">
+      <div className={cn("tabular-nums text-ink", strip ? "mt-1 text-data" : "mt-2.5 text-data-lg")}>
         <AnimatedNumber value={value} format={format} />
       </div>
 
       {/* Bottom row: trend pill + sparkline */}
-      <div className="mt-2.5 flex items-end justify-between gap-2">
+      <div className={cn("flex items-end justify-between gap-2", strip ? "mt-1" : "mt-2.5")}>
         {changePct != null ? (
           <span
             className={cn(
@@ -71,7 +81,7 @@ export function KpiCard({
               !up && !down && "text-ink-faint",
             )}
           >
-            <Trend className="h-3.5 w-3.5" />
+            {!strip && <Trend className="h-3.5 w-3.5" />}
             {changePct > 0 ? "+" : ""}
             {changePct}%
           </span>
@@ -79,8 +89,10 @@ export function KpiCard({
           <span className="text-body-sm text-ink-faint">—</span>
         )}
         {spark && spark.length > 1 && (
-          <div className="opacity-90">
-            <Sparkline data={spark} color={accentColor} />
+          <div className={strip ? "opacity-60" : "opacity-90"}>
+            {/* Supporting figures get one muted trace: a rotating palette here
+                would be colour as decoration, which the numbers do not need. */}
+            <Sparkline data={spark} color={strip ? "currentColor" : accentColor} />
           </div>
         )}
       </div>

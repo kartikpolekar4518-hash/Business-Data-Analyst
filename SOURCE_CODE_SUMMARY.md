@@ -82,7 +82,7 @@ The core differentiator: **no LLM, no arbitrary SQL/code** — everything is pur
 | File | Lines | Contents |
 |------|------:|----------|
 | `ui.tsx` | 429 | Button (5 variants × 3 sizes + loading), Card/Header/Body, Input/Label/Select, Badge (5 tones + dot), Spinner, Skeleton, EmptyState, ErrorState, Modal (focus-trap), Tabs, Toast system |
-| `Shell.tsx` | 404 | Dark grouped sidebar (role-filtered nav, alert badge), glass header (breadcrumbs, ⌘K search UI, theme toggle, notification bell, user dropdown with focus trap), mobile drawer |
+| `Shell.tsx` | 719 | Five job-named destinations (role-filtered, alert badge) with per-group tabs for the pages each owns; header (breadcrumbs, ⌘K palette keyed on the old feature words, theme toggle, notification bell, user dropdown with focus trap), mobile drawer |
 | `Kpi.tsx` | 81 | KPI card with trend icon, tooltip, accent stripe |
 | `charts.tsx` | 77 | Memoized Recharts wrappers: TrendChart (area w/ gradient), BarRankChart (horizontal/vertical), ForecastChart (history line + dashed forecast + confidence band) |
 | `ErrorBoundary.tsx` | 52 | Error boundary that logs to `/errors` endpoint (note: endpoint returns 404 → fail-silent) |

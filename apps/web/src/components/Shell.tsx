@@ -1,22 +1,18 @@
 import { type ReactNode, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  LayoutGrid,
   Database,
-  BarChart3,
-  PieChart,
   MessagesSquare,
-  TrendingUp,
+  SlidersHorizontal,
+  Gauge,
   FileText,
   Bell,
-  History,
   Settings,
   Menu,
   Sun,
   Moon,
   LogOut,
-  BrainCircuit,
+  ClipboardCheck,
   ChevronRight,
   User,
   Shield,
@@ -27,15 +23,16 @@ import {
   Upload,
   Keyboard,
   SunMoon,
+  type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { useAuth } from "../lib/auth";
+import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api";
-import { CommandPalette, type Command, Modal } from "./ui";
+import { CommandPalette, type Command, Modal, Tabs } from "./ui";
 import type { DatasetSummary } from "../lib/types";
 
 const IS_MAC =
@@ -43,41 +40,80 @@ const IS_MAC =
 const MOD_KEY = IS_MAC ? "⌘" : "Ctrl";
 
 /* ─────────────────────────────────────────────
-   Navigation configuration — grouped sections
+   Navigation configuration — five jobs, not fifteen features
+
+   Each entry is something a person is trying to get done. The pages that used to
+   be their own sidebar rows are still here, at unchanged URLs, as tabs under the
+   job they serve — nothing is deleted and no bookmark breaks.
+
+   `keywords` matters: the command palette matches on label + keywords, so naming
+   a destination after a job would otherwise make it unfindable by its old feature
+   name. Everything searchable before stays searchable.
    ───────────────────────────────────────────── */
-const NAV_SECTIONS = [
+type NavTab = { to: string; label: string; keywords?: string; badge?: "alerts" };
+type NavItem = {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+  keywords: string;
+  roles?: readonly Role[];
+  badge?: "alerts";
+  tabs?: NavTab[];
+};
+
+const NAV: NavItem[] = [
   {
-    label: "Main",
-    items: [
-      { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { to: "/builder", label: "Builder", icon: LayoutGrid },
-      { to: "/data", label: "Data", icon: Database },
-      { to: "/analytics", label: "Analytics", icon: BarChart3 },
-      {
-        to: "/ai-chat",
-        label: "Chat with Data",
-        icon: MessagesSquare,
-        roles: ["ADMIN", "MANAGER"] as const,
-      },
+    to: "/dashboard",
+    label: "Where we stand",
+    icon: Gauge,
+    keywords: "dashboard overview home summary kpi headline performance today",
+  },
+  {
+    to: "/ai-chat",
+    label: "Ask a question",
+    icon: MessagesSquare,
+    keywords: "chat ask question natural language ai conversation query",
+    roles: ["ADMIN", "MANAGER"] as const,
+  },
+  {
+    to: "/analytics",
+    label: "Dig into the numbers",
+    icon: SlidersHorizontal,
+    keywords: "analytics explore filter slice drill segment driver correlation breakdown",
+    tabs: [
+      { to: "/analytics", label: "Explore" },
+      { to: "/forecasts", label: "Forecasts", keywords: "forecast projection predict what-if scenario goal horizon" },
+      { to: "/charts", label: "Chart library", keywords: "chart graph library visual catalog plot map" },
+      { to: "/builder", label: "Builder", keywords: "builder widget canvas custom dashboard layout" },
     ],
   },
   {
-    label: "Analytics",
-    items: [
-      { to: "/forecasts", label: "Forecasts", icon: TrendingUp },
-      { to: "/charts", label: "Chart library", icon: PieChart },
-      { to: "/reports", label: "Reports", icon: FileText },
-      { to: "/alerts", label: "Alerts", icon: Bell },
+    to: "/reports",
+    label: "Put it on record",
+    icon: FileText,
+    keywords: "report export pdf share schedule template executive summary",
+    badge: "alerts",
+    tabs: [
+      { to: "/reports", label: "Reports" },
+      { to: "/alerts", label: "Alerts", keywords: "alert rule anomaly notification threshold warning", badge: "alerts" },
+      { to: "/activity", label: "Activity", keywords: "activity audit trail log history who changed" },
     ],
   },
   {
-    label: "Settings",
-    items: [
-      { to: "/activity", label: "Activity", icon: History },
-      { to: "/settings", label: "Settings", icon: Settings },
-    ],
+    to: "/data",
+    label: "The data behind it",
+    icon: Database,
+    keywords: "data upload csv excel dataset file source connect quality schema clean recipe",
   },
 ];
+
+/** Every destination, longest path first — `startsWith` must not let a short
+ *  path shadow a longer one (`/data` swallowing `/data/:id`). */
+const DESTINATIONS: { to: string; label: string; group: NavItem }[] = NAV.flatMap((item) =>
+  (item.tabs ?? [{ to: item.to, label: item.label }]).map((t) => ({ to: t.to, label: t.label, group: item })),
+).sort((a, b) => b.to.length - a.to.length);
+
+const destinationFor = (pathname: string) => DESTINATIONS.find((d) => pathname.startsWith(d.to));
 
 /* ─────────────────────────────────────────────
    Shared hook — unread alert count (fetched once)
@@ -93,13 +129,13 @@ function useUnreadAlerts() {
 /* ─────────────────────────────────────────────
    Alert badge — unread count pill
    ───────────────────────────────────────────── */
-function AlertBadge() {
+function AlertBadge({ className }: { className?: string }) {
   const { data: alerts } = useUnreadAlerts();
 
   if (!alerts?.unread) return null;
 
   return (
-    <span className="relative ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface/20 px-1.5 text-[11px] font-semibold leading-none text-ink backdrop-blur-sm">
+    <span className={cn("relative flex h-5 min-w-[20px] items-center justify-center rounded-full bg-neg px-1.5 font-mono text-label leading-none text-accent-fg", className)}>
       {alerts.unread > 99 ? "99+" : alerts.unread}
     </span>
   );
@@ -177,6 +213,7 @@ function Sidebar({
 }) {
   const { user, can } = useAuth();
   const isDesktop = useIsDesktop();
+  const current = destinationFor(useLocation().pathname);
 
   return (
     <>
@@ -207,68 +244,53 @@ function Sidebar({
         {/* Inner track holds its full width so a collapse slides rather than reflows */}
         <div className="flex h-full w-[240px] flex-col border-r border-rule bg-surface">
         {/* Brand */}
-        <div className="flex h-14 items-center gap-3 border-b border-rule] px-4">
+        <div className="flex h-14 items-center gap-3 border-b border-rule px-4">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg">
-            <BrainCircuit className="h-[18px] w-[18px] text-ink" />
+            <ClipboardCheck className="h-[18px] w-[18px]" />
           </div>
-          <span className="text-[16px] font-bold tracking-tight text-ink">
+          <span className="text-heading-3 font-bold tracking-tight text-ink">
             {import.meta.env.VITE_APP_NAME || "NoPS"}
           </span>
         </div>
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
-          {NAV_SECTIONS.map((section) => (
-            <div key={section.label}>
-              <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
-                {section.label}
-              </div>
-              <div className="space-y-0.5">
-                {section.items
-                  .filter((n) => !n.roles || can(...n.roles))
-                  .map((n) => (
-                    <NavLink
-                      key={n.to}
-                      to={n.to}
-                      onClick={onClose}
-                      className={({ isActive }: { isActive: boolean }) =>
-                        cn(
-                          "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors duration-150",
-                          isActive
-                            ? "text-ink"
-                            : "text-ink-faint hover:bg-sunken hover:text-ink",
-                        )
-                      }
-                    >
-                      {({ isActive }: { isActive: boolean }) => (
-                        <>
-                          {/* Shared layoutId — the pill and glow bar travel
-                              between routes instead of popping. */}
-                          {isActive && (
-                            <>
-                              <motion.span
-                                layoutId="nav-active-pill"
-                                className="absolute inset-0 rounded-lg bg-accent/[0.12]"
-                                transition={SPRING}
-                              />
-                              <motion.span
-                                layoutId="nav-active"
-                                // margin, not -translate-y-1/2: framer owns transform here
-                                className="absolute left-0 top-1/2 -mt-2.5 h-5 w-[3px] rounded-r-full bg-brand-400 shadow-[0_0_10px_1px] shadow-brand-400/70"
-                                transition={SPRING}
-                              />
-                            </>
-                          )}
-                          <n.icon className="relative h-[18px] w-[18px] shrink-0" />
-                          <span className="relative truncate">{n.label}</span>
-                          {n.to === "/alerts" && <AlertBadge />}
-                        </>
-                      )}
-                    </NavLink>
-                  ))}
-              </div>
-            </div>
-          ))}
+        {/* Navigation — one flat list of jobs. A job is current whenever any of
+            the pages it owns is, so /forecasts lights "Dig into the numbers". */}
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-5">
+          {NAV.filter((n) => !n.roles || can(...n.roles)).map((n) => {
+            const isActive = current?.group.to === n.to;
+            return (
+              <NavLink
+                key={n.to}
+                to={n.to}
+                onClick={onClose}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-body font-medium transition-colors duration-150",
+                  isActive ? "text-ink" : "text-ink-faint hover:bg-sunken hover:text-ink",
+                )}
+              >
+                {/* Shared layoutId — the pill and the marker travel between
+                    routes instead of popping. */}
+                {isActive && (
+                  <>
+                    <motion.span
+                      layoutId="nav-active-pill"
+                      className="absolute inset-0 rounded-lg bg-accent/[0.12]"
+                      transition={SPRING}
+                    />
+                    <motion.span
+                      layoutId="nav-active"
+                      // margin, not -translate-y-1/2: framer owns transform here
+                      className="absolute left-0 top-1/2 -mt-2.5 h-5 w-[3px] rounded-r-sm bg-accent"
+                      transition={SPRING}
+                    />
+                  </>
+                )}
+                <n.icon className="relative h-[18px] w-[18px] shrink-0" />
+                <span className="relative truncate">{n.label}</span>
+                {n.badge === "alerts" && <AlertBadge className="ml-auto" />}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* Bottom — user summary */}
@@ -341,12 +363,10 @@ function Header({
     }
   }, [menu]);
 
-  // Breadcrumb resolution
-  const flatItems = NAV_SECTIONS.flatMap((s) => s.items);
-  const current = flatItems.find((n) => location.pathname.startsWith(n.to));
-  const section = NAV_SECTIONS.find((s) =>
-    s.items.some((n) => n.to === current?.to),
-  );
+  // Breadcrumb: "<the job> › <the page>". A group with no tabs is one crumb,
+  // since repeating its own label as the second crumb says nothing.
+  const current = destinationFor(location.pathname);
+  const group = current?.group;
 
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-rule bg-surface px-4 lg:px-6">
@@ -374,16 +394,14 @@ function Header({
 
       {/* Breadcrumb */}
       <nav className="hidden items-center gap-1.5 text-body md:flex" aria-label="Breadcrumb">
-        {section && (
+        {group && group.tabs && (
           <>
-            <span className="text-ink-faint">
-              {section.label}
-            </span>
+            <span className="text-ink-faint">{group.label}</span>
             <ChevronRight className="h-3.5 w-3.5 text-ink-faint" />
           </>
         )}
         <span className="font-medium text-ink-soft">
-          {current?.label ?? "Dashboard"}
+          {current?.label ?? "Where we stand"}
         </span>
       </nav>
 
@@ -520,6 +538,35 @@ function Header({
 }
 
 /* ─────────────────────────────────────────────
+   Group tabs — the pages a job owns
+
+   Rendered once here rather than per page, so every demoted destination keeps
+   its own route and its own query string while gaining a way back to its
+   siblings. Its own layoutId, or it would fight a page's internal tab bar.
+   ───────────────────────────────────────────── */
+function GroupTabs() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const current = destinationFor(location.pathname);
+  const tabs = current?.group.tabs;
+  if (!tabs) return null;
+
+  return (
+    <Tabs
+      className="shrink-0 bg-surface px-4 lg:px-8"
+      layoutId="group-tab-underline"
+      active={current.to}
+      onChange={(to) => navigate(to)}
+      tabs={tabs.map((t) => ({
+        id: t.to,
+        label: t.label,
+        trailing: t.badge === "alerts" ? <AlertBadge /> : undefined,
+      }))}
+    />
+  );
+}
+
+/* ─────────────────────────────────────────────
    Shell — application layout wrapper
    ───────────────────────────────────────────── */
 /* ─────────────────────────────────────────────
@@ -605,16 +652,19 @@ export function Shell({ children }: { children: ReactNode }) {
   }, []);
 
   const commands = useMemo<Command[]>(() => {
-    const nav = NAV_SECTIONS.flatMap((s) => s.items)
-      .filter((n) => !n.roles || can(...n.roles))
-      .map((n) => ({
-        id: n.to,
-        label: n.label,
-        section: "Navigate",
+    // Job names hide the feature words people actually type, so each entry
+    // carries its group's keywords and every tab is listed in its own right.
+    const nav: Command[] = NAV.filter((n) => !n.roles || can(...n.roles)).flatMap((n) =>
+      (n.tabs ?? [{ to: n.to, label: n.label }]).map((t) => ({
+        id: t.to,
+        label: n.tabs ? `${n.label} · ${t.label}` : n.label,
+        section: "Go to",
         icon: n.icon,
-        hint: n.to,
-        run: () => navigate(n.to),
-      }));
+        hint: t.to,
+        keywords: t.keywords ? `${t.keywords} ${t.label}` : `${n.keywords} ${t.label}`,
+        run: () => navigate(t.to),
+      })),
+    );
 
     const actions: Command[] = [
       { id: "act-upload", label: "Upload dataset", section: "Actions", icon: Upload, keywords: "new csv excel import add data", run: () => navigate("/data") },
@@ -651,6 +701,7 @@ export function Shell({ children }: { children: ReactNode }) {
           onToggleCollapse={() => setCollapsed((c) => !c)}
           onOpenPalette={() => setPaletteOpen(true)}
         />
+        <GroupTabs />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           {children}
         </main>

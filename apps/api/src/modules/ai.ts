@@ -3,25 +3,24 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadJoinedDataset } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./context.js";
 import { ruleParse, runIntent } from "../engine/intent.js";
 import { llmParseIntent } from "../ai/provider.js";
 import { deriveInsights } from "../engine/insights.js";
+import { buildHeadline } from "../engine/headline.js";
 import * as A from "../engine/analytics.js";
 
 export const aiRouter = Router();
 aiRouter.use(requireAuth);
 
-// Headline insight + recommendations for the dashboard. Deterministic, no LLM.
+// Headline answer + recommendations for the dashboard. Deterministic, no LLM.
 aiRouter.get("/insights", wrap(async (req, res) => {
-  const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
-  const ov = A.overview(rows, schema);
+  const orgId = req.auth!.organizationId;
+  const { dataset, rows, schema } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
+  const { pack } = await loadOrgConfig(orgId);
   const { recommendations } = deriveInsights(rows, schema);
-  const g = ov.growth;
-  const headline = g === null
-    ? `Revenue totals $${Math.round(ov.revenue.value).toLocaleString()} across the dataset.`
-    : `Revenue ${g >= 0 ? "grew" : "declined"} ${Math.abs(g)}% period-over-period, at a ${ov.profitMargin}% profit margin.`;
-  res.json({ headline, recommendations });
+  const headline = buildHeadline(rows, schema, pack.id, dataset.name);
+  res.json({ headline, recommendations, datasetName: dataset.name });
 }));
 
 const chatSchema = z.object({

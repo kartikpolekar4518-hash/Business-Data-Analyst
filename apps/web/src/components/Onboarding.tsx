@@ -1,8 +1,8 @@
 import { useState, type ComponentType } from "react";
 import { Link } from "react-router-dom";
 import {
-  UploadCloud, Sparkles, Check, ArrowRight, X,
-  Database, BarChart3, MessagesSquare, FileText, BrainCircuit,
+  UploadCloud, Ruler, Check, ArrowRight, X,
+  Database, BarChart3, MessagesSquare, FileText, ClipboardCheck,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Button, Card, CardBody, Modal } from "./ui";
@@ -30,9 +30,9 @@ export function EmptyWorkspace({
     <div className="mx-auto max-w-3xl py-8">
       <div className="text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-fg">
-          <BrainCircuit className="h-6 w-6 text-white" />
+          <ClipboardCheck className="h-6 w-6" />
         </div>
-        <h1 className="mt-4 text-2xl font-bold text-slate-900 dark:text-white">Welcome to NoPS</h1>
+        <h1 className="mt-4 text-heading-1 text-ink">Welcome to NoPS</h1>
         <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
           {canUpload
             ? "Add your business data to generate dashboards, forecasts and reports automatically. No spreadsheet skills required."
@@ -61,15 +61,15 @@ export function EmptyWorkspace({
 
           <Card hoverable className="h-full">
             <CardBody className="flex h-full flex-col">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-400">
-                <Sparkles className="h-5 w-5" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sunken text-ink-soft">
+                <Ruler className="h-5 w-5" />
               </div>
               <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Explore with sample data</h3>
               <p className="mt-1 flex-1 text-sm text-slate-500 dark:text-slate-400">
                 See the full product on a realistic dataset before uploading anything.
               </p>
               <Button className="mt-3 w-full" loading={loadingSample} onClick={onLoadSample}>
-                <Sparkles className="h-4 w-4" /> Load sample data
+                <Ruler className="h-4 w-4" /> Load sample data
               </Button>
             </CardBody>
           </Card>

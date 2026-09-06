@@ -11,15 +11,18 @@ export const Tabs = ({
   tabs,
   active,
   onChange,
+  // Two tab bars on screen at once (a group bar above a page's own tabs) would
+  // otherwise share one layoutId and fling the underline between them.
+  layoutId = "tab-underline",
+  className,
 }: {
-  tabs: { id: string; label: string }[];
+  tabs: { id: string; label: string; trailing?: ReactNode }[];
   active: string;
   onChange: (id: string) => void;
+  layoutId?: string;
+  className?: string;
 }) => (
-  <div
-    role="tablist"
-    className="flex gap-1 border-b border-rule"
-  >
+  <div role="tablist" className={cn("flex gap-1 border-b border-rule", className)}>
     {tabs.map((t) => (
       <button
         key={t.id}
@@ -27,16 +30,17 @@ export const Tabs = ({
         aria-selected={active === t.id}
         onClick={() => onChange(t.id)}
         className={cn(
-          "relative px-4 py-2.5 text-body font-medium transition",
+          "relative inline-flex items-center gap-2 px-4 py-2.5 text-body font-medium transition",
           active === t.id
             ? "text-accent"
             : "text-ink-faint hover:text-ink-soft",
         )}
       >
         {t.label}
+        {t.trailing}
         {active === t.id && (
           <motion.span
-            layoutId="tab-underline"
+            layoutId={layoutId}
             className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t-full bg-accent"
             transition={SPRING}
           />
