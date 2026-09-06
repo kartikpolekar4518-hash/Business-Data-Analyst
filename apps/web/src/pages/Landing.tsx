@@ -36,9 +36,7 @@ const TRUST = [
 const cardMotion: Variants = {
   hidden: { opacity: 0, y: 12 },
   show: { opacity: 1, y: 0, transition: { duration: DUR.base, ease: EASE } },
-  hover: { y: -3, transition: SPRING },
 };
-const iconMotion: Variants = { hover: { scale: 1.12, rotate: -5, transition: SPRING } };
 
 function HoverCard({ className, children }: { className?: string; children: ReactNode }) {
   return (
@@ -53,7 +51,7 @@ function Nav() {
     <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#080c15]/80 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
         <div className="flex items-center gap-2 text-white">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40"><BrainCircuit className="h-[18px] w-[18px]" /></div>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg"><BrainCircuit className="h-[18px] w-[18px]" /></div>
           <span className="text-[16px] font-bold tracking-tight">{APP_NAME}</span>
         </div>
         <nav className="flex items-center gap-2">
@@ -82,12 +80,6 @@ function PreviewMock() {
       animate={{ opacity: 1, y: 0, rotateX: 0 }}
       transition={{ duration: DUR.slow, ease: EASE, delay: 0.15 }}
     >
-      {/* Sweeping sheen — pure CSS, loops on the GPU */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-y-0 -left-1/3 w-1/3 animate-sheen bg-gradient-to-r from-transparent via-white/[0.07] to-transparent"
-      />
-
       <div className="mb-3 flex items-center gap-2 text-xs text-slate-400">
         <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
         <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
@@ -130,7 +122,7 @@ function PreviewMock() {
               transition={{ duration: DUR.slow, ease: EASE, delay: 0.45 + i * 0.07 }}
             >
               <motion.div
-                className="w-full rounded-t bg-gradient-to-t from-brand-600 to-brand-400"
+                className="w-full rounded-t bg-brand-400"
                 style={{ height: `${h}%`, originY: 1 }}
                 animate={reduced ? { scaleY: 1 } : { scaleY: [1, 0.9, 1] }}
                 transition={{
@@ -162,8 +154,6 @@ export default function Landing() {
     <div className="min-h-full bg-white text-slate-900 dark:bg-[#060a13] dark:text-slate-100">
       {/* Hero (always dark) */}
       <div ref={heroRef} className="relative overflow-hidden bg-[#060a13] text-white">
-        <div className="pointer-events-none absolute -left-24 top-0 h-96 w-96 animate-aurora rounded-full bg-brand-500/20 blur-[120px]" />
-        <div className="pointer-events-none absolute -right-16 top-32 h-80 w-80 animate-aurora-slow rounded-full bg-violet-500/20 blur-[120px]" />
         <motion.div
           style={{ y: gridY }}
           className="pointer-events-none absolute inset-0 opacity-[0.04]"
@@ -182,7 +172,7 @@ export default function Landing() {
               </StaggerItem>
               <StaggerItem>
                 <h1 className="mt-5 text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl">
-                  Turn business data<br />into <span className="bg-gradient-to-r from-brand-300 to-violet-300 bg-clip-text text-transparent">decisions.</span>
+                  Turn business data<br />into <span className="text-brand-300">decisions.</span>
                 </h1>
               </StaggerItem>
               <StaggerItem>
@@ -216,7 +206,7 @@ export default function Landing() {
         <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {TRUST.map((t) => (
             <HoverCard key={t.title} className="rounded-2xl border border-border p-5 dark:border-white/[0.06]">
-              <motion.div variants={iconMotion} className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400"><t.icon className="h-5 w-5" /></motion.div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400"><t.icon className="h-5 w-5" /></div>
               <h3 className="mt-3 font-semibold">{t.title}</h3>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t.body}</p>
             </HoverCard>
@@ -233,7 +223,7 @@ export default function Landing() {
           <Stagger className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f) => (
               <HoverCard key={f.title} className="rounded-2xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/60">
-                <motion.div variants={iconMotion} className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow-sm"><f.icon className="h-5 w-5" /></motion.div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-fg"><f.icon className="h-5 w-5" /></div>
                 <h3 className="mt-3 font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{f.body}</p>
               </HoverCard>
@@ -252,7 +242,7 @@ export default function Landing() {
         </Reveal>
         <Stagger stagger={0.04} className="mt-8 flex flex-wrap justify-center gap-3">
           {industries.map((i) => (
-            <motion.div key={i.key} variants={staggerItem} whileHover={{ y: -2 }} transition={SPRING}>
+            <motion.div key={i.key} variants={staggerItem}>
               <Link to="/signup" className="block rounded-full border border-border px-4 py-2 text-sm font-medium transition-colors hover:border-brand-400 hover:text-brand-600 dark:border-white/10 dark:hover:text-brand-400">
                 {i.label}
               </Link>

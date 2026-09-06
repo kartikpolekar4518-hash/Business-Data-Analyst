@@ -1,161 +1,135 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────
+   Token layer — see DESIGN.md. Every colour in the app resolves
+   through one of these. Components name a role, never a palette
+   colour and never a theme.
+   Values are RGB channel triples so Tailwind's /alpha modifiers
+   keep working (bg-surface/60, border-rule/40).
+   ───────────────────────────────────────────────────────────── */
 :root {
-  color-scheme: light dark;
+  color-scheme: light;
+
+  --canvas:      250 250 247;
+  --surface:     255 255 255;
+  --sunken:      241 241 236;
+
+  --ink:         22 24 28;
+  --ink-soft:    74 78 87;
+  --ink-faint:   131 135 143;
+
+  --rule:        222 222 214;
+  --rule-soft:   233 233 226;
+  --rule-strong: 201 201 190;
+
+  --accent:      31 58 95;
+  --accent-fg:   255 255 255;
+  --accent-soft: 226 233 241;
+
+  --pos:         47 107 63;
+  --neg:         163 38 28;
+  --warn:        160 107 4;
+
+  --shadow:      22 24 28;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --canvas:      20 21 26;
+  --surface:     27 29 35;
+  --sunken:      16 18 22;
+
+  --ink:         236 237 234;
+  --ink-soft:    169 173 181;
+  --ink-faint:   118 123 132;
+
+  --rule:        44 47 54;
+  --rule-soft:   35 38 44;
+  --rule-strong: 61 65 74;
+
+  --accent:      143 179 220;
+  --accent-fg:   20 21 26;
+  --accent-soft: 34 50 71;
+
+  --pos:         121 190 141;
+  --neg:         228 121 108;
+  --warn:        220 169 74;
+
+  --shadow:      0 0 0;
 }
 
 html, body, #root { height: 100%; }
 
 body {
-  @apply bg-surface-tertiary text-slate-900 antialiased;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  @apply bg-canvas text-ink antialiased;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-.dark body {
-  @apply text-slate-100;
-  background-color: #060a13;
-  background-image:
-    radial-gradient(55rem 55rem at 100% -12%, rgba(89, 140, 255, 0.12), transparent 60%),
-    radial-gradient(48rem 48rem at -12% 8%, rgba(139, 92, 246, 0.10), transparent 58%),
-    radial-gradient(40rem 40rem at 60% 120%, rgba(34, 211, 238, 0.06), transparent 60%);
-  background-attachment: fixed;
-}
+/* Figures line up in columns wherever they appear. */
+.tabular, table, .font-mono { font-variant-numeric: tabular-nums; }
 
-/* ✅ Thin scrollbars — modern & unobtrusive */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { 
-  @apply bg-slate-300/60 dark:bg-slate-700/60;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  @apply bg-slate-400/80 dark:bg-slate-600/80;
-}
+::-webkit-scrollbar-thumb { @apply bg-rule-strong; border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { @apply bg-ink-faint; }
 
-/* ✅ Selection color */
-::selection {
-  @apply bg-brand-500/15 text-brand-700 dark:bg-brand-400/20 dark:text-brand-300;
-}
+::selection { @apply bg-accent/15 text-ink; }
 
-/* ✅ Focus ring system */
 *:focus-visible {
-  @apply outline-none;
-  box-shadow: 0 0 0 3px rgba(51,102,245,0.25);
-  border-radius: 4px;
+  @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-canvas;
 }
 
-/* ✅ Skeleton shimmer base */
 @layer components {
   .skeleton {
-    @apply relative overflow-hidden rounded-lg;
-    background: linear-gradient(
+    @apply relative overflow-hidden rounded-sm bg-sunken;
+    background-image: linear-gradient(
       90deg,
-      #eef1f7 25%,
-      #f8f9fc 37%,
-      #eef1f7 63%
+      rgb(var(--sunken)) 25%,
+      rgb(var(--surface)) 37%,
+      rgb(var(--sunken)) 63%
     );
     background-size: 200% 100%;
-    animation: shimmer 2s infinite linear;
+    animation: shimmer 1.8s infinite linear;
   }
 
-  .dark .skeleton {
-    background: linear-gradient(
-      90deg,
-      rgba(30, 41, 59, 0.6) 25%,
-      rgba(30, 41, 59, 0.2) 37%,
-      rgba(30, 41, 59, 0.6) 63%
-    );
-    background-size: 200% 100%;
-  }
-
-  /* ✅ Card base component */
+  /* Border and ground separate a card. Nothing lifts, nothing glows. */
   .card {
-    @apply rounded-xl border border-border bg-white shadow-card transition-shadow duration-200;
+    @apply rounded-xl border border-rule bg-surface;
   }
 
-  .dark .card {
-    @apply border-white/[0.06] bg-slate-900/70 backdrop-blur-sm;
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05), 0 18px 40px -20px rgba(0, 0, 0, 0.8);
+  .page-header { @apply mb-6; }
+  .page-title { @apply text-display text-ink; }
+  .page-subtitle { @apply mt-1 text-body text-ink-soft; }
+
+  .section-header { @apply mb-3 flex items-center justify-between; }
+  .section-title { @apply text-heading-3 text-ink; }
+
+  /* Uppercase caption — the ledger label voice. */
+  .label {
+    @apply font-mono text-label uppercase text-ink-faint;
   }
 
-  .card:hover {
-    @apply shadow-card-hover;
-  }
+  .kpi-grid { @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4; }
+  .chart-grid { @apply grid grid-cols-1 gap-3 lg:grid-cols-2; }
 
-  .dark .card:hover {
-    @apply border-brand-500/25;
-    box-shadow: 0 0 0 1px rgba(89, 140, 255, 0.12), 0 22px 45px -22px rgba(0, 0, 0, 0.9);
-  }
-
-  /* ✅ Page header */
-  .page-header {
-    @apply mb-8;
-  }
-
-  .page-title {
-    @apply text-display text-slate-900 dark:text-white;
-  }
-
-  .page-subtitle {
-    @apply mt-1 text-body text-slate-500 dark:text-slate-400;
-  }
-
-  /* ✅ Section styling */
-  .section-header {
-    @apply mb-4 flex items-center justify-between;
-  }
-
-  .section-title {
-    @apply text-heading-3 text-slate-900 dark:text-white;
-  }
-
-  /* ✅ KPI grid */
-  .kpi-grid {
-    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4;
-  }
-
-  /* ✅ Chart grid */
-  .chart-grid {
-    @apply grid grid-cols-1 gap-4 lg:grid-cols-2;
-  }
-
-  /* ✅ Sidebar nav item */
   .nav-item {
-    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150;
+    @apply flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-body font-medium transition-colors duration-100;
   }
 
   .nav-item-active {
-    @apply bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300;
-    box-shadow: inset 3px 0 0 theme('colors.brand.500');
+    @apply bg-accent-soft text-accent;
+    box-shadow: inset 2px 0 0 rgb(var(--accent));
   }
 
   .nav-item-inactive {
-    @apply text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800/60;
+    @apply text-ink-soft hover:bg-sunken hover:text-ink;
   }
-}
-
-/* ✅ Ambient motion — these loop forever, so they stay on the GPU as CSS
-   rather than running through framer's animation frame loop. */
-@keyframes aurora {
-  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
-  33%      { transform: translate3d(6%, -4%, 0) scale(1.12); }
-  66%      { transform: translate3d(-5%, 5%, 0) scale(0.94); }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-6px); }
-}
-
-@keyframes sheen {
-  0%       { transform: translateX(-120%) skewX(-18deg); }
-  60%, 100% { transform: translateX(240%) skewX(-18deg); }
 }
 
 @keyframes shimmer {
@@ -163,33 +137,7 @@ body {
   100% { background-position: 200% 0; }
 }
 
-/* ✅ Transition utilities */
 @layer utilities {
-  .animate-aurora {
-    animation: aurora 18s ease-in-out infinite;
-    will-change: transform;
-  }
-
-  .animate-aurora-slow {
-    animation: aurora 26s ease-in-out infinite reverse;
-    will-change: transform;
-  }
-
-  .animate-float {
-    animation: float 5s ease-in-out infinite;
-  }
-
-  .animate-sheen {
-    animation: sheen 6s ease-in-out infinite;
-    will-change: transform;
-  }
-
-  /* ✅ Glass effect */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-slate-950/80;
-  }
-
-  /* ✅ Text truncation */
   .truncate-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -198,7 +146,6 @@ body {
   }
 }
 
-/* ✅ Motion preference respect */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
@@ -206,8 +153,5 @@ body {
     transition-duration: 0.01ms !important;
   }
 
-  .skeleton {
-    animation: none !important;
-    @apply bg-slate-200 dark:bg-slate-800;
-  }
+  .skeleton { animation: none !important; background-image: none; }
 }

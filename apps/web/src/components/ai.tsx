@@ -74,10 +74,9 @@ export const AIThinking = ({ label = "Analyzing your data…" }: { label?: strin
 // AI summary banner — headline insight + citation
 // ─────────────────────────────────────────────
 export const AISummary = ({ title = "AI Executive Insight", children, citation }: { title?: string; children: ReactNode; citation?: ReactNode }) => (
-  <div className="relative overflow-hidden rounded-2xl border border-brand-500/20 bg-gradient-to-r from-brand-500/10 via-violet-500/[0.06] to-transparent p-4">
-    <div className="pointer-events-none absolute -right-10 -top-16 h-40 w-40 rounded-full bg-brand-500/20 blur-3xl" />
-    <div className="relative flex items-start gap-3">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow-sm">
+  <div className="rounded-xl border border-rule border-l-2 border-l-accent bg-surface p-4">
+    <div className="flex items-start gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg">
         <BrainCircuit className="h-[18px] w-[18px] text-white" />
       </div>
       <div className="min-w-0 flex-1 pt-0.5">

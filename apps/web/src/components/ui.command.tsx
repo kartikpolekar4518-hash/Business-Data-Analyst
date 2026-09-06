@@ -113,15 +113,15 @@ export function CommandPalette({
             role="dialog"
             aria-modal="true"
             aria-label="Command palette"
-            className="w-full max-w-xl overflow-hidden rounded-xl border border-border bg-white shadow-modal dark:border-slate-800 dark:bg-slate-900"
+            className="w-full max-w-xl overflow-hidden rounded-xl border border-rule bg-surface shadow-modal"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.98, y: -8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.98, y: -8 }}
             transition={{ duration: DUR.base, ease: EASE }}
           >
-            <div className="flex items-center gap-3 border-b border-border px-4 dark:border-white/[0.06]">
-              <Search className="h-4 w-4 shrink-0 text-slate-400" />
+            <div className="flex items-center gap-3 border-b border-rule px-4">
+              <Search className="h-4 w-4 shrink-0 text-ink-faint" />
               <input
                 autoFocus
                 value={q}
@@ -131,22 +131,22 @@ export function CommandPalette({
                 }}
                 placeholder="Search pages, datasets, actions…"
                 aria-label="Search commands"
-                className="h-12 flex-1 bg-transparent text-sm outline-none placeholder:text-slate-400 dark:text-slate-100"
+                className="h-12 flex-1 bg-transparent text-body outline-none placeholder:text-ink-faint"
               />
-              <kbd className="hidden rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:border-white/10 sm:block">
+              <kbd className="hidden rounded border border-rule px-1.5 py-0.5 text-[10px] font-medium text-ink-faint sm:block">
                 ESC
               </kbd>
             </div>
 
             <div ref={listRef} className="max-h-[52vh] overflow-y-auto p-2">
               {filtered.length === 0 ? (
-                <div className="py-10 text-center text-sm text-slate-400">
+                <div className="py-10 text-center text-body text-ink-faint">
                   No results for “{q}”.
                 </div>
               ) : (
                 groups.map(([section, items]) => (
                   <div key={section} className="mb-1">
-                    <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                    <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
                       {section}
                     </div>
                     {items.map(({ cmd, idx }) => {
@@ -162,16 +162,16 @@ export function CommandPalette({
                             cmd.run();
                           }}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                            "flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-body transition-colors",
                             idx === active
-                              ? "bg-brand-50 text-slate-900 dark:bg-brand-500/15 dark:text-white"
-                              : "text-slate-600 dark:text-slate-300",
+                              ? "bg-accent-soft text-ink"
+                              : "text-ink-soft",
                           )}
                         >
                           {Icon && <Icon className="h-4 w-4 shrink-0 opacity-70" />}
                           <span className="flex-1 truncate">{cmd.label}</span>
                           {cmd.hint && (
-                            <span className="shrink-0 text-xs text-slate-400">
+                            <span className="shrink-0 text-body-sm text-ink-faint">
                               {cmd.hint}
                             </span>
                           )}

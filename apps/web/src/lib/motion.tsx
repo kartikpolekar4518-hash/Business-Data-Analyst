@@ -13,8 +13,12 @@ import {
 import { formatKpiValue, type KpiFormat } from "./kpi";
 
 export const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1]; // expo-out
-export const DUR = { fast: 0.18, base: 0.28, slow: 0.45 } as const;
-export const SPRING: Transition = { type: "spring", stiffness: 420, damping: 34 };
+// Two durations are the whole system (DESIGN.md): `fast` for a control changing
+// state, `base` for content entering. `slow` remains only for the landing hero.
+export const DUR = { fast: 0.12, base: 0.24, slow: 0.4 } as const;
+// Reserved for direct manipulation feedback — a control depressing under the
+// pointer, a bar tracking a value. Static content never springs.
+export const SPRING: Transition = { type: "spring", stiffness: 500, damping: 38 };
 
 const enter = { duration: DUR.base, ease: EASE };
 

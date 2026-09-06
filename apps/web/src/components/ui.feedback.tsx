@@ -16,15 +16,15 @@ export const EmptyState = ({
   description?: string;
   action?: ReactNode;
 }) => (
-  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-14 text-center dark:border-slate-700">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
-      <Icon className="h-6 w-6 text-slate-400 dark:text-slate-400" />
+  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-rule py-14 text-center">
+    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sunken">
+      <Icon className="h-6 w-6 text-ink-faint" />
     </div>
-    <h3 className="mt-4 text-[15px] font-semibold text-slate-900 dark:text-white">
+    <h3 className="mt-4 text-[15px] font-semibold text-ink">
       {title}
     </h3>
     {description && (
-      <p className="mt-1 max-w-sm text-[13px] text-slate-500 dark:text-slate-400">
+      <p className="mt-1 max-w-sm text-[13px] text-ink-faint">
         {description}
       </p>
     )}
@@ -39,13 +39,13 @@ export const ErrorState = ({
   message: string;
   retry?: () => void;
 }) => (
-  <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-400">
+  <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-neg">
     <AlertCircle className="h-4 w-4 shrink-0" />
     <span className="flex-1">{message}</span>
     {retry && (
       <button
         onClick={retry}
-        className="shrink-0 text-xs font-medium text-red-600 underline-offset-2 hover:underline dark:text-red-400"
+        className="shrink-0 text-body-sm font-medium text-neg underline-offset-2 hover:underline"
       >
         Retry
       </button>
@@ -128,7 +128,7 @@ export const Modal = ({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="w-full max-w-md rounded-xl border border-border bg-white p-5 shadow-modal dark:border-slate-800 dark:bg-slate-900"
+            className="w-full max-w-md rounded-xl border border-rule bg-surface p-5 shadow-modal"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.96, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -136,13 +136,13 @@ export const Modal = ({
             transition={{ duration: DUR.base, ease: EASE }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-[15px] font-semibold text-ink">
                 {title}
               </h3>
               <button
                 onClick={onClose}
                 aria-label="Close"
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sunken"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -212,21 +212,21 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
       onMouseLeave={resume}
       onFocus={pause}
       onBlur={resume}
-      className="pointer-events-auto flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-3 text-sm shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+      className="pointer-events-auto flex items-center gap-3 rounded-xl border border-rule bg-surface px-4 py-3 text-body shadow-dropdown"
     >
       <Icon
         className={cn(
           "h-4 w-4 shrink-0",
           toast.tone === "success" && "text-emerald-500",
           toast.tone === "error" && "text-red-500",
-          toast.tone === "info" && "text-brand-500",
+          toast.tone === "info" && "text-accent",
         )}
       />
       <span className="flex-1">{toast.message}</span>
       {toast.action && (
         <button
           onClick={() => { toast.action!.onClick(); onDismiss(toast.id); }}
-          className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-brand-600 transition-colors hover:bg-brand-50 dark:text-brand-400 dark:hover:bg-brand-500/10"
+          className="shrink-0 rounded-md px-2 py-1 text-body-sm font-semibold text-accent transition-colors hover:bg-accent-soft"
         >
           {toast.action.label}
         </button>
@@ -234,7 +234,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
       <button
         aria-label="Dismiss"
         onClick={() => onDismiss(toast.id)}
-        className="shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+        className="shrink-0 rounded-md p-0.5 text-ink-faint transition-colors hover:bg-sunken hover:text-ink-soft"
       >
         <X className="h-3.5 w-3.5" />
       </button>
@@ -353,7 +353,7 @@ export const Tooltip = ({
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: DUR.fast, ease: EASE }}
                 style={{ position: "fixed", left: coords?.left ?? -9999, top: coords?.top ?? -9999 }}
-                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown dark:bg-slate-700"
+                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-body-sm font-medium text-white shadow-dropdown"
               >
                 {content}
               </motion.span>

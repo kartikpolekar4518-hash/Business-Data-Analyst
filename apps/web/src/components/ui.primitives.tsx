@@ -11,20 +11,19 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
-  primary:
-    "bg-brand-600 text-white hover:bg-brand-700 shadow-sm shadow-brand-600/10 active:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400 dark:shadow-glow",
-  secondary:
-    "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
-  outline:
-    "border border-border hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300",
-  ghost: "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400",
-  danger: "bg-red-600 text-white hover:bg-red-700 shadow-sm shadow-red-600/10 active:bg-red-800",
+  primary: "bg-accent text-accent-fg hover:bg-accent/90 active:bg-accent/80",
+  secondary: "bg-ink text-canvas hover:bg-ink/90 active:bg-ink/80",
+  // No ground of its own — an outline button has to sit on whatever surface it
+  // is placed on, including the dark hero.
+  outline: "border border-rule text-ink hover:bg-sunken hover:border-rule-strong",
+  ghost: "text-ink-soft hover:bg-sunken hover:text-ink",
+  danger: "bg-neg text-white hover:bg-neg/90 active:bg-neg/80",
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "h-8 px-3 text-xs rounded-lg gap-1.5",
-  md: "h-10 px-4 text-sm rounded-lg gap-2",
-  lg: "h-12 px-6 text-base rounded-xl gap-2.5",
+  sm: "h-7 px-2.5 text-body-sm rounded-md gap-1.5",
+  md: "h-9 px-3.5 text-body rounded-md gap-2",
+  lg: "h-11 px-5 text-heading-3 rounded-lg gap-2",
 };
 
 // framer's own drag/animation handlers collide with the DOM ones, so they're
@@ -48,13 +47,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <motion.button
         ref={ref}
         disabled={inert}
-        whileHover={inert ? undefined : { y: -1 }}
-        whileTap={inert ? undefined : { scale: 0.97 }}
+        // A control may depress under the pointer. It does not lift on hover —
+        // hover is a colour change, so motion stays meaningful (DESIGN.md).
+        whileTap={inert ? undefined : { scale: 0.98 }}
         transition={SPRING}
         className={cn(
           // transform is framer's to drive — CSS only transitions paint properties
-          "inline-flex items-center justify-center font-medium transition-colors duration-150",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
+          "inline-flex items-center justify-center font-medium transition-colors duration-100",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
           "disabled:opacity-50 disabled:pointer-events-none",
           variantStyles[variant],
           sizeStyles[size],
@@ -83,9 +83,9 @@ export const Card = ({
 }) => (
   <div
     className={cn(
-      "rounded-xl border border-border bg-white shadow-card transition-all duration-200",
-      "dark:border-white/[0.06] dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm",
-      hoverable && "cursor-pointer hover:shadow-card-hover dark:hover:border-brand-500/25",
+      "rounded-xl border border-rule bg-surface transition-colors duration-100",
+      // A hoverable card signals with its border, not by lifting off the page.
+      hoverable && "cursor-pointer hover:border-rule-strong hover:bg-sunken/40",
       className,
     )}
   >
@@ -102,16 +102,10 @@ export const CardHeader = ({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 dark:border-white/[0.06]">
+  <div className="flex items-start justify-between gap-4 border-b border-rule-soft px-4 py-3">
     <div className="min-w-0">
-      <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-        {title}
-      </h3>
-      {subtitle && (
-        <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">
-          {subtitle}
-        </p>
-      )}
+      <h3 className="text-heading-3 text-ink">{title}</h3>
+      {subtitle && <p className="mt-0.5 text-body-sm text-ink-soft">{subtitle}</p>}
     </div>
     {action && <div className="shrink-0">{action}</div>}
   </div>
@@ -123,22 +117,21 @@ export const CardBody = ({
 }: {
   className?: string;
   children: ReactNode;
-}) => <div className={cn("p-5", className)}>{children}</div>;
+}) => <div className={cn("p-4", className)}>{children}</div>;
 
 // ─────────────────────────────────────────────
 // Badge — premium pill with dot variant
 // ─────────────────────────────────────────────
+// Tone is meaning: up, down, flagged, or neutral. The accent carries "notable"
+// and never doubles as a status colour.
 const badgeStyles = {
-  slate:
-    "bg-slate-100 text-slate-700 dark:bg-white/5 dark:text-slate-300",
-  green:
-    "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
-  amber:
-    "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400",
-  red: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
-  blue: "bg-brand-100 text-brand-700 dark:bg-brand-500/15 dark:text-brand-300",
-  violet: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
-  teal: "bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300",
+  slate: "bg-sunken text-ink-soft",
+  green: "bg-pos/12 text-pos",
+  amber: "bg-warn/12 text-warn",
+  red: "bg-neg/12 text-neg",
+  blue: "bg-accent/12 text-accent",
+  violet: "bg-accent/12 text-accent",
+  teal: "bg-accent/12 text-accent",
 };
 
 export const Badge = ({
@@ -152,7 +145,7 @@ export const Badge = ({
 }) => (
   <span
     className={cn(
-      "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-medium leading-5",
+      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-label uppercase leading-5",
       badgeStyles[tone],
     )}
   >
@@ -160,13 +153,11 @@ export const Badge = ({
       <span
         className={cn(
           "h-1.5 w-1.5 rounded-full",
-          tone === "green" && "bg-emerald-500",
-          tone === "amber" && "bg-amber-500",
-          tone === "red" && "bg-red-500",
-          tone === "blue" && "bg-brand-500",
-          tone === "violet" && "bg-violet-500",
-          tone === "teal" && "bg-cyan-500",
-          tone === "slate" && "bg-slate-400 dark:bg-slate-500",
+          tone === "green" && "bg-pos",
+          tone === "amber" && "bg-warn",
+          tone === "red" && "bg-neg",
+          (tone === "blue" || tone === "violet" || tone === "teal") && "bg-accent",
+          tone === "slate" && "bg-ink-faint",
         )}
       />
     )}
@@ -178,9 +169,9 @@ export const Badge = ({
 // Feedback states
 // ─────────────────────────────────────────────
 export const Spinner = ({ label }: { label?: string }) => (
-  <div className="flex items-center justify-center gap-2 py-12 text-slate-400">
+  <div className="flex items-center justify-center gap-2 py-12 text-ink-faint">
     <Loader2 className="h-5 w-5 animate-spin" />
-    {label && <span className="text-sm">{label}</span>}
+    {label && <span className="text-body">{label}</span>}
   </div>
 );
 
@@ -209,9 +200,9 @@ export const Progress = ({
   return (
     <div className={cn("w-full", className)}>
       {label != null && (
-        <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+        <div className="mb-1.5 flex items-center justify-between text-body-sm font-medium text-ink-soft">
           <span>{label}</span>
-          <span className="tabular-nums text-slate-400">{Math.round(pct)}%</span>
+          <span className="font-mono text-body-sm text-ink-faint">{Math.round(pct)}%</span>
         </div>
       )}
       <div
@@ -219,10 +210,10 @@ export const Progress = ({
         aria-valuenow={Math.round(pct)}
         aria-valuemin={0}
         aria-valuemax={100}
-        className="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+        className="h-1.5 w-full overflow-hidden rounded-full bg-sunken"
       >
         <motion.div
-          className="h-full rounded-full bg-brand-500"
+          className="h-full rounded-full bg-accent"
           initial={false}
           animate={{ width: `${pct}%` }}
           transition={SPRING}
@@ -249,21 +240,21 @@ export const ProgressSteps = ({
     {steps.map((step, i) => {
       const state = i < current ? "done" : i === current ? "active" : "pending";
       return (
-        <li key={step} className="flex items-center gap-2.5 text-sm">
+        <li key={step} className="flex items-center gap-2.5 text-body">
           <span
             className={cn(
-              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold",
-              state === "done" && "bg-emerald-500 text-white",
-              state === "active" && "bg-brand-500 text-white",
-              state === "pending" && "bg-slate-200 text-slate-400 dark:bg-slate-800 dark:text-slate-500",
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label",
+              state === "done" && "bg-pos text-white",
+              state === "active" && "bg-accent text-accent-fg",
+              state === "pending" && "bg-sunken text-ink-faint",
             )}
           >
             {state === "done" ? <Check className="h-3 w-3" /> : i + 1}
           </span>
-          <span className={state === "pending" ? "text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-200"}>
+          <span className={state === "pending" ? "text-ink-faint" : "text-ink"}>
             {step}
           </span>
-          {state === "active" && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-brand-500" />}
+          {state === "active" && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-accent" />}
         </li>
       );
     })}
