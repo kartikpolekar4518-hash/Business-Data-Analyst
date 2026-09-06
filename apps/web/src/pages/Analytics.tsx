@@ -193,12 +193,29 @@ export default function Analytics() {
     ),
   );
 
+  // One CSV cell. Two separate jobs, both needed:
+  //  - RFC 4180 quoting, so a value containing a comma, quote or newline (and a COLUMN
+  //    NAME containing one — the header was never escaped) can't shift every later
+  //    field into the wrong column.
+  //  - a leading apostrophe on =, +, -, @, tab and CR, which spreadsheets otherwise
+  //    read as a formula. The rows come from an uploaded file, so a hostile cell like
+  //    =HYPERLINK(...) would run on whoever opens the export, not on whoever made it.
+  function csvCell(value: unknown): string {
+    const raw = value == null ? "" : String(value);
+    const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+    return `"${safe.replace(/"/g, '""')}"`;
+  }
+
   function exportCsv() {
     if (!table.data) return;
     const { columns, rows } = table.data;
-    const csv = [columns.join(","), ...rows.map((r) => columns.map((c) => JSON.stringify(r[c] ?? "")).join(","))].join("\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    const csv = [columns, ...rows.map((r) => columns.map((c) => r[c]))]
+      .map((line) => line.map(csvCell).join(","))
+      .join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a"); a.href = url; a.download = "analytics-export.csv"; a.click();
+    // Deferred: revoking in the same tick can cancel the download the click just began.
+    setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   if (ov.isError) return <EmptyState icon={BarChart3} title="No data to analyze" description="Upload a dataset first." />;

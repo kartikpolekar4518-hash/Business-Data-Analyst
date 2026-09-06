@@ -36,18 +36,47 @@ export function quoteIdent(table: string, wrap: '"' | "`" | "[" ): string {
 // --- SSRF guard: refuse to connect to loopback/link-local/private hosts unless
 // explicitly allowed. The cloud metadata endpoint (169.254.169.254) is covered by
 // the link-local range. Overridable via ALLOW_PRIVATE_CONNECTOR_HOSTS for local DBs.
+
+// An IPv6 address may embed an IPv4 one (::ffff:127.0.0.1, ::127.0.0.1). Resolvers do
+// return these, so the v4 rules must be applied to what is embedded — otherwise
+// publishing an AAAA record of ::ffff:169.254.169.254 walks straight past the guard.
+function embeddedIpv4(ip: string): string | null {
+  const tail = ip.slice(ip.lastIndexOf(":") + 1);
+  if (net.isIPv4(tail)) return tail;
+  // The same address can be written with the last 32 bits in hex (::ffff:7f00:1).
+  const m = /^(?:0*:)+(?:ffff(?::0{1,4})?:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/i.exec(ip);
+  if (!m) return null;
+  const hi = parseInt(m[1]!, 16), lo = parseInt(m[2]!, 16);
+  return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+}
+
+function isPrivateIpv4(ip: string): boolean {
+  const [a, b] = ip.split(".").map(Number) as [number, number];
+  if (a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;           // link-local + cloud metadata IP
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 192 && b === 0) return true;             // IETF protocol assignments (192.0.0.0/24)
+  if (a === 100 && b >= 64 && b <= 127) return true; // carrier-grade NAT (100.64.0.0/10)
+  if (a === 198 && (b === 18 || b === 19)) return true; // benchmarking (198.18.0.0/15)
+  if (a === 0) return true;                          // "this host"
+  if (a >= 224) return true;                         // multicast + reserved + broadcast
+  return false;
+}
+
 export function isPrivateIp(ip: string): boolean {
-  if (net.isIPv4(ip)) {
-    const [a, b] = ip.split(".").map(Number);
-    if (a === 10 || a === 127) return true;
-    if (a === 169 && b === 254) return true; // link-local + metadata IP
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 0) return true;
-    return false;
-  }
-  const low = ip.toLowerCase();
-  return low === "::1" || low.startsWith("fc") || low.startsWith("fd") || low.startsWith("fe80") || low === "::";
+  if (net.isIPv4(ip)) return isPrivateIpv4(ip);
+  const low = ip.toLowerCase().replace(/%.*$/, ""); // drop any zone id (fe80::1%eth0)
+  const v4 = embeddedIpv4(low);
+  if (v4) return isPrivateIpv4(v4);
+  if (low === "::1" || low === "::") return true;
+  // Ranges are matched on the first hextet, so a zero-compressed form can't slip past
+  // a startsWith() over the whole string (e.g. "fd00:0:0::1" vs "fd::1").
+  const head = low.split(":")[0] ?? "";
+  if (/^f[cd]/.test(head)) return true;    // unique local (fc00::/7)
+  if (/^fe[89ab]/.test(head)) return true; // link-local (fe80::/10)
+  if (/^ff/.test(head)) return true;       // multicast
+  return false;
 }
 
 async function assertHostAllowed(host: string): Promise<void> {
@@ -147,6 +176,33 @@ async function fetchGoogleFollowingRedirects(startUrl: string, maxHops = 3): Pro
   }
 }
 
+// The row cap only applies AFTER parsing, so the download itself must be bounded too:
+// buffering a whole response into memory on the word of a remote server is how one
+// oversized (or endless) sheet takes the API process down. Matches parseFile's ceiling.
+const MAX_SHEET_BYTES = 50 * 1024 * 1024;
+
+async function readCapped(res: Response): Promise<Buffer> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_SHEET_BYTES) throw new Error("That sheet is too large to import (over 50MB).");
+  if (!res.body) return Buffer.alloc(0);
+  const chunks: Buffer[] = [];
+  let total = 0;
+  const reader = res.body.getReader();
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    // Content-Length can lie, or be absent on a chunked response, so the real
+    // defence is counting the bytes as they arrive and cancelling the stream.
+    if (total > MAX_SHEET_BYTES) {
+      await reader.cancel().catch(() => {});
+      throw new Error("That sheet is too large to import (over 50MB).");
+    }
+    chunks.push(Buffer.from(value));
+  }
+  return Buffer.concat(chunks);
+}
+
 // Google Sheets: no OAuth. Turn a shared-link URL into its CSV export endpoint and
 // parse it like an uploaded CSV. The sheet must be shared "anyone with the link".
 async function fetchGoogleSheet(cfg: SheetConfig): Promise<ParsedFile> {
@@ -162,7 +218,7 @@ async function fetchGoogleSheet(cfg: SheetConfig): Promise<ParsedFile> {
   try { res = await fetchGoogleFollowingRedirects(exportUrl); }
   catch (e) { throw new Error(e instanceof Error && e.message.startsWith("Redirect") ? e.message : "Could not reach Google Sheets. Check the link is shared publicly."); }
   if (!res.ok) throw new Error(`Google Sheets returned ${res.status}. Make sure the sheet is shared "anyone with the link".`);
-  const csv = Buffer.from(await res.arrayBuffer());
+  const csv = await readCapped(res);
   if (csv.subarray(0, 15).toString("utf8").includes("<!DOCTYPE html")) {
     throw new Error('The sheet isn\'t public — set sharing to "anyone with the link".');
   }
