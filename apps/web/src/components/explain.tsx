@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Scale } from "lucide-react";
 import { api } from "../lib/api";
 import { cn, money, num } from "../lib/utils";
 import { formatKpiValue, type KpiFormat } from "../lib/kpi";
@@ -163,13 +163,13 @@ export function ExplainMetric({ metricKey, label, query = "" }: { metricKey: str
         type="button"
         aria-label={`Why this number: ${label}`}
         onClick={(e) => { e.stopPropagation(); setOpen(true); }}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-brand-600 dark:hover:bg-white/10 dark:hover:text-brand-300"
+        className="flex h-6 w-6 items-center justify-center rounded-md text-ink-faint transition-colors hover:bg-sunken hover:text-ink"
       >
-        <Sparkles className="h-3.5 w-3.5" />
+        <Scale className="h-3.5 w-3.5" />
       </button>
       <Modal open={open} onClose={() => setOpen(false)} title="Why this number">
         {isLoading && <div className="space-y-2"><Skeleton className="h-6 w-40" /><Skeleton className="h-24 w-full" /><Skeleton className="h-24 w-full" /></div>}
-        {error && <p className="text-sm text-red-600">Could not load the evidence for this metric.</p>}
+        {error && <p className="text-body text-neg">Could not load the evidence for this metric.</p>}
         {data && <Panel data={data} />}
       </Modal>
     </>

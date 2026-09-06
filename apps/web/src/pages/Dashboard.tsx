@@ -6,12 +6,12 @@ import {
   FileText,
   Bell,
   ArrowRight,
-  BrainCircuit,
+  ClipboardCheck,
   Lightbulb,
   AlertTriangle,
   Target,
   Zap,
-  Sparkles,
+  Ruler,
   MessagesSquare,
   TrendingUp,
 } from "lucide-react";
@@ -27,18 +27,17 @@ import { Card, CardHeader, CardBody, Skeleton, ErrorState, Button, Badge, useToa
 import { KpiCard } from "../components/Kpi";
 import { EmptyWorkspace, GettingStartedChecklist, WelcomeTour, type ChecklistStep } from "../components/Onboarding";
 import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
-import { AISummary, AICitation, AIInsightCard } from "../components/ai";
+import { AICitation, AIInsightCard } from "../components/ai";
 import { DriverBreakdown, AnomalyPanel } from "../components/analytics";
-import type { OverviewResponse, Recommendation, DatasetSummary, Alert } from "../lib/types";
+import type { OverviewResponse, InsightsResponse, DatasetSummary, Alert } from "../lib/types";
 
-const ACCENTS = [CHART.blue, CHART.emerald, CHART.teal, CHART.violet, CHART.amber, CHART.rose];
 // Static classes so Tailwind keeps them; the grid tightens to the KPI count (a
 // 3-KPI generic pack shouldn't leave two empty columns).
 const KPI_COLS: Record<number, string> = { 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-5" };
 
 type InsightIconKey = "growth" | "risk" | "opportunity" | "target" | "default";
 const insightIconMap: Record<InsightIconKey, typeof Zap> = {
-  growth: Zap, risk: AlertTriangle, opportunity: Lightbulb, target: Target, default: BrainCircuit,
+  growth: Zap, risk: AlertTriangle, opportunity: Lightbulb, target: Target, default: ClipboardCheck,
 };
 function insightKey(label: string): InsightIconKey {
   const lower = label.toLowerCase();
@@ -64,7 +63,7 @@ export default function Dashboard() {
   });
   const insights = useQuery({
     queryKey: ["insights"],
-    queryFn: () => api.get<{ headline: string; recommendations: Recommendation[] }>("/ai/insights"),
+    queryFn: () => api.get<InsightsResponse>("/ai/insights"),
     retry: false,
   });
   const datasets = useQuery({
@@ -155,6 +154,7 @@ export default function Dashboard() {
   }
 
   const data = ov.data;
+  const headline = insights.data?.headline;
 
   // Getting-started checklist (ADMIN/MANAGER only — the roles that can act).
   const checklistSteps: ChecklistStep[] = [
@@ -170,30 +170,60 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      {/* ─── Page header ─── */}
+      {/* ─── The headline answer ───
+          The one `text-display` on the page. Composed server-side from the same
+          period split the driver attribution uses, so the change it claims and the
+          cause it names are reconciled by construction. It states both window
+          totals; the band below totals every row, and says so. */}
       <div>
-        <h1 className="page-title">Dashboard</h1>
-        <p className="page-subtitle">
-          {data
-            ? `Live ${industryLabel(data.industry)} analytics for ${data.datasetName}`
-            : "Loading your workspace..."}
-        </p>
+        {headline ? (
+          <>
+            <h1 className="page-title text-balance">
+              {headline.segments.map((seg, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    seg.em === "pos" && "text-pos",
+                    seg.em === "neg" && "text-neg",
+                    seg.em && "font-mono tabular-nums",
+                  )}
+                >
+                  {seg.t}
+                </span>
+              ))}
+            </h1>
+            <div className="mt-3">
+              <AICitation
+                source={insights.data?.datasetName ?? data?.datasetName}
+                rows={headline.rows}
+                note={
+                  headline.currentRange && headline.previousRange ? (
+                    <span className="font-mono">
+                      {headline.currentRange[0]} → {headline.currentRange[1]} vs{" "}
+                      {headline.previousRange[0]} → {headline.previousRange[1]}
+                    </span>
+                  ) : undefined
+                }
+              />
+            </div>
+          </>
+        ) : (
+          <>
+            <Skeleton className="h-9 w-4/5 max-w-2xl" />
+            <Skeleton className="mt-3 h-4 w-72" />
+          </>
+        )}
       </div>
-
-      {/* ─── Getting-started checklist ─── */}
-      {showChecklist && (
-        <GettingStartedChecklist steps={checklistSteps} onDismiss={dismissChecklist} />
-      )}
 
       <WelcomeTour open={tourOpen} onClose={closeTour} />
 
       {/* ─── Industry suggestion banner ─── */}
       {showSuggestion && (
-        <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
-            <Sparkles className="h-[18px] w-[18px]" />
+        <div role="status" aria-live="polite" className="flex flex-wrap items-center gap-3 rounded-lg border border-rule border-l-2 border-l-warn bg-surface p-4">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-warn">
+            <Ruler className="h-[18px] w-[18px]" />
           </div>
-          <p className="min-w-0 flex-1 text-sm text-slate-700 dark:text-slate-200">
+          <p className="min-w-0 flex-1 text-body text-ink-soft">
             This looks like <strong>{industryLabel(data!.suggestedIndustry)}</strong> data. Switch your
             dashboard to match?
           </p>
@@ -206,40 +236,51 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ─── AI Insight banner ─── */}
-      {insights.data && (
-        <AISummary citation={<AICitation source={data?.datasetName} />}>
-          {insights.data.headline}
-        </AISummary>
-      )}
-
-      {/* ─── KPI Cards (driven by the industry pack) ─── */}
-      <div className={cn("grid grid-cols-2 gap-4 md:grid-cols-3", data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5")}>
+      {/* ─── Supporting figures ───
+          One ruled band, not five competing cards: these back the sentence above
+          rather than compete with it. Each cell keeps its Explain affordance. */}
+      <div>
+        {/* These total every row, while the sentence above compares two windows.
+            Both are right and they are different numbers, so say which is which. */}
+        <div className="label mb-2 text-ink-faint">
+          {headline ? `Totals across all ${num(headline.rows)} rows` : "Totals"}
+        </div>
+        <div
+          className={cn(
+            "grid grid-cols-2 divide-y divide-rule-soft border-y border-rule md:grid-cols-3 md:divide-y-0 lg:divide-x",
+            data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5",
+          )}
+        >
         {!data
           ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="rounded-xl border border-border bg-white p-5 dark:border-white/[0.06] dark:bg-slate-900/70">
-                <Skeleton className="mb-3 h-4 w-20" />
-                <Skeleton className="h-7 w-28" />
-                <Skeleton className="mt-2 h-4 w-24" />
+              <div key={i} className="px-4 py-3 first:pl-0 last:pr-0">
+                <Skeleton className="mb-2 h-3 w-16" />
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="mt-2 h-3 w-12" />
               </div>
             ))
-          : data.kpis.map((k, i) => (
+          : data.kpis.map((k) => (
               <KpiCard
                 key={k.key}
+                variant="strip"
                 label={k.label}
                 value={k.value}
                 format={k.format}
                 changePct={k.changePct}
                 icon={kpiIcon(k.icon)}
-                accent={i === 0}
-                accentColor={ACCENTS[i % ACCENTS.length]}
                 spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
                 tooltip={k.tooltip}
                 metricKey={k.key}
                 explain
               />
             ))}
+        </div>
       </div>
+
+      {/* ─── Getting-started checklist ─── */}
+      {showChecklist && (
+        <GettingStartedChecklist steps={checklistSteps} onDismiss={dismissChecklist} />
+      )}
 
       {/* ─── Hero: performance overview + composition donut ─── */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -282,13 +323,12 @@ export default function Dashboard() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{p.label}</span>
-                        <span className="shrink-0 text-sm font-semibold text-slate-900 dark:text-white">{fmt(p.value)}</span>
+                        <span className="truncate text-body font-medium text-ink-soft">{p.label}</span>
+                        <span className="shrink-0 font-mono text-body tabular-nums text-ink">{fmt(p.value)}</span>
                       </div>
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-sunken">
                         <motion.div
-                          className="h-full rounded-full"
-                          style={{ background: `linear-gradient(90deg, ${CHART.blue}88, ${CHART.blue})` }}
+                          className="h-full rounded-sm bg-accent"
                           initial={{ width: 0 }}
                           animate={{ width: `${(p.value / max) * 100}%` }}
                           transition={{ duration: DUR.slow, ease: EASE, delay: i * 0.06 }}
@@ -329,8 +369,8 @@ export default function Dashboard() {
           <CardHeader
             title={
               <div className="flex items-center gap-2">
-                <BrainCircuit className="h-4 w-4 text-brand-500" />
-                <span>AI Recommendations</span>
+                <ClipboardCheck className="h-4 w-4 text-accent" />
+                <span>Recommendations</span>
               </div>
             }
             subtitle="Generated from your data"
@@ -347,7 +387,7 @@ export default function Dashboard() {
             ) : (
               <div className="flex flex-col items-center py-8 text-center">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5">
-                  <BrainCircuit className="h-5 w-5 text-slate-400" />
+                  <ClipboardCheck className="h-5 w-5 text-ink-faint" />
                 </div>
                 <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
                   No recommendations — data looks healthy.

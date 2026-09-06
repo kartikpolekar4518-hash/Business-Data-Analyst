@@ -62,6 +62,30 @@ export interface ComparisonInfo {
   previousRange: [string, string] | null;
 }
 
+// The dashboard's one-sentence answer. `segments` carries the same words as `text`,
+// split so the figures can be typeset without the client re-deriving the grammar.
+export interface HeadlineSegment { t: string; em?: "pos" | "neg" | "num" }
+export interface Headline {
+  segments: HeadlineSegment[];
+  text: string;
+  metric: string;
+  metricLabel: string;
+  direction: "up" | "down" | "flat" | "none";
+  changePct: number | null;
+  currentValue: number;
+  basis: ComparisonInfo["basis"];
+  reason: ComparisonInfo["reason"];
+  currentRange: [string, string] | null;
+  previousRange: [string, string] | null;
+  driver: { label: string; contribution: number } | null;
+  rows: number;
+}
+export interface InsightsResponse {
+  headline: Headline | null;
+  recommendations: Recommendation[];
+  datasetName: string;
+}
+
 export interface Recommendation {
   title: string; observation: string; explanation: string; action: string;
   impact: "LOW" | "MEDIUM" | "HIGH"; confidence: number;

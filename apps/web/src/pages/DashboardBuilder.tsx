@@ -6,7 +6,7 @@ import { Skeleton, EmptyState } from "../components/ui";
 import { WidgetGrid, type WidgetItem } from "../components/widgets";
 import { BUILDER_VISUALS, VISUALS_BY_ID } from "../components/visuals.registry";
 import type { BuilderContext } from "../lib/visuals";
-import type { OverviewResponse, Rank, Recommendation } from "../lib/types";
+import type { OverviewResponse, Rank, InsightsResponse } from "../lib/types";
 
 // The six that shipped before the registry, so an existing saved layout still resolves.
 const INITIAL: WidgetItem[] = [
@@ -42,7 +42,7 @@ export default function DashboardBuilder() {
   });
   const insights = useQuery({
     queryKey: ["insights"],
-    queryFn: () => api.get<{ headline: string; recommendations: Recommendation[] }>("/ai/insights"),
+    queryFn: () => api.get<InsightsResponse>("/ai/insights"),
     retry: false,
   });
   // Fetched for the whole page rather than per widget: a widget body is a render callback
@@ -71,7 +71,7 @@ export default function DashboardBuilder() {
       overview: ov.data,
       regions: regions.data?.items,
       drivers: drivers.data,
-      insight: insights.data?.headline,
+      insight: insights.data?.headline?.text,
       filters,
       setFilter: (key, values) => setFilters((prev) => ({ ...prev, [key]: values })),
     };
