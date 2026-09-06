@@ -152,7 +152,7 @@ const tableColumns: Column<TableRow>[] = [
 
 function SlicerPreview({ kind }: { kind: "dropdown" | "button" | "list" }) {
   const [selected, setSelected] = useState<string[]>(["Beverages"]);
-  const options = kind === "list" ? [...composition.map((c) => c.label), "Produce", "Deli", "Household", "Pet"] : composition.map((c) => c.label);
+  const options = kind === "list" ? [...composition.map((c) => c.label), "Confectionery", "Deli", "Household", "Pet"] : composition.map((c) => c.label);
   if (kind === "dropdown") return <MultiSelect label="Category" options={options} selected={selected} onChange={setSelected} />;
   if (kind === "button") return <ButtonSlicer label="Category" options={options} selected={selected} onChange={setSelected} />;
   return <ListSlicer label="Category" options={options} selected={selected} onChange={setSelected} />;

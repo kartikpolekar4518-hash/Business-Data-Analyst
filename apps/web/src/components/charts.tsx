@@ -314,7 +314,8 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
   const anim = useSeriesAnimation();
   const data = [
     ...history.map((h) => ({ label: h.period, actual: h.value })),
-    ...points.map((p) => ({ label: p.period, forecast: p.value, lower: p.lower, upper: p.upper })),
+    // `band` is the range height stacked on top of `lower`, not the upper bound itself.
+    ...points.map((p) => ({ label: p.period, forecast: p.value, lower: p.lower, band: p.upper - p.lower })),
   ];
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -323,9 +324,11 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
         <Tooltip contentStyle={tooltipStyle} />
-        {/* Confidence band: render two overlapping areas to create a band effect */}
-        <Area dataKey="upper" stroke="none" fill={CHART.violet} fillOpacity={0.14} {...anim} />
-        <Area dataKey="lower" stroke="none" fill={CHART.violet} fillOpacity={0.14} {...anim} />
+        {/* Confidence band: an invisible base up to `lower`, then the range stacked on top.
+            Two independent areas would each fill from zero and paint a block to the axis
+            rather than a band around the projection. */}
+        <Area dataKey="lower" stackId="band" stroke="none" fill="none" tooltipType="none" {...anim} />
+        <Area dataKey="band" name="Confidence range" stackId="band" stroke="none" fill={CHART.violet} fillOpacity={0.18} {...anim} />
         <Line dataKey="actual" stroke={CHART.blue} strokeWidth={2.5} dot={false} type="monotone" {...anim} />
         <Line dataKey="forecast" stroke={CHART.violet} strokeWidth={2.5} strokeDasharray="5 4" dot={{ r: 3 }} type="monotone" {...anim} />
       </ComposedChart>

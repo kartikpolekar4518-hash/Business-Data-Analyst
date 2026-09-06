@@ -204,7 +204,8 @@ export function KeyInfluencers({
               </span>
               <span className={cn("shrink-0 font-semibold tabular-nums", positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
                 {positive ? "+" : "−"}{formatKpiValue(Math.abs(inf.impact), format)}
-                {inf.share != null && <span className="ml-1 text-xs font-normal text-slate-400">{inf.share}%</span>}
+                {/* The API returns a full-precision share; round here so no caller has to pre-format. */}
+                {inf.share != null && <span className="ml-1 text-xs font-normal text-slate-400">{Math.round(inf.share)}%</span>}
               </span>
             </div>
             <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
