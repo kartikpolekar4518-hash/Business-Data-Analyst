@@ -22,11 +22,11 @@ export function CardVisual({
 }) {
   return (
     <div className="flex h-full flex-col justify-center py-2">
-      <div className="text-[34px] font-bold leading-none tabular-nums text-slate-900 dark:text-white">
+      <div className="text-[34px] font-bold leading-none tabular-nums text-ink">
         {formatKpiValue(value, format)}
       </div>
-      <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</div>
-      {note && <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{note}</div>}
+      <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{label}</div>
+      {note && <div className="mt-1 text-xs text-ink-faint">{note}</div>}
     </div>
   );
 }
@@ -51,31 +51,31 @@ export function KpiVisual({
   const ahead = goalIsCeiling ? value <= target : value >= target;
   const gapPct = target ? Math.round((value / target - 1) * 1000) / 10 : 0;
   const Trend = gapPct > 0 ? TrendingUp : gapPct < 0 ? TrendingDown : Minus;
-  const tone = ahead ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400";
+  const tone = ahead ? "text-pos" : "text-neg";
 
   return (
     <div className="flex h-full flex-col justify-center py-2">
       <div className="flex items-end justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-[30px] font-bold leading-none tabular-nums text-slate-900 dark:text-white">
+          <div className="text-[30px] font-bold leading-none tabular-nums text-ink">
             {formatKpiValue(value, format)}
           </div>
-          <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</div>
+          <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{label}</div>
         </div>
         {trend && trend.length > 1 && (
           <Sparkline data={trend} color={ahead ? CHART.emerald : CHART.rose} width={88} height={30} />
         )}
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken">
         <div
-          className={cn("h-full rounded-full transition-[width] duration-500", ahead ? "bg-emerald-500" : "bg-rose-500")}
+          className={cn("h-full rounded-full transition-[width] duration-500", ahead ? "bg-pos" : "bg-neg")}
           style={{ width: `${clamp(ratio) * 100}%` }}
         />
       </div>
       <div className={cn("mt-2 flex items-center gap-1.5 text-xs font-medium tabular-nums", tone)}>
         <Trend className="h-3.5 w-3.5" />
         <span>{gapPct > 0 ? "+" : ""}{gapPct}% vs target</span>
-        <span className="font-normal text-slate-500 dark:text-slate-400">({formatKpiValue(target, format)})</span>
+        <span className="font-normal text-ink-faint">({formatKpiValue(target, format)})</span>
       </div>
     </div>
   );
@@ -95,11 +95,11 @@ export function ImageVisual({
   return (
     <figure className="m-0">
       <div
-        className="flex items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-white/5"
+        className="flex items-center justify-center overflow-hidden rounded-lg bg-sunken"
         style={{ height }}
       >
         {failed || !src ? (
-          <span className="flex flex-col items-center gap-2 text-xs text-slate-400">
+          <span className="flex flex-col items-center gap-2 text-xs text-ink-faint">
             <ImageOff className="h-6 w-6" />
             Image unavailable
           </span>
@@ -112,7 +112,7 @@ export function ImageVisual({
           />
         )}
       </div>
-      {caption && <figcaption className="mt-2 text-xs text-slate-500 dark:text-slate-400">{caption}</figcaption>}
+      {caption && <figcaption className="mt-2 text-xs text-ink-faint">{caption}</figcaption>}
     </figure>
   );
 }
@@ -139,12 +139,12 @@ function SlicerFrame({ label, count, onClear, children }: { label: string; count
   return (
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{label}</span>
         {count > 0 && (
           <button
             type="button"
             onClick={onClear}
-            className="rounded text-[11px] font-medium text-brand-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-400"
+            className="rounded text-[11px] font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
           >
             Clear ({count})
           </button>
@@ -170,10 +170,10 @@ export function ButtonSlicer({ label, options, selected, onChange, multi = true 
               onClick={() => onChange(toggleValue(selected, o, multi))}
               className={cn(
                 "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
+                "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
                 on
-                  ? "border-brand-500 bg-brand-500 text-white"
-                  : "border-border text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800",
+                  ? "border-accent bg-accent text-accent-fg"
+                  : "border-rule text-ink-soft hover:bg-sunken",
               )}
             >
               {o}
@@ -200,7 +200,7 @@ export function ListSlicer({ label, options, selected, onChange, maxHeight = 208
     <SlicerFrame label={label} count={selected.length} onClear={() => onChange([])}>
       {options.length > 8 && (
         <div className="relative mb-2">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="h-9 pl-8 text-xs" aria-label={`Search ${label}`} />
         </div>
       )}
@@ -226,7 +226,7 @@ export function ListSlicer({ label, options, selected, onChange, maxHeight = 208
             className="w-full"
           />
         ))}
-        {!shown.length && <p className="py-3 text-center text-xs text-slate-400">No matches</p>}
+        {!shown.length && <p className="py-3 text-center text-xs text-ink-faint">No matches</p>}
       </div>
     </SlicerFrame>
   );
@@ -261,7 +261,7 @@ export function InputSlicer({
             onChange={(e) => onRangeChange?.({ ...range, min: num(e.target.value) })}
             className="h-9 text-xs"
           />
-          <span className="text-xs text-slate-400">to</span>
+          <span className="text-xs text-ink-faint">to</span>
           <Input
             type="number" inputMode="decimal" aria-label={`${label} maximum`} placeholder="Max"
             value={range?.max ?? ""}
@@ -269,7 +269,7 @@ export function InputSlicer({
             className="h-9 text-xs"
           />
         </div>
-        {invalid && <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">Minimum is above maximum — nothing will match.</p>}
+        {invalid && <p className="mt-1.5 text-[11px] text-neg">Minimum is above maximum — nothing will match.</p>}
       </SlicerFrame>
     );
   }
@@ -277,7 +277,7 @@ export function InputSlicer({
   return (
     <SlicerFrame label={label} count={value ? 1 : 0} onClear={() => onChange?.("")}>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
         <Input
           value={value ?? ""}
           onChange={(e) => onChange?.(e.target.value)}

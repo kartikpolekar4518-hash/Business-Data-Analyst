@@ -35,23 +35,23 @@ export function PlanCards({
           <div
             key={p.key}
             className={cn(
-              "flex flex-col rounded-2xl border bg-white p-6 dark:bg-slate-900/70",
-              featured ? "border-brand-500/60 shadow-card-hover dark:border-brand-500/50" : "border-border dark:border-white/[0.06]",
+              "flex flex-col rounded-2xl border bg-surface p-6",
+              featured ? "border-accent shadow-card" : "border-rule",
             )}
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{p.name}</h3>
+              <h3 className="text-lg font-semibold text-ink">{p.name}</h3>
               {featured && <Badge tone="blue" dot>Popular</Badge>}
             </div>
-            <p className="mt-1 min-h-[2.5rem] text-sm text-slate-500 dark:text-slate-400">{p.tagline}</p>
+            <p className="mt-1 min-h-[2.5rem] text-sm text-ink-faint">{p.tagline}</p>
             <div className="mt-3 flex items-baseline gap-1">
-              <span className="text-3xl font-bold text-slate-900 dark:text-white">${p.priceMonthly}</span>
-              <span className="text-sm text-slate-500 dark:text-slate-400">/mo</span>
+              <span className="text-3xl font-bold text-ink">${p.priceMonthly}</span>
+              <span className="text-sm text-ink-faint">/mo</span>
             </div>
             <ul className="mt-4 flex-1 space-y-2">
               {p.features.map((f) => (
-                <li key={f} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                <li key={f} className="flex items-start gap-2 text-sm text-ink-soft">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-pos" />
                   {f}
                 </li>
               ))}
@@ -82,15 +82,15 @@ export function UsageMeter({ label, used, limit }: { label: string; used: number
   return (
     <div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-slate-600 dark:text-slate-300">{label}</span>
-        <span className="font-medium text-slate-900 dark:text-white">
+        <span className="text-ink-soft">{label}</span>
+        <span className="font-medium text-ink">
           {used}
           {unlimited ? " · unlimited" : ` / ${limit}`}
         </span>
       </div>
       {!unlimited && (
-        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-          <div className={cn("h-full rounded-full transition-all", near ? "bg-amber-500" : "bg-brand-500")} style={{ width: `${pct}%` }} />
+        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+          <div className={cn("h-full rounded-full transition-all", near ? "bg-warn" : "bg-accent")} style={{ width: `${pct}%` }} />
         </div>
       )}
     </div>

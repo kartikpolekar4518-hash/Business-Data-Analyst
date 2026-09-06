@@ -289,7 +289,7 @@ export function DataTable<T>({
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-rule-soft">
               {view.map(({ row, key: k }, i) => {
                 const isSel = selected.has(k);
                 return (

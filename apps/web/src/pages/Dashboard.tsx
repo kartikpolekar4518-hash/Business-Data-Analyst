@@ -300,7 +300,7 @@ export default function Dashboard() {
             {data?.composition.data.length ? (
               <DonutChart data={data.composition.data} centerLabel={data.composition.centerLabel} />
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">No category data</p>
+              <p className="py-8 text-center text-sm text-ink-faint">No category data</p>
             )}
           </CardBody>
         </Card>
@@ -317,8 +317,8 @@ export default function Dashboard() {
                 const fmt = data.ranking.format === "money" ? money : num;
                 const max = Math.max(...rows.map((p) => p.value)) || 1;
                 return rows.slice(0, 6).map((p, i) => (
-                  <div key={p.label} className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">
+                  <div key={p.label} className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-sunken">
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sunken text-xs font-semibold text-ink-faint">
                       {i + 1}
                     </span>
                     <div className="min-w-0 flex-1">
@@ -339,7 +339,7 @@ export default function Dashboard() {
                 ));
               })()
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">{data?.ranking.emptyText ?? "No data"}</p>
+              <p className="py-8 text-center text-sm text-ink-faint">{data?.ranking.emptyText ?? "No data"}</p>
             )}
           </CardBody>
         </Card>
@@ -349,7 +349,7 @@ export default function Dashboard() {
             {data?.secondary.data.length ? (
               <BarRankChart data={data.secondary.data} />
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">{data?.secondary.emptyText ?? "No data"}</p>
+              <p className="py-8 text-center text-sm text-ink-faint">{data?.secondary.emptyText ?? "No data"}</p>
             )}
           </CardBody>
         </Card>
@@ -379,17 +379,17 @@ export default function Dashboard() {
             {insights.isError ? (
               <ErrorState message="Couldn't load recommendations." retry={() => insights.refetch()} />
             ) : insights.data?.recommendations.length ? (
-              <div className="divide-y divide-border dark:divide-white/[0.06]">
+              <div className="divide-y divide-rule">
                 {insights.data.recommendations.map((r) => (
                   <AIInsightCard key={r.title} rec={r} icon={insightIconMap[insightKey(r.title)]} />
                 ))}
               </div>
             ) : (
               <div className="flex flex-col items-center py-8 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sunken">
                   <ClipboardCheck className="h-5 w-5 text-ink-faint" />
                 </div>
-                <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
+                <p className="mt-3 text-sm font-medium text-ink-faint">
                   No recommendations — data looks healthy.
                 </p>
               </div>
@@ -403,7 +403,7 @@ export default function Dashboard() {
             <CardHeader
               title="Recent Uploads"
               action={
-                <Link to="/data" className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                <Link to="/data" className="text-xs font-medium text-accent transition-colors hover:text-accent">
                   View all
                 </Link>
               }
@@ -414,17 +414,17 @@ export default function Dashboard() {
                   <Link
                     key={d.id}
                     to={`/data/${d.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-sunken"
                   >
-                    <span className="flex items-center gap-2.5 font-medium text-slate-700 dark:text-slate-300">
-                      <Database className="h-4 w-4 text-slate-400" />
+                    <span className="flex items-center gap-2.5 font-medium text-ink-soft">
+                      <Database className="h-4 w-4 text-ink-faint" />
                       {d.name}
                     </span>
-                    <span className="text-xs text-slate-400">{num(d.rowCount)} rows</span>
+                    <span className="text-xs text-ink-faint">{num(d.rowCount)} rows</span>
                   </Link>
                 ))
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">No datasets uploaded yet</div>
+                <div className="py-4 text-center text-xs text-ink-faint">No datasets uploaded yet</div>
               )}
             </CardBody>
           </Card>
@@ -433,7 +433,7 @@ export default function Dashboard() {
             <CardHeader
               title="Recent Reports"
               action={
-                <Link to="/reports" className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                <Link to="/reports" className="text-xs font-medium text-accent transition-colors hover:text-accent">
                   View all
                 </Link>
               }
@@ -444,17 +444,17 @@ export default function Dashboard() {
                   <Link
                     key={r.id}
                     to="/reports"
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
+                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-sunken"
                   >
-                    <span className="flex items-center gap-2.5 truncate font-medium text-slate-700 dark:text-slate-300">
-                      <FileText className="h-4 w-4 shrink-0 text-slate-400" />
+                    <span className="flex items-center gap-2.5 truncate font-medium text-ink-soft">
+                      <FileText className="h-4 w-4 shrink-0 text-ink-faint" />
                       {r.title}
                     </span>
-                    <span className="shrink-0 text-xs text-slate-400">{timeAgo(r.createdAt)}</span>
+                    <span className="shrink-0 text-xs text-ink-faint">{timeAgo(r.createdAt)}</span>
                   </Link>
                 ))
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">No reports yet</div>
+                <div className="py-4 text-center text-xs text-ink-faint">No reports yet</div>
               )}
             </CardBody>
           </Card>
@@ -463,7 +463,7 @@ export default function Dashboard() {
             <CardHeader
               title="Recent Alerts"
               action={
-                <Link to="/alerts" className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
+                <Link to="/alerts" className="text-xs font-medium text-accent transition-colors hover:text-accent">
                   View all
                 </Link>
               }
@@ -472,11 +472,11 @@ export default function Dashboard() {
               {alerts.data?.alerts.length ? (
                 alerts.data.alerts.slice(0, 3).map((a) => (
                   <div key={a.id} className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm">
-                    <Bell className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                    <Bell className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] text-slate-600 dark:text-slate-400">{a.description}</p>
+                      <p className="text-[13px] text-ink-soft">{a.description}</p>
                       <div className="mt-1 flex items-center gap-2">
-                        <span className="text-[11px] text-slate-400">{timeAgo(a.createdAt)}</span>
+                        <span className="text-[11px] text-ink-faint">{timeAgo(a.createdAt)}</span>
                         <Badge tone={a.severity === "HIGH" ? "red" : a.severity === "MEDIUM" ? "amber" : "slate"} dot>
                           {a.severity === "HIGH" ? "High" : a.severity === "MEDIUM" ? "Medium" : "Low"}
                         </Badge>
@@ -485,7 +485,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">No alerts</div>
+                <div className="py-4 text-center text-xs text-ink-faint">No alerts</div>
               )}
             </CardBody>
           </Card>

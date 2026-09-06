@@ -28,14 +28,14 @@ const EXCLUSION_LABEL: Record<string, string> = {
 };
 
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <section className="border-t border-border pt-3 dark:border-white/[0.06]">
-    <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">{title}</h4>
+  <section className="border-t border-rule pt-3">
+    <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{title}</h4>
     {children}
   </section>
 );
 
 const Mono = ({ children }: { children: React.ReactNode }) => (
-  <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[12px] text-slate-800 dark:bg-white/5 dark:text-slate-200">{children}</code>
+  <code className="rounded bg-sunken px-1.5 py-0.5 font-mono text-[12px] text-ink">{children}</code>
 );
 
 const short = (h: string | null) => (h ? `${h.slice(0, 12)}…` : "not recorded");
@@ -46,8 +46,8 @@ function Panel({ data }: { data: Explanation }) {
   return (
     <div className="space-y-3 text-[13px]">
       <div>
-        <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">{metric.label}</div>
-        <div className="text-2xl font-bold tabular-nums text-slate-900 dark:text-white">{formatKpiValue(metric.value, metric.format as KpiFormat)}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-faint">{metric.label}</div>
+        <div className="text-2xl font-bold tabular-nums text-ink">{formatKpiValue(metric.value, metric.format as KpiFormat)}</div>
       </div>
 
       <Section title="Formula"><Mono>{formula.expression}</Mono></Section>
@@ -56,45 +56,45 @@ function Panel({ data }: { data: Explanation }) {
         {formula.sources.length ? formula.sources.map((s) => (
           <div key={s.column} className="mb-0.5">
             <Mono>{s.column}</Mono>
-            {s.detectedBy && <span className="ml-2 text-[11px] text-slate-500">detected using {s.detectedBy}</span>}
+            {s.detectedBy && <span className="ml-2 text-[11px] text-ink-faint">detected using {s.detectedBy}</span>}
           </div>
-        )) : <span className="text-slate-500">No source column detected.</span>}
+        )) : <span className="text-ink-faint">No source column detected.</span>}
       </Section>
 
       <Section title="Data">
         <div className="tabular-nums">
           <span className="font-semibold">{num(inputs.rowsIncluded)}</span> included
-          <span className="text-slate-400"> / {num(inputs.rowsAfterFilters)} after filters / {num(inputs.rowsInDataset)} in dataset</span>
+          <span className="text-ink-faint"> / {num(inputs.rowsAfterFilters)} after filters / {num(inputs.rowsInDataset)} in dataset</span>
         </div>
         {inputs.exclusions.length > 0 && (
-          <ul className="mt-1 space-y-0.5 text-[12px] text-slate-500 dark:text-slate-400">
+          <ul className="mt-1 space-y-0.5 text-[12px] text-ink-faint">
             {inputs.exclusions.map((e) => (
               <li key={e.reason}>{num(e.count)} {EXCLUSION_LABEL[e.reason] ?? e.reason}</li>
             ))}
           </ul>
         )}
-        <p className="mt-1 text-[11px] text-slate-400">{inputs.note}</p>
+        <p className="mt-1 text-[11px] text-ink-faint">{inputs.note}</p>
       </Section>
 
       {filterEntries.length > 0 && (
         <Section title="Filters">
           {filterEntries.map(([k, v]) => (
-            <div key={k} className="text-slate-600 dark:text-slate-300">{k}: {Array.isArray(v) ? v.join(", ") : v}</div>
+            <div key={k} className="text-ink-soft">{k}: {Array.isArray(v) ? v.join(", ") : v}</div>
           ))}
         </Section>
       )}
 
       <Section title="Comparison">
         {comparison.basis === "unavailable" ? (
-          <div className="text-amber-600 dark:text-amber-400">Comparison unavailable — {comparison.description.toLowerCase()}</div>
+          <div className="text-warn">Comparison unavailable — {comparison.description.toLowerCase()}</div>
         ) : (
           <>
-            <div className="tabular-nums text-slate-700 dark:text-slate-200">
+            <div className="tabular-nums text-ink-soft">
               {comparison.currentRange![0]} → {comparison.currentRange![1]}
-              <span className="mx-1.5 text-slate-400">vs</span>
+              <span className="mx-1.5 text-ink-faint">vs</span>
               {comparison.previousRange![0]} → {comparison.previousRange![1]}
             </div>
-            <p className="mt-1 text-[11px] text-slate-400">{comparison.description}</p>
+            <p className="mt-1 text-[11px] text-ink-faint">{comparison.description}</p>
           </>
         )}
       </Section>
@@ -103,20 +103,20 @@ function Panel({ data }: { data: Explanation }) {
         <Section title="What moved it">
           {drivers.drivers.slice(0, 5).map((d) => (
             <div key={d.label} className="flex justify-between tabular-nums">
-              <span className="truncate pr-2 text-slate-700 dark:text-slate-200">{d.label}</span>
-              <span className={cn("font-medium", d.direction === "up" ? "text-emerald-600 dark:text-emerald-400" : d.direction === "down" ? "text-red-600 dark:text-red-400" : "text-slate-500")}>
+              <span className="truncate pr-2 text-ink-soft">{d.label}</span>
+              <span className={cn("font-medium", d.direction === "up" ? "text-pos" : d.direction === "down" ? "text-neg" : "text-ink-faint")}>
                 {d.contribution >= 0 ? "+" : ""}{money(d.contribution)}
               </span>
             </div>
           ))}
           {drivers.otherCount > 0 && (
-            <div className="flex justify-between tabular-nums text-slate-500">
+            <div className="flex justify-between tabular-nums text-ink-faint">
               <span>+ {drivers.otherCount} other</span>
               <span>{drivers.otherContribution >= 0 ? "+" : ""}{money(drivers.otherContribution)}</span>
             </div>
           )}
           {drivers.reconciled && (
-            <div className="mt-1 border-t border-dashed border-border pt-1 text-[12px] font-medium text-emerald-600 dark:border-white/10 dark:text-emerald-400">
+            <div className="mt-1 border-t border-dashed border-rule pt-1 text-[12px] font-medium text-pos">
               ✓ Reconciles to {drivers.totalChange >= 0 ? "+" : ""}{money(drivers.totalChange)}
             </div>
           )}
@@ -124,7 +124,7 @@ function Panel({ data }: { data: Explanation }) {
       )}
 
       <Section title="Provenance">
-        <dl className="space-y-0.5 text-[11px] text-slate-500 dark:text-slate-400">
+        <dl className="space-y-0.5 text-[11px] text-ink-faint">
           <div className="flex justify-between gap-3"><dt>Dataset</dt><dd className="truncate">{provenance.fileName}</dd></div>
           <div className="flex justify-between gap-3"><dt>Dataset hash</dt><dd className="font-mono">{short(provenance.datasetHash)}</dd></div>
           <div className="flex justify-between gap-3"><dt>Engine</dt><dd>{provenance.engineVersion ?? "not recorded"}</dd></div>
@@ -132,14 +132,14 @@ function Panel({ data }: { data: Explanation }) {
           <div className="flex justify-between gap-3"><dt>Fingerprint</dt><dd className="font-mono">{short(provenance.calculationFingerprint)}</dd></div>
         </dl>
         {provenance.cleaning.length > 0 && (
-          <div className="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className="mt-1.5 text-[11px] text-ink-faint">
             <span className="font-medium">Cleaning applied: </span>
             {provenance.cleaning.map((c) => `${c.type.replace(/_/g, " ")}${c.column ? ` (${c.column})` : ""} — ${num(c.affectedRows)}`).join(", ")}
           </div>
         )}
       </Section>
 
-      <p className="border-t border-border pt-2 text-[11px] text-slate-400 dark:border-white/[0.06]">
+      <p className="border-t border-rule pt-2 text-[11px] text-ink-faint">
         Deterministic calculation{claims.reproducibleFromCurrentData ? " · reproducible from current data" : ""}
         {claims.reconciles ? " · components reconcile" : ""}.
         <span className="block">This shows how the number was produced; it does not verify that the underlying data or its interpretation is correct.</span>

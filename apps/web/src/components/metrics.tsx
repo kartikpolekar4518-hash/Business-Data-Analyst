@@ -127,17 +127,17 @@ export function CustomMetricsSection() {
   return (
     <Card>
       <CardHeader
-        title={<span className="flex items-center gap-2"><Sigma className="h-4 w-4 text-brand-500" />Your metrics</span>}
+        title={<span className="flex items-center gap-2"><Sigma className="h-4 w-4 text-accent" />Your metrics</span>}
         subtitle="Define a number once — it then works on your dashboard, in charts, forecasts, alerts and questions"
         action={editable ? <Button variant="outline" onClick={() => setOpen((o) => !o)}><Plus className="h-4 w-4" />New metric</Button> : undefined}
       />
       <CardBody className="space-y-3">
         {open && editable && (
-          <div className="grid gap-3 rounded-xl border border-border p-3 dark:border-white/[0.06] sm:grid-cols-6">
+          <div className="grid gap-3 rounded-xl border border-rule p-3 sm:grid-cols-6">
             <div className="sm:col-span-3">
               <Label>Name</Label>
               <Input value={label} onChange={(e) => { setLabel(e.target.value); setPreview(null); }} placeholder="Cost ratio" />
-              {label.trim() && <p className="mt-1 text-xs text-slate-400">Referenced as <code className="font-mono">{slug(label)}</code></p>}
+              {label.trim() && <p className="mt-1 text-xs text-ink-faint">Referenced as <code className="font-mono">{slug(label)}</code></p>}
             </div>
             <div className="sm:col-span-3">
               <Label>Shown as</Label>
@@ -151,7 +151,7 @@ export function CustomMetricsSection() {
               <Select value={kind} onChange={(e) => { setKind(e.target.value as MetricKind); setPreview(null); }}>
                 {KINDS.map((k) => <option key={k.id} value={k.id}>{k.label}</option>)}
               </Select>
-              <p className="mt-1 text-xs text-slate-400">{KINDS.find((k) => k.id === kind)?.hint}</p>
+              <p className="mt-1 text-xs text-ink-faint">{KINDS.find((k) => k.id === kind)?.hint}</p>
             </div>
 
             {kind !== "count" && (
@@ -173,7 +173,7 @@ export function CustomMetricsSection() {
             )}
 
             <div className="sm:col-span-6">
-              <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+              <label className="flex items-center gap-2 text-sm text-ink-soft">
                 <input type="checkbox" checked={useFilter} onChange={(e) => { setUseFilter(e.target.checked); setPreview(null); }} className="h-4 w-4 rounded border-border" />
                 Only count some rows
               </label>
@@ -201,11 +201,11 @@ export function CustomMetricsSection() {
             )}
 
             {preview && (
-              <div className="sm:col-span-6 rounded-lg border border-border bg-slate-50 p-3 text-sm dark:border-white/10 dark:bg-slate-900/60">
-                <div className="font-mono text-xs text-slate-500 dark:text-slate-400">{preview.formula}</div>
+              <div className="sm:col-span-6 rounded-lg border border-rule bg-sunken p-3 text-sm">
+                <div className="font-mono text-xs text-ink-faint">{preview.formula}</div>
                 <div className="mt-1 text-lg font-semibold">{formatKpiValue(preview.value, preview.format)}</div>
                 {!preview.resolves && (
-                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  <p className="mt-1 text-xs text-warn">
                     None of those columns were found in your current data, so this would read zero. Pick different columns.
                   </p>
                 )}
@@ -228,7 +228,7 @@ export function CustomMetricsSection() {
               description="Your industry's built-in metrics are always available. Add your own for anything specific to how you measure the business."
             />
           ) : (
-            <ul className="divide-y divide-border dark:divide-white/[0.06]">
+            <ul className="divide-y divide-rule">
               {metrics.map((m) => (
                 <li key={m.id} className="flex items-center justify-between gap-3 py-2">
                   <div className="min-w-0">
@@ -236,7 +236,7 @@ export function CustomMetricsSection() {
                       <span className="truncate font-medium">{m.label}</span>
                       <Badge tone="slate">{m.spec.kind}</Badge>
                     </div>
-                    <div className="truncate font-mono text-xs text-slate-400">{m.key}</div>
+                    <div className="truncate font-mono text-xs text-ink-faint">{m.key}</div>
                   </div>
                   {editable && (
                     <Button variant="ghost" size="sm" onClick={() => remove(m)} aria-label={`Delete ${m.label}`}>

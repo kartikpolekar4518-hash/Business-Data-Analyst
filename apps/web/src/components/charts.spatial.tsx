@@ -147,7 +147,7 @@ export function GeoMap({
         // Stated on the visual, not buried in a doc: without latitude and longitude
         // columns these sit at the centre of each region, which is an approximation and
         // not a claim about where anything actually happened.
-        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+        <p className="mt-2 text-[11px] text-ink-faint">
           Positioned at region centres — add latitude and longitude columns for exact points.
         </p>
       )}
@@ -156,7 +156,7 @@ export function GeoMap({
         // Never silently dropped: an unplaced region is unplaced revenue, and the reader
         // has to know the map is short of the total.
         <p
-          className="mt-2 text-[11px] text-amber-700 dark:text-amber-400"
+          className="mt-2 text-[11px] text-warn"
           title={unmatched.join(", ")}
         >
           {unmatched.length} region{unmatched.length === 1 ? "" : "s"} not on the map: {unmatched.slice(0, 3).join(", ")}

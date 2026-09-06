@@ -39,7 +39,7 @@ export const ErrorState = ({
   message: string;
   retry?: () => void;
 }) => (
-  <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-neg">
+  <div className="flex items-center gap-3 rounded-lg border border-neg bg-sunken px-4 py-3 text-body text-neg">
     <AlertCircle className="h-4 w-4 shrink-0" />
     <span className="flex-1">{message}</span>
     {retry && (
@@ -116,7 +116,7 @@ export const Modal = ({
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
           onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -217,8 +217,8 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
       <Icon
         className={cn(
           "h-4 w-4 shrink-0",
-          toast.tone === "success" && "text-emerald-500",
-          toast.tone === "error" && "text-red-500",
+          toast.tone === "success" && "text-pos",
+          toast.tone === "error" && "text-neg",
           toast.tone === "info" && "text-accent",
         )}
       />
@@ -353,7 +353,7 @@ export const Tooltip = ({
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: DUR.fast, ease: EASE }}
                 style={{ position: "fixed", left: coords?.left ?? -9999, top: coords?.top ?? -9999 }}
-                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-body-sm font-medium text-white shadow-dropdown"
+                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg border border-rule bg-surface px-2.5 py-1.5 text-body-sm font-medium text-white shadow-dropdown"
               >
                 {content}
               </motion.span>

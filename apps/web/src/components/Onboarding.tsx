@@ -33,7 +33,7 @@ export function EmptyWorkspace({
           <ClipboardCheck className="h-6 w-6" />
         </div>
         <h1 className="mt-4 text-heading-1 text-ink">Welcome to NoPS</h1>
-        <p className="mx-auto mt-2 max-w-md text-sm text-slate-500 dark:text-slate-400">
+        <p className="mx-auto mt-2 max-w-md text-sm text-ink-faint">
           {canUpload
             ? "Add your business data to generate dashboards, forecasts and reports automatically. No spreadsheet skills required."
             : "Your workspace has no data yet. Ask an admin or manager to upload a dataset — then your dashboards appear here."}
@@ -45,14 +45,14 @@ export function EmptyWorkspace({
           <Link to="/data" className="group">
             <Card hoverable className="h-full">
               <CardBody className="flex h-full flex-col">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-100 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent-soft text-accent">
                   <UploadCloud className="h-5 w-5" />
                 </div>
-                <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Upload your data</h3>
-                <p className="mt-1 flex-1 text-sm text-slate-500 dark:text-slate-400">
+                <h3 className="mt-3 font-semibold text-ink">Upload your data</h3>
+                <p className="mt-1 flex-1 text-sm text-ink-faint">
                   Drag in a CSV or Excel file. We profile and quality-check it on the way in.
                 </p>
-                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 dark:text-brand-400">
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-accent">
                   Go to upload <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </CardBody>
@@ -64,8 +64,8 @@ export function EmptyWorkspace({
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sunken text-ink-soft">
                 <Ruler className="h-5 w-5" />
               </div>
-              <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">Explore with sample data</h3>
-              <p className="mt-1 flex-1 text-sm text-slate-500 dark:text-slate-400">
+              <h3 className="mt-3 font-semibold text-ink">Explore with sample data</h3>
+              <p className="mt-1 flex-1 text-sm text-ink-faint">
                 See the full product on a realistic dataset before uploading anything.
               </p>
               <Button className="mt-3 w-full" loading={loadingSample} onClick={onLoadSample}>
@@ -79,11 +79,11 @@ export function EmptyWorkspace({
       <div className="mt-10 grid gap-4 sm:grid-cols-3">
         {steps.map((s) => (
           <div key={s.title} className="text-center">
-            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300">
+            <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-sunken text-ink-faint">
               <s.icon className="h-[18px] w-[18px]" />
             </div>
-            <h4 className="mt-2 text-sm font-semibold text-slate-800 dark:text-slate-200">{s.title}</h4>
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{s.body}</p>
+            <h4 className="mt-2 text-sm font-semibold text-ink">{s.title}</h4>
+            <p className="mt-1 text-xs text-ink-faint">{s.body}</p>
           </div>
         ))}
       </div>
@@ -118,20 +118,20 @@ export function GettingStartedChecklist({
       <CardBody>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">Get the most out of NoPS</h3>
-            <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{done} of {steps.length} done</p>
+            <h3 className="text-[15px] font-semibold text-ink">Get the most out of NoPS</h3>
+            <p className="mt-0.5 text-[13px] text-ink-faint">{done} of {steps.length} done</p>
           </div>
           <button
             onClick={onDismiss}
             aria-label="Dismiss getting started"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sunken"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
-          <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${pct}%` }} />
+        <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-sunken">
+          <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
         </div>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
@@ -142,22 +142,22 @@ export function GettingStartedChecklist({
               className={cn(
                 "flex items-center gap-3 rounded-lg border px-3 py-2.5 text-sm transition-colors",
                 s.done
-                  ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20"
-                  : "border-border hover:bg-slate-50 dark:border-white/[0.06] dark:hover:bg-white/[0.03]",
+                  ? "border-pos bg-sunken"
+                  : "border-rule hover:bg-sunken",
               )}
             >
               <span
                 className={cn(
                   "flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                  s.done ? "bg-emerald-500 text-white" : "bg-slate-100 text-slate-400 dark:bg-white/5",
+                  s.done ? "bg-pos text-accent-fg" : "bg-sunken text-ink-faint",
                 )}
               >
                 {s.done ? <Check className="h-3.5 w-3.5" /> : <s.icon className="h-3.5 w-3.5" />}
               </span>
-              <span className={cn("flex-1 font-medium", s.done ? "text-slate-500 line-through dark:text-slate-400" : "text-slate-700 dark:text-slate-200")}>
+              <span className={cn("flex-1 font-medium", s.done ? "text-ink-faint line-through" : "text-ink-soft")}>
                 {s.label}
               </span>
-              {!s.done && <ArrowRight className="h-4 w-4 text-slate-300 dark:text-slate-600" />}
+              {!s.done && <ArrowRight className="h-4 w-4 text-ink-faint" />}
             </Link>
           ))}
         </div>
@@ -186,13 +186,13 @@ export function WelcomeTour({ open, onClose }: { open: boolean; onClose: () => v
         <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-accent text-accent-fg">
           <s.icon className="h-5 w-5" />
         </div>
-        <h3 className="mt-3 font-semibold text-slate-900 dark:text-white">{s.title}</h3>
-        <p className="mx-auto mt-1 max-w-xs text-sm text-slate-500 dark:text-slate-400">{s.body}</p>
+        <h3 className="mt-3 font-semibold text-ink">{s.title}</h3>
+        <p className="mx-auto mt-1 max-w-xs text-sm text-ink-faint">{s.body}</p>
       </div>
 
       <div className="mt-5 flex items-center justify-center gap-1.5">
         {TOUR.map((_, i) => (
-          <span key={i} className={cn("h-1.5 rounded-full transition-all", i === step ? "w-5 bg-brand-500" : "w-1.5 bg-slate-300 dark:bg-slate-600")} />
+          <span key={i} className={cn("h-1.5 rounded-full transition-all", i === step ? "w-5 bg-accent" : "w-1.5 bg-rule")} />
         ))}
       </div>
 

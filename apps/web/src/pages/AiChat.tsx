@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Send, Sparkles, User, Plus, History, MessageSquare } from "lucide-react";
+import { Send, ClipboardCheck, User, Plus, History, MessageSquare } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { Card, CardBody, Button, Input, Skeleton, ErrorState } from "../components/ui";
 import { AIThinking, SuggestedPrompts, ConfidenceMeter, followUpsFor } from "../components/ai";
@@ -107,7 +107,7 @@ export default function AiChat() {
           </div>
         ) : (
           <div key={i} className="flex gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><Sparkles className="h-4 w-4" /></div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><ClipboardCheck className="h-4 w-4" /></div>
             <div className="max-w-[85%] space-y-3">
               <div className="rounded-2xl rounded-tl-sm bg-surface px-4 py-3 text-sm shadow-sm">
                 <p>{t.text}</p>
@@ -132,7 +132,7 @@ export default function AiChat() {
         ))}
         {loading && (
           <div className="flex gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent"><Sparkles className="h-4 w-4 animate-pulse" /></div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent"><ClipboardCheck className="h-4 w-4" /></div>
             <div className="rounded-2xl bg-surface px-4 py-3 shadow-sm"><AIThinking /></div>
           </div>
         )}

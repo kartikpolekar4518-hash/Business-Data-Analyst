@@ -98,19 +98,19 @@ export function WidgetGrid({
             onDragEnd={() => { dragId.current = null; setDragging(null); }}
             onDragOver={(e) => { e.preventDefault(); onDragOver(item.id); }}
             className={cn(
-              "flex flex-col overflow-hidden rounded-xl border border-border bg-white transition-shadow dark:border-white/[0.06] dark:bg-slate-900/70",
+              "flex flex-col overflow-hidden rounded-xl border border-rule bg-surface transition-shadow",
               SPAN[item.size],
-              dragging === item.id && "opacity-60 ring-2 ring-brand-500",
+              dragging === item.id && "opacity-60 ring-2 ring-accent",
             )}
           >
-            <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-2.5 dark:border-white/[0.06]">
+            <div className="flex items-center justify-between gap-2 border-b border-rule px-4 py-2.5">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="cursor-grab text-slate-300 active:cursor-grabbing dark:text-slate-600" aria-hidden><GripVertical className="h-4 w-4" /></span>
-                <h3 className="truncate text-sm font-semibold text-slate-900 dark:text-white">{item.title}</h3>
+                <span className="cursor-grab text-ink-faint active:cursor-grabbing" aria-hidden><GripVertical className="h-4 w-4" /></span>
+                <h3 className="truncate text-sm font-semibold text-ink">{item.title}</h3>
               </div>
               <Dropdown
                 align="right"
-                trigger={<button className="flex h-7 w-7 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-white/10" aria-label="Widget actions"><MoreHorizontal className="h-4 w-4" /></button>}
+                trigger={<button className="flex h-7 w-7 items-center justify-center rounded-md text-ink-faint hover:bg-sunken hover:text-ink-soft" aria-label="Widget actions"><MoreHorizontal className="h-4 w-4" /></button>}
               >
                 {(close) => (
                   <div className="w-44">
@@ -143,19 +143,18 @@ export const GoalCard = ({ label, current, target, format = "number" }: { label:
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[13px] font-medium text-slate-600 dark:text-slate-300">{label}</span>
-        <span className={cn("text-sm font-semibold tabular-nums", done ? "text-emerald-600 dark:text-emerald-400" : "text-slate-900 dark:text-white")}>{pct}%</span>
+        <span className="text-[13px] font-medium text-ink-soft">{label}</span>
+        <span className={cn("text-sm font-semibold tabular-nums", done ? "text-pos" : "text-ink")}>{pct}%</span>
       </div>
-      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-sunken">
         <motion.div
-          className="h-full rounded-full"
-          style={{ background: done ? "#34d399" : "linear-gradient(90deg, #598cff, #3366f5)" }}
+          className={cn("h-full rounded-full", done ? "bg-pos" : "bg-accent")}
           initial={{ width: 0 }}
           animate={{ width: `${pct}%` }}
           transition={{ duration: DUR.slow, ease: EASE }}
         />
       </div>
-      <div className="mt-2 flex items-center justify-between text-[12px] text-slate-500 dark:text-slate-400 tabular-nums">
+      <div className="mt-2 flex items-center justify-between text-[12px] text-ink-faint tabular-nums">
         <span>{formatKpiValue(current, format)}</span>
         <span>Target {formatKpiValue(target, format)}</span>
       </div>

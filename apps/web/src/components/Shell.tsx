@@ -221,7 +221,7 @@ function Sidebar({
       <AnimatePresence>
         {open && (
           <motion.div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-40 bg-ink/50 lg:hidden"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -523,7 +523,7 @@ function Header({
               <button
                 role="menuitem"
                 onClick={logout}
-                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-body text-red-600 transition-colors hover:bg-red-50"
+                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-body text-neg transition-colors hover:bg-sunken"
               >
                 <LogOut className="h-4 w-4" />
                 Log out
@@ -687,7 +687,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [can, navigate, toggle, dsData]);
 
   return (
-    <div className="flex h-full bg-surface-tertiary">
+    <div className="flex h-full bg-canvas">
       <Sidebar
         open={sidebarOpen}
         collapsed={collapsed}

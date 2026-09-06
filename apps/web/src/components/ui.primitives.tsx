@@ -17,7 +17,7 @@ const variantStyles: Record<Variant, string> = {
   // is placed on, including the dark hero.
   outline: "border border-rule text-ink hover:bg-sunken hover:border-rule-strong",
   ghost: "text-ink-soft hover:bg-sunken hover:text-ink",
-  danger: "bg-neg text-white hover:bg-neg/90 active:bg-neg/80",
+  danger: "bg-neg text-accent-fg hover:bg-neg/90 active:bg-neg/80",
 };
 
 const sizeStyles: Record<Size, string> = {
@@ -244,7 +244,7 @@ export const ProgressSteps = ({
           <span
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label",
-              state === "done" && "bg-pos text-white",
+              state === "done" && "bg-pos text-accent-fg",
               state === "active" && "bg-accent text-accent-fg",
               state === "pending" && "bg-sunken text-ink-faint",
             )}

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-query";
-import { Trash2, Plus, KeyRound, ShieldAlert, History, Upload, Sparkles, UserCog, Plug, CreditCard, Building2, Activity as ActivityIcon } from "lucide-react";
+import { Trash2, Plus, KeyRound, ShieldAlert, History, Upload, Ruler, UserCog, Plug, CreditCard, Building2, Activity as ActivityIcon } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
@@ -20,9 +20,9 @@ export default function SettingsPage() {
   const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "metrics", label: "Metrics" }, { id: "cleaning", label: "Cleaning" }, { id: "relationships", label: "Connected files" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-slate-500 dark:text-slate-400">Manage your workspace, team, and integrations.</p></div>
+      <div><h1 className="text-2xl font-bold">Settings</h1><p className="text-sm text-ink-faint">Manage your workspace, team, and integrations.</p></div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
-      {!can("ADMIN") && tab !== "preferences" && tab !== "activity" && <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700 dark:border-amber-900 dark:bg-amber-950/40"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
+      {!can("ADMIN") && tab !== "preferences" && tab !== "activity" && <div className="flex items-center gap-2 rounded-lg border border-warn bg-sunken p-3 text-sm text-warn"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}
       {tab === "calendar" && <CalendarTab />}
       {tab === "metrics" && <CustomMetricsSection />}
@@ -76,13 +76,13 @@ function BillingTab() {
       <Card>
         <CardHeader title="Current plan" subtitle={s ? `You're on the ${s.plan} plan` : undefined} action={s && <Badge tone={s.plan === "free" ? "slate" : "blue"}>{s.plan.toUpperCase()}</Badge>} />
         <CardBody className="space-y-4">
-          {!s ? <p className="text-sm text-slate-400">Loading…</p> : (
+          {!s ? <p className="text-sm text-ink-faint">Loading…</p> : (
             <>
               <UsageMeter label="Datasets" used={s.usage.datasets} limit={s.limits.datasets} />
               <UsageMeter label="Team members" used={s.usage.seats} limit={s.limits.seats} />
               <UsageMeter label="Reports this month" used={s.usage.reportsPerMonth} limit={s.limits.reportsPerMonth} />
               {!s.billingConfigured && (
-                <p className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:text-slate-400 dark:bg-slate-800/50">
+                <p className="rounded-lg bg-sunken p-3 text-xs text-ink-faint">
                   Payments aren't connected in this environment, so plan changes apply immediately in demo mode. Set <code>STRIPE_SECRET_KEY</code> to enable real checkout.
                 </p>
               )}
@@ -124,9 +124,9 @@ function OrgTab() {
         <Select value={industry ?? data?.organization.industry ?? "generic"} onChange={(e) => setIndustry(e.target.value)} disabled={!can("ADMIN")}>
           {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
         </Select>
-        <p className="mt-1 text-xs text-slate-400">Your dashboards, KPIs, and labels adapt to this.</p>
+        <p className="mt-1 text-xs text-ink-faint">Your dashboards, KPIs, and labels adapt to this.</p>
       </div>
-      <div className="text-sm text-slate-500 dark:text-slate-400">{data?.organization.memberCount ?? 0} members</div>
+      <div className="text-sm text-ink-faint">{data?.organization.memberCount ?? 0} members</div>
       {can("ADMIN") && <Button onClick={save}>Save changes</Button>}
     </CardBody></Card>
   );
@@ -182,7 +182,7 @@ function CalendarTab() {
         <Select value={String(activeMonth)} onChange={(e) => setMonth(Number(e.target.value))} disabled={!can("ADMIN")}>
           {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
         </Select>
-        <p className="mt-1 text-xs text-slate-400">A year starting in April 2026 is labelled FY2026 and runs to March 2027.</p>
+        <p className="mt-1 text-xs text-ink-faint">A year starting in April 2026 is labelled FY2026 and runs to March 2027.</p>
       </div>
 
       <div>
@@ -190,7 +190,7 @@ function CalendarTab() {
         <Select value={activeScheme} onChange={(e) => setScheme(e.target.value)} disabled={!can("ADMIN")}>
           {SCHEMES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
         </Select>
-        <p className="mt-1 text-xs text-slate-400">{SCHEMES.find((s) => s.id === activeScheme)?.hint}</p>
+        <p className="mt-1 text-xs text-ink-faint">{SCHEMES.find((s) => s.id === activeScheme)?.hint}</p>
       </div>
 
       {isRetail && (
@@ -199,13 +199,13 @@ function CalendarTab() {
           <Select value={String(activeWeekStart)} onChange={(e) => setWeekStart(Number(e.target.value))} disabled={!can("ADMIN")}>
             {WEEKDAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
           </Select>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-1 text-xs text-ink-faint">
             Your year opens on the first {WEEKDAYS[activeWeekStart]} on or after 1 {MONTHS[activeMonth - 1]}. A 53rd week folds into period 12.
           </p>
         </div>
       )}
 
-      <div className="rounded-lg border border-border bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-400">
+      <div className="rounded-lg border border-rule bg-sunken p-3 text-xs text-ink-soft">
         Changing this changes how every trend and forecast is grouped. Your uploaded data is not
         modified, and every figure stays reproducible — the calendar rule is shown in “Why this number”.
       </div>
@@ -232,15 +232,15 @@ function UsersTab() {
   return (
     <Card>
       <CardHeader title="Team members" subtitle={`${data?.users.length ?? 0} members`} action={can("ADMIN") && <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4" />Invite</Button>} />
-      <CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <CardBody className="p-0"><div className="divide-y divide-rule-soft">
         {data?.users.map((u) => (
           <div key={u.membershipId} className="flex items-center gap-3 px-5 py-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-sm font-semibold text-white">{u.name[0]}</div>
-            <div className="flex-1"><div className="font-medium">{u.name} {u.id === user?.id && <span className="text-xs text-slate-400">(you)</span>}</div><div className="text-xs text-slate-500 dark:text-slate-400">{u.email}</div></div>
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent text-sm font-semibold text-accent-fg">{u.name[0]}</div>
+            <div className="flex-1"><div className="font-medium">{u.name} {u.id === user?.id && <span className="text-xs text-ink-faint">(you)</span>}</div><div className="text-xs text-ink-faint">{u.email}</div></div>
             {can("ADMIN") && u.id !== user?.id ? (
               <Select value={u.role} onChange={(e) => changeRole(u.membershipId, e.target.value as Role)} className="w-32"><option>ADMIN</option><option>MANAGER</option><option>VIEWER</option></Select>
             ) : <Badge tone="blue">{u.role}</Badge>}
-            {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" aria-label={`Remove ${u.name}`} onClick={() => remove(u.membershipId, u.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
+            {can("ADMIN") && u.id !== user?.id && <Button variant="ghost" aria-label={`Remove ${u.name}`} onClick={() => remove(u.membershipId, u.name)}><Trash2 className="h-4 w-4 text-neg" /></Button>}
           </div>
         ))}
       </div></CardBody>
@@ -275,13 +275,13 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
     <Modal open={open} onClose={close} title="Invite team member">
       {invited ? (
         <div className="space-y-3">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">
+          <div className="rounded-lg border border-pos bg-sunken p-3 text-body text-pos">
             <strong>{invited.email}</strong> can now sign in.
           </div>
           {invited.tempPassword && (
-            <div className="rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-800/50">
-              <div className="text-xs text-slate-500 dark:text-slate-400">Share this one-time password securely — it won't be shown again:</div>
-              <code className="mt-1 block select-all break-all font-mono text-slate-900 dark:text-slate-100">{invited.tempPassword}</code>
+            <div className="rounded-lg bg-sunken p-3 text-sm">
+              <div className="text-xs text-ink-faint">Share this one-time password securely — it won't be shown again:</div>
+              <code className="mt-1 block select-all break-all font-mono text-ink">{invited.tempPassword}</code>
             </div>
           )}
           <div className="flex gap-2">
@@ -295,7 +295,7 @@ function InviteModal({ open, onClose }: { open: boolean; onClose: () => void }) 
           <div><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /></div>
           <div><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /></div>
           <div><Label>Role</Label><Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}><option>VIEWER</option><option>MANAGER</option><option>ADMIN</option></Select></div>
-          <p className="text-xs text-slate-400">We'll generate a one-time password you can share with them.</p>
+          <p className="text-xs text-ink-faint">We'll generate a one-time password you can share with them.</p>
           <Button type="submit" className="w-full" loading={loading}>Create account</Button>
         </form>
       )}
@@ -317,18 +317,18 @@ function ApiKeysTab() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-800 dark:bg-slate-800/50">
+      <div className="rounded-lg border border-rule bg-sunken p-4 text-sm">
         NoPS needs no API keys to run — analytics is fully deterministic. Store credentials here only for third-party integrations you set up separately (e.g. a data-source connector). Keys are stored <strong>hashed</strong> and never returned.
       </div>
       <Card><CardHeader title="API keys" /><CardBody className="space-y-3">
         {data?.apiKeys.length ? data.apiKeys.map((k) => (
-          <div key={k.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2 dark:border-slate-800">
-            <KeyRound className="h-4 w-4 text-slate-400" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-slate-500 dark:text-slate-400">{k.provider} · ••••{k.lastFour}</div></div>
-            {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-4 w-4 text-red-500" /></Button>}
+          <div key={k.id} className="flex items-center gap-3 rounded-lg border border-rule-soft px-3 py-2">
+            <KeyRound className="h-4 w-4 text-ink-faint" /><div className="flex-1"><div className="text-sm font-medium">{k.name}</div><div className="text-xs text-ink-faint">{k.provider} · ••••{k.lastFour}</div></div>
+            {can("ADMIN") && <Button variant="ghost" aria-label={`Delete key ${k.name}`} onClick={() => remove(k.id, k.name)}><Trash2 className="h-4 w-4 text-neg" /></Button>}
           </div>
-        )) : <p className="text-sm text-slate-400">No API keys configured.</p>}
+        )) : <p className="text-sm text-ink-faint">No API keys configured.</p>}
         {can("ADMIN") && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+          <div className="flex flex-wrap items-end gap-2 border-t border-rule-soft pt-3">
             <div className="w-40"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Warehouse prod" /></div>
             <div className="w-40"><Label>Provider</Label><Input value={form.provider} onChange={(e) => setForm({ ...form, provider: e.target.value })} placeholder="snowflake" /></div>
             <div className="flex-1"><Label>Secret</Label><Input type="password" value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} /></div>
@@ -357,7 +357,7 @@ const ACTION_LABEL: Record<string, string> = {
   "billing.planChanged": "Plan changed",
 };
 const actionIcon = (action: string) =>
-  action.startsWith("dataset.") ? (action === "dataset.cleaned" ? Sparkles : Upload)
+  action.startsWith("dataset.") ? (action === "dataset.cleaned" ? Ruler : Upload)
   : action.startsWith("user.") ? UserCog
   : action.startsWith("connection.") ? Plug
   : action.startsWith("billing.") ? CreditCard
@@ -376,7 +376,7 @@ function ActivityTab() {
 
   return (
     <Card>
-      <CardHeader title={<span className="flex items-center gap-2"><History className="h-4 w-4 text-brand-500" />Activity log</span>} subtitle="A record of changes across your workspace — uploads, team, connections, and billing." />
+      <CardHeader title={<span className="flex items-center gap-2"><History className="h-4 w-4 text-accent" />Activity log</span>} subtitle="A record of changes across your workspace — uploads, team, connections, and billing." />
       <CardBody>
         {q.isLoading ? (
           <div className="space-y-3">{[0, 1, 2, 3].map((i) => <div key={i} className="flex items-center gap-3"><Skeleton className="h-9 w-9 rounded-lg" /><div className="flex-1 space-y-2"><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-32" /></div></div>)}</div>
@@ -386,15 +386,15 @@ function ActivityTab() {
           <EmptyState icon={History} title="No activity yet" description="Actions like uploads, invites, and connection syncs will show up here." />
         ) : (
           <>
-            <ol className="relative space-y-1 before:absolute before:left-[18px] before:top-2 before:bottom-2 before:w-px before:bg-border dark:before:bg-white/[0.06]">
+            <ol className="relative space-y-1 before:absolute before:left-[18px] before:top-2 before:bottom-2 before:w-px before:bg-border">
               {items.map((it) => {
                 const Icon = actionIcon(it.action);
                 return (
                   <li key={it.id} className="relative flex items-start gap-3 py-2">
-                    <span className="z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"><Icon className="h-4 w-4" /></span>
+                    <span className="z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sunken text-ink-faint"><Icon className="h-4 w-4" /></span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-x-2 text-sm"><span className="font-medium">{actionLabel(it.action)}</span>{it.detail && <span className="truncate text-slate-500 dark:text-slate-400">{it.detail}</span>}</div>
-                      <div className="text-xs text-slate-400">{it.actor ? it.actor.name : "System"} · {timeAgo(it.createdAt)}</div>
+                      <div className="flex flex-wrap items-center gap-x-2 text-sm"><span className="font-medium">{actionLabel(it.action)}</span>{it.detail && <span className="truncate text-ink-faint">{it.detail}</span>}</div>
+                      <div className="text-xs text-ink-faint">{it.actor ? it.actor.name : "System"} · {timeAgo(it.createdAt)}</div>
                     </div>
                   </li>
                 );
@@ -412,7 +412,7 @@ function PreferencesTab() {
   const { theme, toggle } = useTheme();
   return (
     <Card><CardHeader title="Preferences" /><CardBody className="max-w-md space-y-4">
-      <div className="flex items-center justify-between"><div><div className="font-medium">Theme</div><div className="text-sm text-slate-500 dark:text-slate-400">Current: {theme}</div></div><Button variant="outline" onClick={toggle}>Switch to {theme === "dark" ? "light" : "dark"}</Button></div>
+      <div className="flex items-center justify-between"><div><div className="font-medium">Theme</div><div className="text-sm text-ink-faint">Current: {theme}</div></div><Button variant="outline" onClick={toggle}>Switch to {theme === "dark" ? "light" : "dark"}</Button></div>
     </CardBody></Card>
   );
 }

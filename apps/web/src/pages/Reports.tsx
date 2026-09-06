@@ -58,7 +58,7 @@ export default function Reports() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold">Executive Reports</h1><p className="text-sm text-slate-500 dark:text-slate-400">Board-ready summaries of performance, risks, and forecasts.</p></div>
+        <div><h1 className="text-2xl font-bold">Executive Reports</h1><p className="text-sm text-ink-faint">Board-ready summaries of performance, risks, and forecasts.</p></div>
         {can("ADMIN", "MANAGER") && (
           <div className="flex items-center gap-2">
             <Select value={templateId} onChange={(e) => setTemplateId(e.target.value)} aria-label="Report template" className="w-44">
@@ -81,11 +81,11 @@ export default function Reports() {
           action={can("ADMIN", "MANAGER") ? <Button onClick={generate} loading={generating}><Plus className="h-4 w-4" />Generate report</Button> : undefined}
         />
       ) : (
-        <Card><CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <Card><CardBody className="p-0"><div className="divide-y divide-rule-soft">
           {data.reports.map((rep) => (
             <div key={rep.id} className="flex items-center gap-3 px-5 py-3">
-              <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileText className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
-              <div className="flex-1"><div className="font-medium">{rep.title}</div><div className="text-xs text-slate-500 dark:text-slate-400">{timeAgo(rep.createdAt)}</div></div>
+              <div className="rounded-lg bg-sunken p-2"><FileText className="h-5 w-5 text-ink-faint" /></div>
+              <div className="flex-1"><div className="font-medium">{rep.title}</div><div className="text-xs text-ink-faint">{timeAgo(rep.createdAt)}</div></div>
               <Button variant="ghost" onClick={() => setViewId(rep.id)}><Eye className="h-4 w-4" />View</Button>
               {can("ADMIN", "MANAGER") && <Button variant="ghost" onClick={() => setShareFor(rep)}><Share2 className="h-4 w-4" />Share</Button>}
               <Button variant="outline" onClick={() => downloadPdf(rep.id, rep.title)}><Download className="h-4 w-4" />PDF</Button>
@@ -162,7 +162,7 @@ function TemplatesPanel() {
 
   return (
     <div className="space-y-4 text-sm">
-      <div className="rounded-xl border border-border p-3 dark:border-white/[0.06]">
+      <div className="rounded-xl border border-rule p-3">
         <Label>New template</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Monthly board report" className="mt-1" />
         <div className="mt-3 grid grid-cols-2 gap-2">
@@ -172,12 +172,12 @@ function TemplatesPanel() {
       </div>
 
       {isLoading ? <Skeleton className="h-10 w-full" /> : isError ? <ErrorState message="Couldn't load templates." retry={() => refetch()} /> : !data?.templates.length ? (
-        <p className="py-2 text-center text-slate-400">No templates yet. Save one above to reuse a report layout.</p>
+        <p className="py-2 text-center text-ink-faint">No templates yet. Save one above to reuse a report layout.</p>
       ) : (
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="divide-y divide-rule-soft">
           {data.templates.map((t) => (
             <div key={t.id} className="flex items-center gap-2 py-2">
-              <div className="min-w-0 flex-1"><div className="font-medium">{t.name}</div><div className="truncate text-xs text-slate-400">{summarize(t.include)}</div></div>
+              <div className="min-w-0 flex-1"><div className="font-medium">{t.name}</div><div className="truncate text-xs text-ink-faint">{summarize(t.include)}</div></div>
               <Button variant="ghost" onClick={() => remove(t.id)} aria-label="Delete template"><Trash2 className="h-4 w-4" /></Button>
             </div>
           ))}
@@ -219,27 +219,27 @@ function SharePanel({ report }: { report: ReportRow }) {
 
   return (
     <div className="space-y-4 text-sm">
-      <p className="text-slate-500 dark:text-slate-400">Anyone with a link can view this report — and download its PDF — without logging in. Revoke a link anytime to cut off access.</p>
+      <p className="text-ink-faint">Anyone with a link can view this report — and download its PDF — without logging in. Revoke a link anytime to cut off access.</p>
       <div className="flex items-end gap-2">
-        <div className="flex-1"><label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">Link expires</label>
+        <div className="flex-1"><label className="mb-1 block text-xs font-medium text-ink-faint">Link expires</label>
           <Select value={expiry} onChange={(e) => setExpiry(e.target.value)}><option value="7">In 7 days</option><option value="30">In 30 days</option><option value="90">In 90 days</option><option value="never">Never</option></Select>
         </div>
         <Button onClick={create} loading={creating}><Link2 className="h-4 w-4" />Create link</Button>
       </div>
 
       {isLoading ? <Skeleton className="h-10 w-full" /> : isError ? <ErrorState message="Couldn't load existing links." retry={() => refetch()} /> : !data?.shares.length ? (
-        <p className="py-2 text-center text-slate-400">No links yet.</p>
+        <p className="py-2 text-center text-ink-faint">No links yet.</p>
       ) : (
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="divide-y divide-rule-soft">
           {data.shares.map((s) => {
             const active = live(s);
             return (
               <div key={s.id} className="flex items-center gap-2 py-2">
                 <div className="min-w-0 flex-1">
-                  <div className={`truncate font-mono text-xs ${active ? "" : "text-slate-400 line-through"}`}>{s.url}</div>
-                  <div className="text-xs text-slate-400">{s.revokedAt ? "Revoked" : s.expiresAt ? (active ? `Expires ${new Date(s.expiresAt).toLocaleDateString()}` : "Expired") : "Never expires"}</div>
+                  <div className={`truncate font-mono text-xs ${active ? "" : "text-ink-faint line-through"}`}>{s.url}</div>
+                  <div className="text-xs text-ink-faint">{s.revokedAt ? "Revoked" : s.expiresAt ? (active ? `Expires ${new Date(s.expiresAt).toLocaleDateString()}` : "Expired") : "Never expires"}</div>
                 </div>
-                {active && <Button variant="ghost" onClick={() => copy(s.url)} aria-label="Copy link">{copied === s.url ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}</Button>}
+                {active && <Button variant="ghost" onClick={() => copy(s.url)} aria-label="Copy link">{copied === s.url ? <Check className="h-4 w-4 text-pos" /> : <Copy className="h-4 w-4" />}</Button>}
                 {active && <Button variant="ghost" onClick={() => revoke(s.id)} aria-label="Revoke link"><Trash2 className="h-4 w-4" /></Button>}
               </div>
             );
@@ -253,7 +253,7 @@ function SharePanel({ report }: { report: ReportRow }) {
 // Skeleton for the reports list — icon tile, two text lines, action buttons per row.
 function ReportsSkeleton() {
   return (
-    <Card><CardBody className="p-0"><div className="divide-y divide-slate-100 dark:divide-slate-800">
+    <Card><CardBody className="p-0"><div className="divide-y divide-rule-soft">
       {[0, 1, 2].map((i) => (
         <div key={i} className="flex items-center gap-3 px-5 py-3">
           <Skeleton className="h-9 w-9 rounded-lg" />

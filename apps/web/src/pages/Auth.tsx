@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { BrainCircuit } from "lucide-react";
+import { ClipboardCheck } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { api, ApiError } from "../lib/api";
 import { useIndustries } from "../lib/industries";
@@ -10,27 +10,25 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle: st
   return (
     <div className="grid min-h-full lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden bg-[#0a0f1a] p-12 text-white lg:flex">
-        {/* Glows + grid */}
-        <div className="pointer-events-none absolute inset-0 opacity-[0.04]" style={{ backgroundImage: "linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)", backgroundSize: "44px 44px" }} />
-        <div className="relative flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-fg"><BrainCircuit className="h-5 w-5" /></div><span className="text-xl font-bold">NoPS</span></div>
+      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-rule bg-sunken p-12 lg:flex">
+        <div className="relative flex items-center gap-2"><div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-accent-fg"><ClipboardCheck className="h-5 w-5" /></div><span className="text-heading-2 text-ink">NoPS</span></div>
         <div className="relative">
-          <h1 className="text-4xl font-bold leading-tight tracking-tight">Turn business data<br />into <span className="text-brand-300">decisions.</span></h1>
-          <p className="mt-4 max-w-md text-slate-300">Upload a spreadsheet and get automated dashboards, forecasts, alerts, and an AI analyst that answers questions in plain English — no data team required.</p>
-          <div className="mt-8 flex gap-8 text-sm text-slate-400">
-            <div><div className="text-2xl font-bold text-white">Auto</div>dashboards</div>
-            <div><div className="text-2xl font-bold text-white">AI</div>chat with data</div>
-            <div><div className="text-2xl font-bold text-white">PDF</div>exec reports</div>
+          <h1 className="text-display text-ink">Turn business data<br />into <span className="text-accent">decisions.</span></h1>
+          <p className="mt-4 max-w-md text-ink-faint">Upload a spreadsheet and get automated dashboards, forecasts, alerts, and an AI analyst that answers questions in plain English — no data team required.</p>
+          <div className="mt-8 flex gap-8 text-sm text-ink-faint">
+            <div><div className="text-heading-1 text-ink">Auto</div>dashboards</div>
+            <div><div className="text-heading-1 text-ink">AI</div>chat with data</div>
+            <div><div className="text-heading-1 text-ink">PDF</div>exec reports</div>
           </div>
         </div>
-        <p className="relative text-xs text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} NoPS</p>
+        <p className="relative text-body-sm text-ink-faint">© {new Date().getFullYear()} NoPS</p>
       </div>
       {/* Form panel */}
       <div className="flex items-center justify-center p-6">
-        <div className="w-full max-w-sm rounded-2xl border border-border bg-white/70 p-7 shadow-card backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/60">
-          <div className="mb-6 flex items-center gap-2 lg:hidden"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg"><BrainCircuit className="h-5 w-5" /></div><span className="text-lg font-bold">NoPS</span></div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+        <div className="w-full max-w-sm rounded-xl border border-rule bg-surface p-7 shadow-card">
+          <div className="mb-6 flex items-center gap-2 lg:hidden"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg"><ClipboardCheck className="h-5 w-5" /></div><span className="text-heading-2 text-ink">NoPS</span></div>
+          <h2 className="text-heading-1 text-ink">{title}</h2>
+          <p className="mt-1 text-body text-ink-soft">{subtitle}</p>
           <div className="mt-6">{children}</div>
         </div>
       </div>
@@ -59,13 +57,13 @@ export function Login() {
         {error && <ErrorState message={error} />}
         <div><Label htmlFor="email">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
         <div>
-          <div className="flex items-center justify-between"><Label htmlFor="pw">Password</Label><Link to="/forgot-password" className="text-xs text-brand-600 hover:underline">Forgot?</Link></div>
+          <div className="flex items-center justify-between"><Label htmlFor="pw">Password</Label><Link to="/forgot-password" className="text-xs text-accent hover:underline">Forgot?</Link></div>
           <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </div>
         <Button type="submit" className="w-full" loading={loading}>Sign in</Button>
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">No account? <Link to="/signup" className="font-medium text-brand-600 hover:underline">Sign up</Link></p>
+        <p className="text-center text-sm text-ink-faint">No account? <Link to="/signup" className="font-medium text-accent hover:underline">Sign up</Link></p>
         {import.meta.env.DEV && (
-          <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-500 dark:text-slate-400 dark:bg-slate-800/50">
+          <div className="rounded-lg bg-sunken p-3 text-xs text-ink-faint">
             <strong>Demo:</strong> admin@decisioniq.dev · manager@decisioniq.dev · viewer@decisioniq.dev — password <code>password123</code>
           </div>
         )}
@@ -102,11 +100,11 @@ export function Signup() {
           <Select value={form.industry} onChange={(e) => setForm({ ...form, industry: e.target.value })}>
             {industries.map((i) => <option key={i.key} value={i.key}>{i.label}</option>)}
           </Select>
-          <p className="mt-1 text-xs text-slate-400">Your dashboard adapts to this. You can change it later in Settings.</p>
+          <p className="mt-1 text-xs text-ink-faint">Your dashboard adapts to this. You can change it later in Settings.</p>
         </div>
-        <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-slate-400">At least 8 characters.</p></div>
+        <div><Label>Password</Label><Input type="password" value={form.password} onChange={set("password")} required minLength={8} /><p className="mt-1 text-xs text-ink-faint">At least 8 characters.</p></div>
         <Button type="submit" className="w-full" loading={loading}>Create account</Button>
-        <p className="text-center text-sm text-slate-500 dark:text-slate-400">Have an account? <Link to="/login" className="font-medium text-brand-600 hover:underline">Sign in</Link></p>
+        <p className="text-center text-sm text-ink-faint">Have an account? <Link to="/login" className="font-medium text-accent hover:underline">Sign in</Link></p>
       </form>
     </AuthLayout>
   );
@@ -125,15 +123,15 @@ export function ForgotPassword() {
     <AuthLayout title="Reset your password" subtitle="We'll create a reset link for your account.">
       {sent ? (
         <div className="space-y-4">
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">If that email exists, a reset link was created.</div>
-          {sent.devToken && <div className="rounded-lg bg-slate-50 p-3 text-xs dark:bg-slate-800/50"><strong>Dev mode:</strong> no email service configured. <Link className="text-brand-600 underline" to={`/reset-password?token=${sent.devToken}`}>Use this reset link</Link>.</div>}
-          <Link to="/login" className="block text-center text-sm text-brand-600 hover:underline">Back to sign in</Link>
+          <div className="rounded-lg border border-pos bg-sunken p-4 text-body text-pos">If that email exists, a reset link was created.</div>
+          {sent.devToken && <div className="rounded-lg bg-sunken p-3 text-xs"><strong>Dev mode:</strong> no email service configured. <Link className="text-accent underline" to={`/reset-password?token=${sent.devToken}`}>Use this reset link</Link>.</div>}
+          <Link to="/login" className="block text-center text-sm text-accent hover:underline">Back to sign in</Link>
         </div>
       ) : (
         <form onSubmit={submit} className="space-y-4">
           <div><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
           <Button type="submit" className="w-full" loading={loading}>Send reset link</Button>
-          <Link to="/login" className="block text-center text-sm text-brand-600 hover:underline">Back to sign in</Link>
+          <Link to="/login" className="block text-center text-sm text-accent hover:underline">Back to sign in</Link>
         </form>
       )}
     </AuthLayout>
@@ -156,7 +154,7 @@ export function ResetPassword() {
   };
   return (
     <AuthLayout title="Set a new password" subtitle="Choose a strong password for your account.">
-      {done ? <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-400">Password updated. Redirecting to sign in…</div> : (
+      {done ? <div className="rounded-lg border border-pos bg-sunken p-4 text-body text-pos">Password updated. Redirecting to sign in…</div> : (
         <form onSubmit={submit} className="space-y-4">
           {error && <ErrorState message={error} />}
           <div><Label>Reset token</Label><Input value={token} onChange={(e) => setToken(e.target.value)} required /></div>

@@ -190,14 +190,14 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />Revenue</span>
-          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />Profit</span>
+          <span className="flex items-center gap-1.5 text-ink-faint"><span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />Revenue</span>
+          <span className="flex items-center gap-1.5 text-ink-faint"><span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />Profit</span>
         </div>
-        <div className="flex rounded-lg border border-border bg-surface-secondary p-0.5 dark:border-white/10 dark:bg-white/5">
+        <div className="flex rounded-lg border border-rule bg-surface-secondary p-0.5">
           {(["both", "revenue", "profit"] as const).map((v) => (
             <button key={v} onClick={() => setView(v)} className={cn(
               "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
-              view === v ? "bg-white text-brand-600 shadow-sm dark:bg-brand-500 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+              view === v ? "bg-surface text-accent shadow-sm" : "text-ink-faint hover:text-ink-soft",
             )}>{v}</button>
           ))}
         </div>
@@ -241,8 +241,8 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
         </ResponsiveContainer>
         {variant === "donut" && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xl font-bold text-slate-900 dark:text-white">{fmtK(total)}</span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">{centerLabel ?? "Total"}</span>
+            <span className="text-xl font-bold text-ink">{fmtK(total)}</span>
+            <span className="text-[11px] text-ink-faint">{centerLabel ?? "Total"}</span>
           </div>
         )}
       </div>
@@ -251,8 +251,8 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
           const row = (
             <>
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SERIES[i % SERIES.length] }} />
-              <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{d.label}</span>
-              <span className="w-9 shrink-0 text-right font-semibold text-slate-900 dark:text-white">{total ? Math.round((d.value / total) * 100) : 0}%</span>
+              <span className="min-w-0 flex-1 truncate text-ink-soft">{d.label}</span>
+              <span className="w-9 shrink-0 text-right font-semibold text-ink">{total ? Math.round((d.value / total) * 100) : 0}%</span>
             </>
           );
           return (
@@ -261,7 +261,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
                 <button
                   type="button"
                   onClick={() => onSelect(d.label)}
-                  className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-white/5"
+                  className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
                   {row}
                 </button>
@@ -284,12 +284,10 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
 export const BarRankChart = memo(function BarRankChart({ data, horizontal = true, onSelect }: { data: { label: string; value: number }[]; horizontal?: boolean; onSelect?: (label: string) => void }) {
   const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
-  const gradId = useId();
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ResponsiveContainer width="100%" height={Math.max(220, data.length * 34)}>
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-        <defs><linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.55} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={1} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={!horizontal} vertical={horizontal} />
         {/* One axis per child: Recharts scans BarChart's direct children for axes and does
             not look inside a Fragment, so wrapping a pair in one drops both silently. */}
@@ -303,7 +301,7 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
         {/* Ranked bars of one metric share one hue — varied color would encode nothing but rank. */}
         {/* maxBarSize only bites below ~4 categories, where the band is wider than a bar
             should ever be; drilling down reaches those views constantly. */}
-        <Bar dataKey="value" fill={`url(#${gradId})`} maxBarSize={44} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
+        <Bar dataKey="value" fill={CHART.blue} maxBarSize={44} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -436,8 +434,8 @@ export const GaugeChart = memo(function GaugeChart({ value, max = 100, label, un
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-col items-center">
-        <span className="text-2xl font-bold text-slate-900 dark:text-white">{fmtK(value)}{unit}</span>
-        {label && <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>}
+        <span className="text-2xl font-bold text-ink">{fmtK(value)}{unit}</span>
+        {label && <span className="text-[11px] text-ink-faint">{label}</span>}
       </div>
     </div>
   );
@@ -484,10 +482,10 @@ export const Heatmap = memo(function Heatmap({ data, xLabels, yLabels }: { data:
     <div className="overflow-x-auto">
       <div className="inline-grid gap-1 text-xs" style={{ gridTemplateColumns: `auto repeat(${xLabels.length}, minmax(2.5rem, 1fr))` }}>
         <div />
-        {xLabels.map((x) => <div key={x} className="truncate px-1 pb-1 text-center font-medium text-slate-500 dark:text-slate-400">{x}</div>)}
+        {xLabels.map((x) => <div key={x} className="truncate px-1 pb-1 text-center font-medium text-ink-faint">{x}</div>)}
         {yLabels.map((y) => (
           <div key={y} className="contents">
-            <div className="flex items-center pr-2 font-medium text-slate-500 dark:text-slate-400">{y}</div>
+            <div className="flex items-center pr-2 font-medium text-ink-faint">{y}</div>
             {xLabels.map((x) => {
               const v = lookup.get(`${x}|${y}`);
               const t = v == null ? 0 : clamp((v - min) / span);
@@ -495,7 +493,7 @@ export const Heatmap = memo(function Heatmap({ data, xLabels, yLabels }: { data:
                 <div
                   key={x}
                   title={v == null ? `${x} · ${y}: —` : `${x} · ${y}: ${fmtK(v)}`}
-                  className={cn("flex h-9 items-center justify-center rounded-md text-[11px] font-medium tabular-nums", v == null && "ring-1 ring-inset ring-border dark:ring-white/10")}
+                  className={cn("flex h-9 items-center justify-center rounded-md text-[11px] font-medium tabular-nums", v == null && "ring-1 ring-inset ring-border")}
                   style={{
                     background: v == null ? "transparent" : `rgba(91,140,255,${0.12 + t * 0.8})`,
                     color: t > 0.55 ? "#fff" : undefined,
