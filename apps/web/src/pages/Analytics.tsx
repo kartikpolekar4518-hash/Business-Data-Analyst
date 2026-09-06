@@ -35,19 +35,19 @@ function Trail({ label, crumbs, onNavigate }: {
 }) {
   return (
     <nav aria-label={`${label} drill-down`} className="flex flex-wrap items-center gap-1 text-sm">
-      <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</span>
+      <span className="mr-1 text-xs font-medium uppercase tracking-wide text-ink-faint">{label}</span>
       {crumbs.map((crumb, i) => {
         const last = i === crumbs.length - 1;
         return (
           <span key={crumb.id} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-slate-600" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint" />}
             {last ? (
-              <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-slate-900 dark:text-white">{crumb.text}</span>
+              <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-ink">{crumb.text}</span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(i)}
-                className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+                className="rounded px-1.5 py-0.5 text-ink-faint transition hover:bg-sunken hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {crumb.text}
               </button>
@@ -186,10 +186,10 @@ export default function Analytics() {
 
   const chips: Chip[] = [];
   if (query.dateFrom || query.dateTo)
-    chips.push({ id: "date", label: <><span className="text-slate-400">Date:</span> {query.dateFrom || "…"} → {query.dateTo || "…"}</>, onRemove: () => setDates(undefined, undefined) });
+    chips.push({ id: "date", label: <><span className="text-ink-faint">Date:</span> {query.dateFrom || "…"} → {query.dateTo || "…"}</>, onRemove: () => setDates(undefined, undefined) });
   FILTERS.forEach((f) =>
     params.getAll(f.key).forEach((v) =>
-      chips.push({ id: `${f.key}:${v}`, label: <><span className="text-slate-400">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.key, v) }),
+      chips.push({ id: `${f.key}:${v}`, label: <><span className="text-ink-faint">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.key, v) }),
     ),
   );
 
@@ -207,7 +207,7 @@ export default function Analytics() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Analytics</h1><p className="text-sm text-slate-500 dark:text-slate-400">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
+        <div><h1 className="text-2xl font-bold">Analytics</h1><p className="text-sm text-ink-faint">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
         <Button variant="outline" onClick={exportCsv} disabled={!table.data}><Download className="h-4 w-4" />Export CSV</Button>
       </div>
 
@@ -218,12 +218,12 @@ export default function Analytics() {
           <div>
             <Label htmlFor="f-from">From</Label>
             <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setField("dateFrom", e.target.value)}
-              className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
+              className="h-10 rounded-lg border border-rule bg-surface px-3 text-sm outline-none focus:border-accent" />
           </div>
           <div>
             <Label htmlFor="f-to">To</Label>
             <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setField("dateTo", e.target.value)}
-              className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
+              className="h-10 rounded-lg border border-rule bg-surface px-3 text-sm outline-none focus:border-accent" />
           </div>
           <CompareSelect value={compare} onChange={setCompare} />
           <div className="ml-auto">
@@ -243,7 +243,7 @@ export default function Analytics() {
 
       {/* KPIs (driven by the industry pack) */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />)
+        {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-sunken" />)
           : ov.data.kpis.slice(0, 4).map((k) => (
               <KpiCard key={k.key} label={k.label} value={k.value} format={k.format} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} metricKey={k.key} explainQuery={qs ? `&${qs}` : ""} explain />
             ))}
@@ -257,9 +257,9 @@ export default function Analytics() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card><CardHeader title={ov.data?.trend.title ?? "Revenue trend"} /><CardBody>{ov.data ? <TrendChart data={ov.data.trend.revenue} onSelect={drillTrend} /> : <Spinner />}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} onSelect={drillHandler(ov.data.composition.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} onSelect={drillHandler(ov.data.ranking.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} onSelect={drillHandler(ov.data.secondary.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} onSelect={drillHandler(ov.data.composition.dimension)} /> : <p className="py-8 text-center text-sm text-ink-faint">No category data</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} onSelect={drillHandler(ov.data.ranking.dimension)} /> : <p className="py-8 text-center text-sm text-ink-faint">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
+        <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} onSelect={drillHandler(ov.data.secondary.dimension)} /> : <p className="py-8 text-center text-sm text-ink-faint">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
       </div>
 
       {/* Advanced analytics: drivers, segments, correlations */}

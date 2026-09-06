@@ -32,10 +32,10 @@ const PRESETS: { label: string; range: () => Range }[] = [
 export const RelativeDateSelect = ({ onSelect }: { onSelect: (r: Range) => void }) => (
   <Dropdown
     trigger={
-      <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800">
-        <Calendar className="h-4 w-4 text-slate-400" />
+      <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-rule bg-surface px-3 text-sm text-ink-soft transition hover:bg-sunken">
+        <Calendar className="h-4 w-4 text-ink-faint" />
         Quick range
-        <ChevronDown className="h-4 w-4 text-slate-400" />
+        <ChevronDown className="h-4 w-4 text-ink-faint" />
       </button>
     }
   >
@@ -65,7 +65,7 @@ const COMPARISONS: { value: Comparison; label: string; hint: string }[] = [
 export const CompareSelect = ({ value, onChange }: { value: Comparison; onChange: (v: Comparison) => void }) => (
   <div>
     <Label>Compare to</Label>
-    <div className="inline-flex h-10 items-center rounded-lg border border-border bg-white p-1 dark:border-white/10 dark:bg-slate-900/60">
+    <div className="inline-flex h-10 items-center rounded-lg border border-rule bg-surface p-1">
       {COMPARISONS.map((c) => (
         <button
           key={c.value}
@@ -76,8 +76,8 @@ export const CompareSelect = ({ value, onChange }: { value: Comparison; onChange
           className={cn(
             "rounded-md px-3 py-1.5 text-sm transition",
             value === c.value
-              ? "bg-brand-500 font-medium text-white"
-              : "text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
+              ? "bg-accent font-medium text-accent-fg"
+              : "text-ink-soft hover:bg-sunken",
           )}
         >
           {c.label}
@@ -97,16 +97,16 @@ export const ComparisonNote = ({ info }: { info?: ComparisonInfo }) => {
       : info.reason === "no_prior_data" ? "there is no data in the comparison window"
       : "there is not enough dated history";
     return (
-      <p className="text-xs text-amber-600 dark:text-amber-400">
+      <p className="text-xs text-warn">
         No comparison shown — {why}. The values above are still exact; only the “vs” percentages are missing.
       </p>
     );
   }
   const [cs, ce] = info.currentRange ?? ["", ""], [ps, pe] = info.previousRange ?? ["", ""];
   return (
-    <p className="text-xs text-slate-500 dark:text-slate-400">
-      Comparing <span className="font-medium text-slate-700 dark:text-slate-200">{cs} → {ce}</span> against{" "}
-      <span className="font-medium text-slate-700 dark:text-slate-200">{ps} → {pe}</span>
+    <p className="text-xs text-ink-faint">
+      Comparing <span className="font-medium text-ink-soft">{cs} → {ce}</span> against{" "}
+      <span className="font-medium text-ink-soft">{ps} → {pe}</span>
       {info.basis === "same_period_last_year" ? " (same window last year)" : " (the period immediately before)"}.
     </p>
   );
@@ -145,36 +145,36 @@ export const MultiSelect = ({
         <button
           type="button"
           className={cn(
-            "inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-border bg-white px-3 text-sm transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900/60 dark:hover:bg-slate-800",
-            selected.length ? "text-slate-900 dark:text-slate-100" : "text-slate-400",
+            "inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-rule bg-surface px-3 text-sm transition hover:bg-sunken",
+            selected.length ? "text-ink" : "text-ink-faint",
           )}
         >
           <span className="truncate">{summary}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />
+          <ChevronDown className="h-4 w-4 shrink-0 text-ink-faint" />
         </button>
       }
     >
       <div className="w-64">
         <div className="mb-1 flex items-center justify-between px-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{label}</span>
           {selected.length > 0 && (
-            <button onClick={() => onChange([])} className="text-[11px] font-medium text-brand-600 hover:underline dark:text-brand-400">Clear</button>
+            <button onClick={() => onChange([])} className="text-[11px] font-medium text-accent hover:underline">Clear</button>
           )}
         </div>
         {options.length > 8 && (
           <div className="relative mb-1">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search…"
-              className="h-8 w-full rounded-lg border border-border bg-white pl-8 pr-2 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100"
+              className="h-8 w-full rounded-lg border border-rule bg-surface pl-8 pr-2 text-sm outline-none focus:border-accent"
             />
           </div>
         )}
         <div className="max-h-56 overflow-y-auto">
           {shown.length === 0 ? (
-            <p className="px-2 py-3 text-center text-xs text-slate-400">No matches</p>
+            <p className="px-2 py-3 text-center text-xs text-ink-faint">No matches</p>
           ) : (
             shown.map((o) => {
               const on = selected.includes(o);
@@ -183,11 +183,11 @@ export const MultiSelect = ({
                   key={o}
                   type="button"
                   onClick={() => toggle(o)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700/60"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink-soft hover:bg-sunken"
                 >
                   <span className={cn(
                     "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
-                    on ? "border-brand-600 bg-brand-600 text-white dark:border-brand-500 dark:bg-brand-500" : "border-border dark:border-white/15",
+                    on ? "border-accent bg-accent text-accent-fg" : "border-rule",
                   )}>
                     {on && <Check className="h-3 w-3" strokeWidth={3} />}
                   </span>
@@ -213,14 +213,14 @@ export const FilterChips = ({ chips, onClearAll }: { chips: Chip[]; onClearAll: 
     <div className="flex flex-wrap items-center gap-2">
       <Badge tone="blue">{chips.length} active</Badge>
       {chips.map((c) => (
-        <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-2.5 py-1 text-[13px] text-slate-700 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300">
+        <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-2.5 py-1 text-[13px] text-ink-soft">
           {c.label}
-          <button onClick={c.onRemove} aria-label="Remove filter" className="text-slate-400 transition-colors hover:text-slate-700 dark:hover:text-slate-100">
+          <button onClick={c.onRemove} aria-label="Remove filter" className="text-ink-faint transition-colors hover:text-ink-soft">
             <X className="h-3.5 w-3.5" />
           </button>
         </span>
       ))}
-      <button onClick={onClearAll} className="text-[13px] font-medium text-slate-500 underline-offset-2 hover:text-slate-800 hover:underline dark:text-slate-400 dark:hover:text-slate-200">
+      <button onClick={onClearAll} className="text-[13px] font-medium text-ink-faint underline-offset-2 hover:text-ink hover:underline">
         Clear all
       </button>
     </div>
@@ -293,21 +293,21 @@ export const SavedViews = ({
       <Dropdown
         align="right"
         trigger={
-          <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-border bg-white px-3 text-sm text-slate-700 transition hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-300 dark:hover:bg-slate-800">
-            <Bookmark className="h-4 w-4 text-slate-400" />
+          <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-rule bg-surface px-3 text-sm text-ink-soft transition hover:bg-sunken">
+            <Bookmark className="h-4 w-4 text-ink-faint" />
             Saved views
-            <ChevronDown className="h-4 w-4 text-slate-400" />
+            <ChevronDown className="h-4 w-4 text-ink-faint" />
           </button>
         }
       >
         {(close) => (
           <div className="w-60">
             {views.length === 0 ? (
-              <p className="px-2 py-3 text-center text-xs text-slate-400">No saved views yet</p>
+              <p className="px-2 py-3 text-center text-xs text-ink-faint">No saved views yet</p>
             ) : (
               views.map((v) => (
-                <div key={v.id} className="group flex items-center rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/60">
-                  <button onClick={() => { onApply(v.query); close(); }} className="flex-1 truncate px-2.5 py-1.5 text-left text-sm text-slate-700 dark:text-slate-200">
+                <div key={v.id} className="group flex items-center rounded-lg hover:bg-sunken">
+                  <button onClick={() => { onApply(v.query); close(); }} className="flex-1 truncate px-2.5 py-1.5 text-left text-sm text-ink-soft">
                     {v.name}
                   </button>
                   {/* A saved view is the one shared, stored anchor for "the numbers
@@ -315,7 +315,7 @@ export const SavedViews = ({
                   <button
                     onClick={() => { setDiscussing(v); close(); }}
                     aria-label={`Comments on ${v.name}`}
-                    className="px-2 text-slate-400 opacity-0 transition hover:text-brand-500 group-hover:opacity-100"
+                    className="px-2 text-ink-faint opacity-0 transition hover:text-accent group-hover:opacity-100"
                   >
                     <MessageSquare className="h-3.5 w-3.5" />
                   </button>
@@ -323,7 +323,7 @@ export const SavedViews = ({
                     <button
                       onClick={() => remove(v.id)}
                       aria-label={`Delete ${v.name}`}
-                      className="px-2 text-slate-400 opacity-0 transition hover:text-red-500 group-hover:opacity-100"
+                      className="px-2 text-ink-faint opacity-0 transition hover:text-neg group-hover:opacity-100"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
@@ -332,7 +332,7 @@ export const SavedViews = ({
               ))
             )}
             {canEdit && (
-              <div className="mt-1 border-t border-border pt-1 dark:border-white/[0.06]">
+              <div className="mt-1 border-t border-rule pt-1">
                 <DropdownItem icon={Plus} onClick={() => { setSaving(true); close(); }}>Save current view…</DropdownItem>
               </div>
             )}
@@ -343,7 +343,7 @@ export const SavedViews = ({
       <Modal open={saving} onClose={() => setSaving(false)} title="Save current view">
         <Label htmlFor="view-name">View name</Label>
         <Input id="view-name" value={name} autoFocus onChange={(e) => setName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && save()} placeholder="e.g. India — last 30 days" />
-        <p className="mt-2 text-xs text-slate-400">Everyone in your organisation can use this view. Saving over an existing name replaces it.</p>
+        <p className="mt-2 text-xs text-ink-faint">Everyone in your organisation can use this view. Saving over an existing name replaces it.</p>
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => setSaving(false)}>Cancel</Button>
           <Button onClick={save} loading={busy} disabled={!name.trim()}>Save</Button>

@@ -112,7 +112,7 @@ export default function Forecasts() {
 
   return (
     <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-slate-500 dark:text-slate-400">Projections from historical trend. Estimates only — not guarantees.</p></div>
+      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-ink-faint">Projections from historical trend. Estimates only — not guarantees.</p></div>
 
       {can("ADMIN", "MANAGER") && (
         <Card><CardBody>
@@ -125,12 +125,12 @@ export default function Forecasts() {
             <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button>
           </div>
 
-          <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+          <div className="mt-5 border-t border-rule-soft pt-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4 text-slate-400" />What-if scenario</div>
+              <div className="flex items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4 text-ink-faint" />What-if scenario</div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 dark:text-slate-400">Move a lever, then generate. Your data is never changed.</span>
-                {anyLever && <button onClick={() => setLevers(NO_LEVERS)} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Reset</button>}
+                <span className="text-xs text-ink-faint">Move a lever, then generate. Your data is never changed.</span>
+                {anyLever && <button onClick={() => setLevers(NO_LEVERS)} className="text-xs font-medium text-accent hover:underline">Reset</button>}
               </div>
             </div>
             <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -142,7 +142,7 @@ export default function Forecasts() {
             </div>
           </div>
           {goalStatus && (
-            <div className="mt-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
+            <div className="mt-3 rounded-lg border border-rule p-3 text-sm">
               Goal: <strong>{money(goalStatus.goal)}</strong> · Forecast: <strong>{money(goalStatus.forecastValue)}</strong> · <Badge tone={goalStatus.status === "on_track" ? "green" : goalStatus.status === "at_risk" ? "amber" : "red"}>{goalStatus.status.replace("_", " ")}</Badge>
             </div>
           )}
@@ -151,12 +151,12 @@ export default function Forecasts() {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+        <div className="flex items-start gap-2 rounded-lg border border-warn bg-sunken p-3 text-xs text-warn">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />A seasonal or linear model is chosen automatically by backtesting, with a 95% confidence band and best/base/worst scenarios that widen with the horizon.
         </div>
         {data?.forecasts.length ? (
-          <div className="inline-flex rounded-lg border border-border p-0.5 dark:border-white/10">
-            {SCENARIOS.map((s) => <button key={s.key} onClick={() => setParam("scenario", s.key, "value")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scenario === s.key ? "bg-brand-500 text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}>{s.label}</button>)}
+          <div className="inline-flex rounded-lg border border-rule p-0.5">
+            {SCENARIOS.map((s) => <button key={s.key} onClick={() => setParam("scenario", s.key, "value")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scenario === s.key ? "bg-accent text-accent-fg" : "text-ink-faint hover:text-ink"}`}>{s.label}</button>)}
           </div>
         ) : null}
       </div>
@@ -181,7 +181,7 @@ export default function Forecasts() {
                   {f.points.map((p) => {
                     const shown = scenario === "best" ? (p.best ?? p.value) : scenario === "worst" ? (p.worst ?? p.value) : p.value;
                     const hasScenarios = p.best != null && p.worst != null;
-                    return <div key={p.period} className="rounded-lg border border-slate-100 p-2 text-center dark:border-slate-800"><div className="text-xs text-slate-500 dark:text-slate-400">{p.period}</div><div className="font-semibold">{fmt(shown)}</div><div className="text-xs text-slate-400">{hasScenarios ? `${fmt(p.worst!)}–${fmt(p.best!)}` : `${fmt(p.lower)}–${fmt(p.upper)}`}</div></div>;
+                    return <div key={p.period} className="rounded-lg border border-rule-soft p-2 text-center"><div className="text-xs text-ink-faint">{p.period}</div><div className="font-semibold">{fmt(shown)}</div><div className="text-xs text-ink-faint">{hasScenarios ? `${fmt(p.worst!)}–${fmt(p.best!)}` : `${fmt(p.lower)}–${fmt(p.upper)}`}</div></div>;
                   })}
                 </div>
               </CardBody>
@@ -215,13 +215,13 @@ function ImpactPanel({ impact }: { impact: ScenarioImpact | null }) {
   return (
     <div className="mt-3 space-y-2 text-sm">
       {moved.length > 0 && (
-        <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <div className="rounded-lg border border-rule p-3">
           Applied to your rows before anything was calculated: {moved.map((l) => `${leverLabel(l.field)} ${pctLabel(l.changePct)} → ${l.propagatesTo.join(" and ")}`).join(" · ")}.
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Revenue is read as {impact.revenueExpression}.</div>
+          <div className="mt-1 text-xs text-ink-faint">Revenue is read as {impact.revenueExpression}.</div>
         </div>
       )}
       {caveats.map((l) => (
-        <div key={l.field} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+        <div key={l.field} className="flex items-start gap-2 rounded-lg border border-warn bg-sunken p-3 text-xs text-warn">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span><strong>{leverLabel(l.field)} {pctLabel(l.changePct)}:</strong> {l.note}</span>
         </div>

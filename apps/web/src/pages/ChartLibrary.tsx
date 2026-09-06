@@ -33,7 +33,7 @@ export default function ChartLibrary() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Chart library</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm text-ink-faint">
           Every visualization the app can draw, named as Power BI names it. They share one palette, axis theme and
           motion system, and all work in light and dark. Sample data shown.
         </p>
@@ -48,8 +48,8 @@ export default function ChartLibrary() {
             className={cn(
               "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
               active === c
-                ? "border-brand-500 bg-brand-500 text-white"
-                : "border-border text-slate-600 hover:bg-slate-100 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800",
+                ? "border-accent bg-accent text-accent-fg"
+                : "border-rule text-ink-soft hover:bg-sunken",
             )}
           >
             {CATEGORY_LABEL[c]}
