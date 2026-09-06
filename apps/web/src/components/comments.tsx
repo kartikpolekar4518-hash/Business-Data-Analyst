@@ -26,9 +26,11 @@ const initials = (name: string) => name.trim()[0]?.toUpperCase() ?? "?";
 
 // A stable colour per person so the same author reads as the same person down the
 // thread, without storing an avatar anywhere.
+// Flat, muted, and distinguishable — identity is the meaning here, so the hue
+// earns its place; the gradient did not.
 const TONES = [
-  "from-brand-400 to-brand-600", "from-emerald-400 to-emerald-600", "from-amber-400 to-amber-600",
-  "from-rose-400 to-rose-600", "from-violet-400 to-violet-600", "from-sky-400 to-sky-600",
+  "bg-[#2C5179]", "bg-[#3F6B52]", "bg-[#8A6A2B]",
+  "bg-[#8C4A46]", "bg-[#5A4C7A]", "bg-[#3D6470]",
 ];
 function toneFor(id: string) {
   let h = 0;
@@ -40,7 +42,7 @@ function Avatar({ id, name }: { id: string; name: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-gradient-to-br ${toneFor(id)} text-xs font-semibold text-white shadow-sm`}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneFor(id)} font-mono text-label text-white`}
     >
       {initials(name)}
     </div>

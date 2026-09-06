@@ -16,7 +16,7 @@ export const Label = ({
 }) => (
   <label
     htmlFor={htmlFor}
-    className="mb-1.5 block text-[13px] font-medium text-slate-700 dark:text-slate-300"
+    className="mb-1.5 block text-[13px] font-medium text-ink-soft"
   >
     {children}
   </label>
@@ -29,10 +29,10 @@ export const Input = forwardRef<
   <input
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
-      "placeholder:text-slate-400",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:text-slate-400",
+      "h-10 w-full rounded-lg border border-rule bg-surface px-3 text-body text-ink outline-none transition",
+      "placeholder:text-ink-faint",
+      "focus:border-accent focus:ring-2 focus:ring-accent/20",
+      "",
       className,
     )}
     {...props}
@@ -46,9 +46,9 @@ export const Select = forwardRef<
   <select
     ref={ref}
     className={cn(
-      "h-10 w-full rounded-lg border border-border bg-white px-3 text-sm text-slate-900 outline-none transition",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100",
+      "h-10 w-full rounded-lg border border-rule bg-surface px-3 text-body text-ink outline-none transition",
+      "focus:border-accent focus:ring-2 focus:ring-accent/20",
+      "",
       className,
     )}
     {...props}
@@ -87,15 +87,15 @@ export const Checkbox = ({
       onClick={() => onChange(!checked)}
       className={cn(
         "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1 dark:focus-visible:ring-offset-slate-950",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1",
         checked || indeterminate
-          ? "border-brand-600 bg-brand-600 text-white dark:border-brand-500 dark:bg-brand-500"
-          : "border-border bg-white dark:border-white/15 dark:bg-slate-900/60",
+          ? "border-accent bg-accent text-white"
+          : "border-rule bg-surface",
       )}
     >
-      {indeterminate ? <span className="h-0.5 w-2 rounded-full bg-white" /> : checked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
+      {indeterminate ? <span className="h-0.5 w-2 rounded-full bg-surface" /> : checked ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
     </button>
-    {label && <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>}
+    {label && <span className="text-body text-ink-soft">{label}</span>}
   </label>
 );
 
@@ -127,18 +127,18 @@ export const Switch = ({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950",
-        checked ? "bg-brand-600 dark:bg-brand-500" : "bg-slate-300 dark:bg-slate-700",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
+        checked ? "bg-accent" : "bg-slate-300",
       )}
     >
       <motion.span
         layout
         transition={SPRING}
-        className="inline-block h-4 w-4 rounded-full bg-white shadow-sm"
+        className="inline-block h-4 w-4 rounded-full bg-surface shadow-sm"
         style={{ marginLeft: checked ? 18 : 2 }}
       />
     </button>
-    {label && <span className="text-sm text-slate-700 dark:text-slate-300">{label}</span>}
+    {label && <span className="text-body text-ink-soft">{label}</span>}
   </label>
 );
 
@@ -183,21 +183,21 @@ export const Slider = ({
   return (
     <div className={cn("w-full", disabled && "opacity-50", className)}>
       {label != null && (
-        <div className="mb-1.5 flex items-center justify-between text-xs font-medium text-slate-600 dark:text-slate-300">
+        <div className="mb-1.5 flex items-center justify-between text-body-sm font-medium text-ink-soft">
           <span>{label}</span>
-          <span className="tabular-nums text-slate-400">{format ? format(value) : value}</span>
+          <span className="tabular-nums text-ink-faint">{format ? format(value) : value}</span>
         </div>
       )}
       <div className="relative flex h-5 items-center">
-        <div className="relative h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+        <div className="relative h-2 w-full overflow-hidden rounded-full bg-sunken">
           <div
-            className="absolute inset-y-0 rounded-full bg-brand-500"
+            className="absolute inset-y-0 rounded-full bg-accent"
             style={{ left: `${Math.min(origin, pct)}%`, width: `${Math.abs(pct - origin)}%` }}
           />
         </div>
         <span
           aria-hidden
-          className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-full border border-brand-500 bg-white shadow-sm dark:bg-slate-900"
+          className="pointer-events-none absolute h-4 w-4 -translate-x-1/2 rounded-full border border-accent bg-surface shadow-sm"
           style={{ left: `${pct}%` }}
         />
         <input
@@ -226,10 +226,10 @@ export const Textarea = forwardRef<
   <textarea
     ref={ref}
     className={cn(
-      "w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-slate-900 outline-none transition",
-      "placeholder:text-slate-400",
-      "focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20",
-      "dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100 dark:placeholder:text-slate-500 dark:text-slate-400",
+      "w-full rounded-lg border border-rule bg-surface px-3 py-2 text-body text-ink outline-none transition",
+      "placeholder:text-ink-faint",
+      "focus:border-accent focus:ring-2 focus:ring-accent/20",
+      "",
       className,
     )}
     {...props}

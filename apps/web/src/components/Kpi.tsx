@@ -1,7 +1,6 @@
 import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
-import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
-import { AnimatedNumber, SPRING } from "../lib/motion";
+import { AnimatedNumber } from "../lib/motion";
 import type { KpiFormat } from "../lib/kpi";
 import { Sparkline, CHART } from "./charts";
 import { ExplainMetric } from "./explain";
@@ -38,59 +37,38 @@ export function KpiCard({
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
 
   return (
-    <motion.div
-      whileHover={{ y: -2 }}
-      transition={SPRING}
+    <div
       className={cn(
-        "group relative overflow-hidden rounded-xl border bg-white p-5 shadow-card transition-colors duration-200",
-        "dark:bg-slate-900/70 dark:shadow-card-glow dark:backdrop-blur-sm dark:hover:border-brand-500/30",
-        accent
-          ? "border-brand-200 dark:border-brand-500/25"
-          : "border-border dark:border-white/[0.06]",
+        // A tile is a figure on paper: the accent variant is marked by a rule
+        // down its edge, not by lifting, glowing or washing colour behind the
+        // number it is supposed to be showing.
+        "group relative rounded-xl border border-rule bg-surface p-4 transition-colors duration-100",
+        accent && "border-l-2 border-l-accent",
       )}
     >
-      {/* Accent glow wash on hover (dark) */}
-      <span
-        className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full opacity-0 blur-2xl transition-opacity duration-300 group-hover:opacity-100 dark:group-hover:opacity-60"
-        style={{ background: accentColor }}
-        aria-hidden="true"
-      />
-
       {/* Header row: label + icon */}
-      <div className="relative flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          {label}
-        </span>
+      <div className="flex items-center justify-between">
+        <span className="label">{label}</span>
         <div className="flex items-center gap-1">
         {explain && metricKey && <ExplainMetric metricKey={metricKey} label={label} query={explainQuery} />}
-        <div
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg",
-            accent
-              ? "text-white shadow-sm"
-              : "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-300",
-          )}
-          style={accent ? { background: accentColor, boxShadow: `0 4px 14px -4px ${accentColor}` } : undefined}
-        >
-          <Icon className="h-[16px] w-[16px]" />
-        </div>
+        <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />
         </div>
       </div>
 
       {/* Value */}
-      <div className="relative mt-3 text-[27px] font-bold leading-none tracking-tight tabular-nums text-slate-900 dark:text-white">
+      <div className="mt-2.5 text-data-lg tabular-nums text-ink">
         <AnimatedNumber value={value} format={format} />
       </div>
 
       {/* Bottom row: trend pill + sparkline */}
-      <div className="relative mt-3 flex items-end justify-between gap-2">
+      <div className="mt-2.5 flex items-end justify-between gap-2">
         {changePct != null ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs font-semibold",
-              up && "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-400",
-              down && "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400",
-              !up && !down && "bg-slate-100 text-slate-500 dark:bg-white/5 dark:text-slate-400",
+              "inline-flex items-center gap-1 font-mono text-body-sm font-medium tabular-nums",
+              up && "text-pos",
+              down && "text-neg",
+              !up && !down && "text-ink-faint",
             )}
           >
             <Trend className="h-3.5 w-3.5" />
@@ -98,7 +76,7 @@ export function KpiCard({
             {changePct}%
           </span>
         ) : (
-          <span className="text-xs text-slate-400 dark:text-slate-400">—</span>
+          <span className="text-body-sm text-ink-faint">—</span>
         )}
         {spark && spark.length > 1 && (
           <div className="opacity-90">
@@ -109,10 +87,10 @@ export function KpiCard({
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 w-60 rounded-xl border border-border bg-white p-3 text-xs text-slate-600 opacity-0 shadow-dropdown transition-all duration-150 group-hover:opacity-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+        <div className="pointer-events-none absolute right-0 top-full z-10 mt-2 w-60 rounded-xl border border-rule bg-surface p-3 text-body-sm text-ink-soft opacity-0 shadow-dropdown transition-all duration-150 group-hover:opacity-100">
           {tooltip}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }

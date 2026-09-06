@@ -178,7 +178,7 @@ export function DataTable<T>({
   }, [selected, keyed]);
 
   const densityControl = (
-    <div className="flex items-center gap-0.5 rounded-lg border border-border p-0.5 dark:border-white/10">
+    <div className="flex items-center gap-0.5 rounded-lg border border-rule p-0.5">
       {([
         ["comfortable", Rows3, "Comfortable rows"],
         ["compact", Rows2, "Compact rows"],
@@ -192,8 +192,8 @@ export function DataTable<T>({
             className={cn(
               "flex h-7 w-7 items-center justify-center rounded-md transition-colors",
               density === value
-                ? "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white"
-                : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200",
+                ? "bg-sunken text-ink"
+                : "text-ink-faint hover:text-ink-soft",
             )}
           >
             <Icon className="h-4 w-4" />
@@ -206,22 +206,22 @@ export function DataTable<T>({
   const hasToolbar = true; // density control always renders, so the toolbar is always present
 
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-border bg-white dark:border-white/[0.06] dark:bg-slate-900/70", className)}>
+    <div className={cn("overflow-hidden rounded-xl border border-rule bg-surface", className)}>
       {hasToolbar && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 dark:border-white/[0.06]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
           <div className="min-w-0">
-            {title && <h3 className="text-[15px] font-semibold text-slate-900 dark:text-white">{title}</h3>}
-            {subtitle && <p className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">{subtitle}</p>}
+            {title && <h3 className="text-[15px] font-semibold text-ink">{title}</h3>}
+            {subtitle && <p className="mt-0.5 text-[13px] text-ink-faint">{subtitle}</p>}
           </div>
           <div className="flex items-center gap-2">
             {searchable && (
               <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
                 <input
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1); }}
                   placeholder={searchPlaceholder}
-                  className="h-9 w-44 rounded-lg border border-border bg-white pl-8 pr-3 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100"
+                  className="h-9 w-44 rounded-lg border border-rule bg-surface pl-8 pr-3 text-body outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/20"
                 />
               </div>
             )}
@@ -252,8 +252,8 @@ export function DataTable<T>({
             />
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className={cn("border-b border-border bg-slate-50 text-left dark:border-white/[0.06] dark:bg-slate-800/50", stickyHeader && "sticky top-0 z-10")}>
+          <table className="w-full text-body">
+            <thead className={cn("border-b border-rule bg-sunken text-left", stickyHeader && "sticky top-0 z-10")}>
               <tr>
                 {selectable && (
                   <th className="w-10 px-3 py-2.5">
@@ -267,15 +267,15 @@ export function DataTable<T>({
                     <th
                       key={col.key}
                       style={col.width ? { minWidth: col.width } : undefined}
-                      className={cn("whitespace-nowrap px-3 py-2.5 font-medium text-slate-600 dark:text-slate-400", align[col.align ?? "left"], col.headerClassName)}
+                      className={cn("whitespace-nowrap px-3 py-2.5 font-medium text-ink-soft", align[col.align ?? "left"], col.headerClassName)}
                     >
                       {col.sortable ? (
                         <button
                           onClick={() => setSortKey(col.key)}
                           className={cn(
-                            "inline-flex items-center gap-1.5 transition-colors hover:text-slate-900 dark:hover:text-slate-100",
+                            "inline-flex items-center gap-1.5 transition-colors hover:text-ink",
                             col.align === "right" && "flex-row-reverse",
-                            active && "text-slate-900 dark:text-slate-100",
+                            active && "text-ink",
                           )}
                         >
                           {col.header}
@@ -289,18 +289,18 @@ export function DataTable<T>({
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/[0.04]">
+            <tbody className="divide-y divide-slate-100">
               {view.map(({ row, key: k }, i) => {
                 const isSel = selected.has(k);
                 return (
-                  <tr key={k} className={cn("transition-colors", isSel ? "bg-brand-50/60 dark:bg-brand-500/10" : "hover:bg-slate-50 dark:hover:bg-slate-800/40")}>
+                  <tr key={k} className={cn("transition-colors", isSel ? "bg-accent-soft/60" : "hover:bg-sunken")}>
                     {selectable && (
                       <td className={cn("px-3", DENSITY_PAD[density])}>
                         <Checkbox aria-label="Select row" checked={isSel} onChange={() => toggleRow(k)} />
                       </td>
                     )}
                     {columns.map((col) => (
-                      <td key={col.key} className={cn("whitespace-nowrap px-3 text-slate-700 dark:text-slate-300", DENSITY_PAD[density], align[col.align ?? "left"], col.className)}>
+                      <td key={col.key} className={cn("whitespace-nowrap px-3 text-ink-soft", DENSITY_PAD[density], align[col.align ?? "left"], col.className)}>
                         {col.render ? col.render(row, i) : String(rawAccessor(col, row) ?? "—")}
                       </td>
                     ))}
@@ -313,11 +313,11 @@ export function DataTable<T>({
       </div>
 
       {(pageSize || (selectable && bulkActions)) && sorted.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 dark:border-white/[0.06]">
-          <div className="flex items-center gap-3 text-[13px] text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-3">
+          <div className="flex items-center gap-3 text-[13px] text-ink-faint">
             {selectable && selected.size > 0 ? (
               <>
-                <span className="font-medium text-slate-700 dark:text-slate-300">{selected.size} selected</span>
+                <span className="font-medium text-ink-soft">{selected.size} selected</span>
                 {bulkActions?.(selectedRows)}
               </>
             ) : (

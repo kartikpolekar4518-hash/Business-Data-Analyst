@@ -99,7 +99,7 @@ function AlertBadge() {
   if (!alerts?.unread) return null;
 
   return (
-    <span className="relative ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-white/20 px-1.5 text-[11px] font-semibold leading-none text-white backdrop-blur-sm">
+    <span className="relative ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-surface/20 px-1.5 text-[11px] font-semibold leading-none text-ink backdrop-blur-sm">
       {alerts.unread > 99 ? "99+" : alerts.unread}
     </span>
   );
@@ -202,16 +202,16 @@ function Sidebar({
             : { x: open ? 0 : -SIDEBAR_WIDTH, width: SIDEBAR_WIDTH }
         }
         transition={{ duration: DUR.base, ease: EASE }}
-        className="fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col overflow-hidden text-slate-100 lg:static lg:z-auto"
+        className="fixed inset-y-0 left-0 z-50 flex shrink-0 flex-col overflow-hidden text-ink lg:static lg:z-auto"
       >
         {/* Inner track holds its full width so a collapse slides rather than reflows */}
-        <div className="flex h-full w-[240px] flex-col border-r border-white/[0.06] bg-[#0a0f1a]/95 backdrop-blur-xl">
+        <div className="flex h-full w-[240px] flex-col border-r border-rule bg-surface">
         {/* Brand */}
-        <div className="flex h-14 items-center gap-3 border-b border-white/[0.06] px-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 shadow-lg shadow-brand-500/40">
-            <BrainCircuit className="h-[18px] w-[18px] text-white" />
+        <div className="flex h-14 items-center gap-3 border-b border-rule] px-4">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg">
+            <BrainCircuit className="h-[18px] w-[18px] text-ink" />
           </div>
-          <span className="text-[16px] font-bold tracking-tight text-white">
+          <span className="text-[16px] font-bold tracking-tight text-ink">
             {import.meta.env.VITE_APP_NAME || "NoPS"}
           </span>
         </div>
@@ -220,7 +220,7 @@ function Sidebar({
         <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
           {NAV_SECTIONS.map((section) => (
             <div key={section.label}>
-              <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+              <div className="mb-1.5 px-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">
                 {section.label}
               </div>
               <div className="space-y-0.5">
@@ -235,8 +235,8 @@ function Sidebar({
                         cn(
                           "group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors duration-150",
                           isActive
-                            ? "text-white"
-                            : "text-slate-400 hover:bg-white/5 hover:text-slate-200",
+                            ? "text-ink"
+                            : "text-ink-faint hover:bg-sunken hover:text-ink",
                         )
                       }
                     >
@@ -248,7 +248,7 @@ function Sidebar({
                             <>
                               <motion.span
                                 layoutId="nav-active-pill"
-                                className="absolute inset-0 rounded-lg bg-brand-500/[0.12]"
+                                className="absolute inset-0 rounded-lg bg-accent/[0.12]"
                                 transition={SPRING}
                               />
                               <motion.span
@@ -272,16 +272,16 @@ function Sidebar({
         </nav>
 
         {/* Bottom — user summary */}
-        <div className="border-t border-white/5 px-3 py-3">
+        <div className="border-t border-rule px-3 py-3">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg text-body-sm font-semibold text-ink shadow-sm shadow-brand-500/30">
               {user?.name?.[0] ?? "U"}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-slate-200">
+              <div className="truncate text-body font-medium text-ink">
                 {user?.name ?? "User"}
               </div>
-              <div className="truncate text-xs text-slate-400">
+              <div className="truncate text-body-sm text-ink-faint">
                 {user?.email ?? ""}
               </div>
             </div>
@@ -349,20 +349,20 @@ function Header({
   );
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-border bg-white/80 px-4 backdrop-blur-xl dark:border-white/[0.06] dark:bg-[#080c15]/80 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b border-rule bg-surface px-4 lg:px-6">
       {/* Mobile hamburger */}
       <button
         className="lg:hidden"
         onClick={onMenuClick}
         aria-label="Open navigation"
       >
-        <Menu className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+        <Menu className="h-5 w-5 text-ink-faint" />
       </button>
 
       {/* Desktop sidebar toggle */}
       <button
         onClick={onToggleCollapse}
-        className="hidden h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 lg:flex"
+        className="hidden h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sunken lg:flex"
         aria-label={collapsed ? "Show navigation" : "Hide navigation"}
       >
         {collapsed ? (
@@ -373,16 +373,16 @@ function Header({
       </button>
 
       {/* Breadcrumb */}
-      <nav className="hidden items-center gap-1.5 text-sm md:flex" aria-label="Breadcrumb">
+      <nav className="hidden items-center gap-1.5 text-body md:flex" aria-label="Breadcrumb">
         {section && (
           <>
-            <span className="text-slate-500 dark:text-slate-400">
+            <span className="text-ink-faint">
               {section.label}
             </span>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+            <ChevronRight className="h-3.5 w-3.5 text-ink-faint" />
           </>
         )}
-        <span className="font-medium text-slate-800 dark:text-slate-100">
+        <span className="font-medium text-ink-soft">
           {current?.label ?? "Dashboard"}
         </span>
       </nav>
@@ -393,11 +393,11 @@ function Header({
       <button
         onClick={onOpenPalette}
         aria-label="Open command palette"
-        className="hidden items-center gap-2 rounded-lg border border-border px-2.5 py-1.5 text-sm text-slate-500 transition-colors hover:bg-slate-100 dark:border-white/10 dark:text-slate-400 dark:hover:bg-slate-800 sm:flex"
+        className="hidden items-center gap-2 rounded-lg border border-rule px-2.5 py-1.5 text-body text-ink-faint transition-colors hover:bg-sunken sm:flex"
       >
         <Search className="h-4 w-4" />
         <span className="hidden md:inline">Search…</span>
-        <kbd className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium text-slate-400 dark:border-white/10">
+        <kbd className="rounded border border-rule px-1.5 py-0.5 text-[10px] font-medium text-ink-faint">
           {MOD_KEY} K
         </kbd>
       </button>
@@ -405,7 +405,7 @@ function Header({
       {/* Theme toggle */}
       <button
         onClick={toggle}
-        className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sunken"
         aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
       >
         {theme === "dark" ? (
@@ -418,7 +418,7 @@ function Header({
       {/* Notifications */}
       <NavLink
         to="/alerts"
-        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-sunken"
         aria-label={
           alerts?.unread
             ? `Notifications (${alerts.unread} unread)`
@@ -427,7 +427,7 @@ function Header({
       >
         <Bell className="h-[17px] w-[17px]" />
         {alerts?.unread ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold leading-none text-white ring-[2px] ring-white dark:ring-slate-950">
+          <span className="absolute -right-0.5 -top-0.5 flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-neg px-1 font-mono text-label leading-none text-ink ring-2 ring-surface">
             {alerts.unread > 9 ? "9+" : alerts.unread}
           </span>
         ) : null}
@@ -441,12 +441,12 @@ function Header({
           aria-label="Account menu"
           aria-expanded={menu}
           aria-haspopup="true"
-          className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+          className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-sunken"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-gradient-to-br from-brand-400 to-brand-600 text-xs font-semibold text-white shadow-sm shadow-brand-500/30">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-fg text-body-sm font-semibold text-ink shadow-sm shadow-brand-500/30">
             {user?.name?.[0] ?? "U"}
           </div>
-          <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+          <ChevronDown className="h-3.5 w-3.5 text-ink-faint" />
         </button>
 
         <AnimatePresence>
@@ -455,7 +455,7 @@ function Header({
             <div className="fixed inset-0 z-40" onClick={() => setMenu(false)} aria-hidden="true" />
             <motion.div
               role="menu"
-              className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+              className="absolute right-0 top-full z-50 mt-2 w-56 origin-top-right rounded-xl border border-rule bg-surface p-1.5 shadow-dropdown"
               onMouseLeave={() => setMenu(false)}
               initial={{ opacity: 0, scale: 0.95, y: -4 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -463,49 +463,49 @@ function Header({
               transition={{ duration: DUR.fast, ease: EASE }}
             >
               <div className="px-3 py-2.5">
-                <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                <div className="text-body font-semibold text-ink">
                   {user?.name}
                 </div>
-                <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <div className="mt-0.5 text-body-sm text-ink-faint">
                   {user?.email}
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5">
-                  <Shield className="h-3 w-3 text-brand-500" />
-                  <span className="text-xs font-medium text-brand-600 dark:text-brand-400">
+                  <Shield className="h-3 w-3 text-accent" />
+                  <span className="text-body-sm font-medium text-accent">
                     {role}
                   </span>
                 </div>
               </div>
 
-              <hr className="mx-2 border-border dark:border-slate-700" />
+              <hr className="mx-2 border-rule" />
 
               <div className="mt-1 space-y-0.5">
                 <NavLink
                   to="/profile"
                   role="menuitem"
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-body text-ink-soft transition-colors hover:bg-sunken"
                   onClick={() => setMenu(false)}
                 >
-                  <User className="h-4 w-4 text-slate-400" />
+                  <User className="h-4 w-4 text-ink-faint" />
                   Profile
                 </NavLink>
                 <NavLink
                   to="/settings"
                   role="menuitem"
-                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-body text-ink-soft transition-colors hover:bg-sunken"
                   onClick={() => setMenu(false)}
                 >
-                  <Settings className="h-4 w-4 text-slate-400" />
+                  <Settings className="h-4 w-4 text-ink-faint" />
                   Settings
                 </NavLink>
               </div>
 
-              <hr className="mx-2 mt-1 border-border dark:border-slate-700" />
+              <hr className="mx-2 mt-1 border-rule" />
 
               <button
                 role="menuitem"
                 onClick={logout}
-                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-body text-red-600 transition-colors hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" />
                 Log out
@@ -539,9 +539,9 @@ function ShortcutsHelp({ open, onClose }: { open: boolean; onClose: () => void }
     <Modal open={open} onClose={onClose} title="Keyboard shortcuts">
       <ul className="space-y-2">
         {SHORTCUTS.map((s) => (
-          <li key={s.label} className="flex items-center justify-between gap-4 text-sm">
-            <span className="text-slate-600 dark:text-slate-300">{s.label}</span>
-            <kbd className="shrink-0 rounded border border-border px-1.5 py-0.5 text-[11px] font-medium text-slate-500 dark:border-white/10 dark:text-slate-400">
+          <li key={s.label} className="flex items-center justify-between gap-4 text-body">
+            <span className="text-ink-soft">{s.label}</span>
+            <kbd className="shrink-0 rounded border border-rule px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">
               {s.keys}
             </kbd>
           </li>
@@ -637,7 +637,7 @@ export function Shell({ children }: { children: ReactNode }) {
   }, [can, navigate, toggle, dsData]);
 
   return (
-    <div className="flex h-full bg-surface-tertiary dark:bg-transparent">
+    <div className="flex h-full bg-surface-tertiary">
       <Sidebar
         open={sidebarOpen}
         collapsed={collapsed}
