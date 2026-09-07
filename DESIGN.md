@@ -131,10 +131,35 @@ Supporting figures go in the `strip` band underneath. They do not compete.
 `<PageLayout aside={…}>`. **Contextual, never mandatory.** A screen gets a rail
 only when secondary information, commentary, activity or controls materially
 change what you do about the primary answer. Alerts beside a revenue headline
-qualify. Settings, Auth and Landing get no rail — omit `aside`.
+qualify. Omit `aside` and the page is a plain single column.
+
+Where it landed, and why:
+
+| Screen | Rail | Reason |
+| --- | --- | --- |
+| Dashboard | alerts, uploads, reports | they change what you do about the headline |
+| Analytics | drivers, tiers, correlations | commentary on the filtered total |
+| Data | upload, connectors, sources | controls over the list that leads the page |
+| Reports | template picker, schedules | controls over the list |
+| Forecasts | generator, what-if levers | controls over the projection |
+| Alerts | anomalies, alert rules | they produce the list |
+| Dataset detail | the dataset's facts | qualifies every tab without duplicating them |
+| **Alerts list, Settings, Auth, Landing, AI chat** | **none** | nothing there is commentary on anything else |
+
+AI chat is the instructive exclusion: the conversation is the whole screen and
+citations already sit inline with the message they support. A rail there would
+be the rule applied without the reason behind it.
 
 Rail content is `RailSection` + `ActivityRow`: one line per item, scannable.
 A rail earns its column by being scannable, not by being another stack of cards.
+
+**Container width is not viewport width.** Tailwind breakpoints (`sm:`, `lg:`)
+fire on the viewport, so a `sm:grid-cols-3` inside a rail splits into three
+columns on a wide screen and wraps its prose to two words per line. Inside a
+rail, use a list.
+
+A screen with no rail and no wide content is held to a reading measure
+(`max-w-4xl`), not stretched to the window.
 
 ### Responsive
 
@@ -172,6 +197,14 @@ Charts read their colours through `useAxis()`, which resolves the tokens at
 runtime — Recharts writes colours into SVG presentation attributes, which do
 not resolve `var(--token)`, so nothing may hard-code a palette hex.
 
+### Inverted regions
+
+`.on-dark` is a region that is dark in **both** themes — the marketing hero,
+and anything else deliberately inverted. It carries the same values as `.dark`,
+so components inside it still name roles (`text-ink`, `bg-surface`) instead of
+reaching for `text-white` and a hex. There is no other legitimate reason to
+write a raw colour.
+
 ## Identity
 
 A ranked row that names who it is about reads as something you could act on.
@@ -202,4 +235,17 @@ primitive and is recorded here — it is never inlined into one screen.
 
 Percentages are rounded at the point of display (`pct`, `share`). An engine
 that divides raw numbers hands back fifteen decimal places; that is not the
-call site's problem to remember.
+call site's problem to remember. The same goes for chart tooltips: a projection
+reads in the units of the metric it projects, never as a raw float.
+
+A shared primitive absorbs the fix. When a rail-width card squeezed its title
+against its action, the change went into `CardHeader` — not into the four
+callers that happened to show the symptom.
+
+**The migration is finished, and stays finished.** There are zero raw palette
+utilities and zero `dark:` variants outside this token layer. A single
+`slate-500` or `dark:text-white` in a diff is a regression, not a shortcut:
+
+    rg 'dark:|slate-[0-9]|bg-white\b|text-white\b|text-\[[0-9]+px\]' apps/web/src --glob '*.tsx'
+
+should stay empty.
