@@ -5,7 +5,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, TrendingDown, AlertTriangle, Users, GitCompareArrows } from "lucide-react";
 import { api } from "../lib/api";
-import { money, cn } from "../lib/utils";
+import { money, cn, pct, share } from "../lib/utils";
 import { Card, CardHeader, CardBody, Spinner, ErrorState, Badge } from "./ui";
 
 // ─── shared response shapes (mirror the engine modules) ───
@@ -58,7 +58,7 @@ export function DriverBreakdown({ datasetId, metric = "revenue", filters, classN
                   <span className={cn("text-lg font-bold", up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
                     {up ? "+" : "−"}{money(Math.abs(data.totalChange))}
                   </span>
-                  <span className="text-slate-500 dark:text-slate-400">{money(data.totalPrevious)} → {money(data.totalCurrent)}{data.totalChangePct !== null ? ` (${data.totalChangePct}%)` : ""}</span>
+                  <span className="text-slate-500 dark:text-slate-400">{money(data.totalPrevious)} → {money(data.totalCurrent)}{data.totalChangePct !== null ? ` (${pct(data.totalChangePct)})` : ""}</span>
                 </div>
                 {data.drivers.map((d) => {
                   const pos = d.contribution >= 0;
@@ -67,7 +67,7 @@ export function DriverBreakdown({ datasetId, metric = "revenue", filters, classN
                       <div className="flex items-center justify-between gap-2 text-sm">
                         <span className="truncate font-medium text-slate-700 dark:text-slate-200">{d.label}</span>
                         <span className={cn("shrink-0 font-semibold", pos ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
-                          {pos ? "+" : "−"}{money(Math.abs(d.contribution))}{d.shareOfChange !== null ? <span className="ml-1 text-xs font-normal text-slate-400">{d.shareOfChange}%</span> : null}
+                          {pos ? "+" : "−"}{money(Math.abs(d.contribution))}{d.shareOfChange !== null ? <span className="ml-1 text-body-sm font-normal text-ink-faint">{share(d.shareOfChange)}</span> : null}
                         </span>
                       </div>
                       <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
@@ -156,7 +156,7 @@ export function SegmentTiers({ datasetId, entity, filters, className }: { datase
                     <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">{s.label}</span>
                     <Badge tone={s.key === "high" ? "blue" : s.key === "mid" ? "amber" : "slate"}>{s.count}</Badge>
                   </div>
-                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{s.shareOfRevenue}% of revenue · avg {money(s.avgRevenue)}</div>
+                  <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{share(s.shareOfRevenue)} of revenue · avg {money(s.avgRevenue)}</div>
                   <p className="mt-2 text-[11px] leading-snug text-slate-400">{s.rule}</p>
                 </div>
               ))}

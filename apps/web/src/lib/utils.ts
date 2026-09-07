@@ -15,9 +15,23 @@ export function num(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
-export function pct(n: number | null | undefined): string {
+// A percentage the engine computed from raw division can carry fifteen decimal
+// places. Rounding is a display concern, so it happens here rather than anyone
+// printing the raw float into the UI.
+export function pct(n: number | null | undefined, places = 1): string {
   if (n == null) return "—";
-  return `${n > 0 ? "+" : ""}${n}%`;
+  return `${n > 0 ? "+" : ""}${round(n, places)}%`;
+}
+
+/** Unsigned share of a total — "34%", never "+34%". */
+export function share(n: number | null | undefined, places = 0): string {
+  if (n == null) return "—";
+  return `${round(n, places)}%`;
+}
+
+function round(n: number, places: number): number {
+  const f = 10 ** places;
+  return Math.round(n * f) / f;
 }
 
 export function bytes(n: number): string {

@@ -7,6 +7,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import { useTheme } from "../lib/theme";
 import { cn } from "../lib/utils";
 import { DUR, EASE } from "../lib/motion";
+import { SegmentedControl } from "./ui.navigation";
+import { InsufficientData } from "./ui.feedback";
 
 // Recharts draws its own series; one shared read keeps every chart in step.
 const DRAW_MS = 700;
@@ -214,7 +216,7 @@ export function MetricLegend({
             </span>
             <span className="flex shrink-0 items-baseline gap-2">
               <span className="font-mono text-data text-ink">{format(d.value)}</span>
-              <span className="w-10 text-right font-mono text-body-sm text-ink-faint">{pct.toFixed(0)}%</span>
+              <span className="w-8 text-right font-mono text-body-sm text-ink-faint">{pct.toFixed(0)}%</span>
             </span>
           </>
         );
@@ -320,51 +322,121 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND, height
 });
 
 /* ───────── Multi-series hero chart with a Revenue/Profit/Both toggle ───────── */
-export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, height = 300 }: { revenue: { label?: string; period?: string; value: number }[]; profit: { label?: string; period?: string; value: number }[]; height?: number }) {
-  const { grid, tick, tooltipStyle } = useAxis();
+export const MultiTrendChart = memo(function MultiTrendChart({
+  revenue,
+  profit,
+  height = 300,
+  /** What one bucket on the x-axis is, so the window control can name itself. */
+  grain,
+  format,
+}: {
+  revenue: { label?: string; period?: string; value: number }[];
+  profit: { label?: string; period?: string; value: number }[];
+  height?: number;
+  grain?: "year" | "quarter" | "period";
+  format?: (v: number) => string;
+}) {
+  const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
   const rId = useId();
   const pId = useId();
   const [view, setView] = useState<"both" | "revenue" | "profit">("both");
+  const [periods, setPeriods] = useState<string>("all");
 
+  // Merge the two series onto one row per bucket, and carry the previous
+  // bucket's figures alongside so the tooltip can say "vs the bucket before"
+  // without the client inventing a comparison the engine never made.
   const merged = useMemo(() => {
     const map = new Map<string, { label: string; revenue?: number; profit?: number }>();
     for (const d of revenue) { const k = d.label ?? d.period ?? ""; map.set(k, { ...(map.get(k) ?? { label: k }), label: k, revenue: d.value }); }
     for (const d of profit) { const k = d.label ?? d.period ?? ""; map.set(k, { ...(map.get(k) ?? { label: k }), label: k, profit: d.value }); }
-    return [...map.values()];
+    const rows = [...map.values()];
+    return rows.map((r, i) => ({
+      ...r,
+      revenuePrev: i > 0 ? rows[i - 1].revenue : undefined,
+      profitPrev: i > 0 ? rows[i - 1].profit : undefined,
+    }));
   }, [revenue, profit]);
+
+  // Trailing-window options sized to the data we actually have. Calendar pills
+  // ("1D / 1W / 1M") would be a lie here: a bucket is whatever grain the engine
+  // chose, so the control counts buckets and says so.
+  const windows = useMemo(() => {
+    const n = merged.length;
+    const unit = grain === "year" ? "Y" : grain === "quarter" ? "Q" : "P";
+    const opts = [6, 12, 24].filter((c) => c < n).map((c) => ({ id: String(c), label: `${c}${unit}` }));
+    return [...opts, { id: "all", label: "All" }];
+  }, [merged.length, grain]);
+
+  const shown = useMemo(() => {
+    if (periods === "all") return merged;
+    const n = Number(periods);
+    return Number.isFinite(n) ? merged.slice(-n) : merged;
+  }, [merged, periods]);
 
   const showRev = view === "both" || view === "revenue";
   const showProf = view === "both" || view === "profit";
 
+  const series: CompareSeries[] = [
+    ...(showRev ? [{ key: "revenue", name: "Revenue", color: CHART.blue, format }] : []),
+    ...(showProf ? [{ key: "profit", name: "Profit", color: CHART.emerald, format }] : []),
+  ];
+
+  // A trend needs two points to be a trend. Saying so beats drawing an axis
+  // with a dot on it.
+  if (merged.length < 2) {
+    return <InsufficientData need="at least two periods" />;
+  }
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
-          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />Revenue</span>
-          <span className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400"><span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />Profit</span>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="flex items-center gap-1.5 text-body-sm text-ink-faint">
+            <span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />Revenue
+          </span>
+          <span className="flex items-center gap-1.5 text-body-sm text-ink-faint">
+            <span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />Profit
+          </span>
         </div>
-        <div className="flex rounded-lg border border-border bg-surface-secondary p-0.5 dark:border-white/10 dark:bg-white/5">
-          {(["both", "revenue", "profit"] as const).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={cn(
-              "rounded-md px-2.5 py-1 text-xs font-medium capitalize transition-colors",
-              view === v ? "bg-white text-brand-600 shadow-sm dark:bg-brand-500 dark:text-white" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
-            )}>{v}</button>
-          ))}
+        <div className="flex items-center gap-2">
+          {windows.length > 1 && (
+            <SegmentedControl
+              options={windows}
+              value={periods}
+              onChange={setPeriods}
+              layoutId="trend-window"
+              size="sm"
+              ariaLabel="Periods shown"
+            />
+          )}
+          <SegmentedControl
+            options={[
+              { id: "both", label: "Both" },
+              { id: "revenue", label: "Revenue" },
+              { id: "profit", label: "Profit" },
+            ]}
+            value={view}
+            onChange={setView}
+            layoutId="trend-series"
+            size="sm"
+            ariaLabel="Series shown"
+          />
         </div>
       </div>
       <ResponsiveContainer width="100%" height={height}>
-        <AreaChart data={merged} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <AreaChart data={shown} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id={rId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.35} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0} /></linearGradient>
-            <linearGradient id={pId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.emerald} stopOpacity={0.3} /><stop offset="100%" stopColor={CHART.emerald} stopOpacity={0} /></linearGradient>
+            <linearGradient id={rId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.22} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0} /></linearGradient>
+            <linearGradient id={pId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.emerald} stopOpacity={0.18} /><stop offset="100%" stopColor={CHART.emerald} stopOpacity={0} /></linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
           <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
           <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
-          <Tooltip contentStyle={tooltipStyle} />
-          {showRev && <Area type="monotone" dataKey="revenue" stroke={CHART.blue} strokeWidth={2.5} fill={`url(#${rId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />}
-          {showProf && <Area type="monotone" dataKey="profit" stroke={CHART.emerald} strokeWidth={2.5} fill={`url(#${pId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />}
+          {/* The crosshair is the interaction the compare tooltip hangs off. */}
+          <Tooltip cursor={cursor} content={<CompareTooltip series={series} compareLabel="Previous period" />} />
+          {showRev && <Area type="monotone" dataKey="revenue" stroke={CHART.blue} strokeWidth={2} fill={`url(#${rId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />}
+          {showProf && <Area type="monotone" dataKey="profit" stroke={CHART.emerald} strokeWidth={2} fill={`url(#${pId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />}
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -375,12 +447,12 @@ export const MultiTrendChart = memo(function MultiTrendChart({ revenue, profit, 
 // `variant="pie"` is Power BI's Pie chart: the same composition visual with the hole
 // closed. A filled centre has no room for the running total, so that overlay is dropped
 // rather than drawn on top of a slice.
-export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190, variant = "donut", onSelect }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number; variant?: "donut" | "pie"; onSelect?: (label: string) => void }) {
+export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190, variant = "donut", onSelect, legend = true, formatTotal = fmtK }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number; variant?: "donut" | "pie"; onSelect?: (label: string) => void; /** Off when the caller pairs the arc with a MetricLegend — two legends is one too many. */ legend?: boolean; /** A money composition should read as money in the hole, not as "1925k". */ formatTotal?: (v: number) => string }) {
   const anim = useSeriesAnimation();
   const top = data.slice(0, 6);
   const total = top.reduce((s, d) => s + d.value, 0);
   return (
-    <div className="flex flex-col items-center gap-5 sm:flex-row">
+    <div className={cn("flex flex-col items-center gap-5", legend && "sm:flex-row")}>
       <div className="relative shrink-0" style={{ width: height, height }}>
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
@@ -392,27 +464,28 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
         </ResponsiveContainer>
         {variant === "donut" && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-xl font-bold text-slate-900 dark:text-white">{fmtK(total)}</span>
-            <span className="text-[11px] text-slate-500 dark:text-slate-400">{centerLabel ?? "Total"}</span>
+            <span className="text-heading-1 text-ink">{formatTotal(total)}</span>
+            <span className="text-label uppercase text-ink-faint">{centerLabel ?? "Total"}</span>
           </div>
         )}
       </div>
+      {legend && (
       <ul className="w-full min-w-0 flex-1 space-y-2">
         {top.map((d, i) => {
           const row = (
             <>
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SERIES[i % SERIES.length] }} />
-              <span className="min-w-0 flex-1 truncate text-slate-600 dark:text-slate-300">{d.label}</span>
-              <span className="w-9 shrink-0 text-right font-semibold text-slate-900 dark:text-white">{total ? Math.round((d.value / total) * 100) : 0}%</span>
+              <span className="min-w-0 flex-1 truncate text-ink-soft">{d.label}</span>
+              <span className="w-9 shrink-0 text-right font-mono text-ink">{total ? Math.round((d.value / total) * 100) : 0}%</span>
             </>
           );
           return (
-            <li key={d.label} className="text-[13px]">
+            <li key={d.label} className="text-body-sm">
               {onSelect ? (
                 <button
                   type="button"
                   onClick={() => onSelect(d.label)}
-                  className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-white/5"
+                  className="flex w-full items-center gap-2 rounded-md px-1 py-0.5 text-left transition hover:bg-sunken"
                 >
                   {row}
                 </button>
@@ -423,6 +496,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
           );
         })}
       </ul>
+      )}
     </div>
   );
 });
@@ -435,12 +509,10 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
 export const BarRankChart = memo(function BarRankChart({ data, horizontal = true, onSelect }: { data: { label: string; value: number }[]; horizontal?: boolean; onSelect?: (label: string) => void }) {
   const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
-  const gradId = useId();
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ResponsiveContainer width="100%" height={Math.max(220, data.length * 34)}>
       <BarChart data={data} layout={horizontal ? "vertical" : "horizontal"} margin={{ top: 4, right: 16, left: 8, bottom: 4 }}>
-        <defs><linearGradient id={gradId} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.55} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={1} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={!horizontal} vertical={horizontal} />
         {/* One axis per child: Recharts scans BarChart's direct children for axes and does
             not look inside a Fragment, so wrapping a pair in one drops both silently. */}
@@ -450,11 +522,11 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
         {horizontal
           ? <YAxis type="category" dataKey="label" tick={tick} axisLine={false} tickLine={false} width={130} />
           : <YAxis tick={tick} axisLine={false} tickLine={false} width={48} />}
-        <Tooltip content={<ShareTooltip total={total} />} cursor={{ fill: "rgba(91,140,255,0.08)" }} />
+        <Tooltip content={<ShareTooltip total={total} />} cursor={{ fill: readToken("ink-faint", 0.08) }} />
         {/* Ranked bars of one metric share one hue — varied color would encode nothing but rank. */}
         {/* maxBarSize only bites below ~4 categories, where the band is wider than a bar
             should ever be; drilling down reaches those views constantly. */}
-        <Bar dataKey="value" fill={`url(#${gradId})`} maxBarSize={44} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
+        <Bar dataKey="value" fill={CHART.blue} maxBarSize={44} radius={horizontal ? [0, 6, 6, 0] : [6, 6, 0, 0]} {...anim} {...clickProps(onSelect)} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -505,7 +577,7 @@ export const WaterfallChart = memo(function WaterfallChart({ data, height = 300 
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
         <Tooltip
           contentStyle={tooltipStyle}
-          cursor={{ fill: "rgba(91,140,255,0.06)" }}
+          cursor={{ fill: readToken("ink-faint", 0.06) }}
           formatter={(_v, _n, item: { payload?: { value: number; cumulative: number } }) => {
             const p = item?.payload; return p ? [`${p.value >= 0 ? "+" : ""}${fmtK(p.value)}  (∑ ${fmtK(p.cumulative)})`, "Change"] : ["", ""];
           }}
@@ -587,8 +659,8 @@ export const GaugeChart = memo(function GaugeChart({ value, max = 100, label, un
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-col items-center">
-        <span className="text-2xl font-bold text-slate-900 dark:text-white">{fmtK(value)}{unit}</span>
-        {label && <span className="text-[11px] text-slate-500 dark:text-slate-400">{label}</span>}
+        <span className="text-heading-1 text-ink">{fmtK(value)}{unit}</span>
+        {label && <span className="text-label uppercase text-ink-faint">{label}</span>}
       </div>
     </div>
   );
@@ -633,12 +705,12 @@ export const Heatmap = memo(function Heatmap({ data, xLabels, yLabels }: { data:
   const span = max - min || 1;
   return (
     <div className="overflow-x-auto">
-      <div className="inline-grid gap-1 text-xs" style={{ gridTemplateColumns: `auto repeat(${xLabels.length}, minmax(2.5rem, 1fr))` }}>
+      <div className="inline-grid gap-1 text-body-sm" style={{ gridTemplateColumns: `auto repeat(${xLabels.length}, minmax(2.5rem, 1fr))` }}>
         <div />
-        {xLabels.map((x) => <div key={x} className="truncate px-1 pb-1 text-center font-medium text-slate-500 dark:text-slate-400">{x}</div>)}
+        {xLabels.map((x) => <div key={x} className="truncate px-1 pb-1 text-center font-medium text-ink-faint">{x}</div>)}
         {yLabels.map((y) => (
           <div key={y} className="contents">
-            <div className="flex items-center pr-2 font-medium text-slate-500 dark:text-slate-400">{y}</div>
+            <div className="flex items-center pr-2 font-medium text-ink-faint">{y}</div>
             {xLabels.map((x) => {
               const v = lookup.get(`${x}|${y}`);
               const t = v == null ? 0 : clamp((v - min) / span);
@@ -646,7 +718,7 @@ export const Heatmap = memo(function Heatmap({ data, xLabels, yLabels }: { data:
                 <div
                   key={x}
                   title={v == null ? `${x} · ${y}: —` : `${x} · ${y}: ${fmtK(v)}`}
-                  className={cn("flex h-9 items-center justify-center rounded-md text-[11px] font-medium tabular-nums", v == null && "ring-1 ring-inset ring-border dark:ring-white/10")}
+                  className={cn("flex h-9 items-center justify-center rounded-md text-body-sm font-medium tabular-nums", v == null && "ring-1 ring-inset ring-rule")}
                   style={{
                     background: v == null ? "transparent" : `rgba(91,140,255,${0.12 + t * 0.8})`,
                     color: t > 0.55 ? "#fff" : undefined,

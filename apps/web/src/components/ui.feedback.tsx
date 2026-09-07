@@ -203,7 +203,7 @@ export const Modal = ({
             transition={{ duration: DUR.base, ease: EASE }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-ink">
+              <h3 className="text-heading-3 text-ink">
                 {title}
               </h3>
               <button
@@ -285,7 +285,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
         className={cn(
           "h-4 w-4 shrink-0",
           toast.tone === "success" && "text-emerald-500",
-          toast.tone === "error" && "text-red-500",
+          toast.tone === "error" && "text-neg",
           toast.tone === "info" && "text-accent",
         )}
       />
@@ -420,7 +420,7 @@ export const Tooltip = ({
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: DUR.fast, ease: EASE }}
                 style={{ position: "fixed", left: coords?.left ?? -9999, top: coords?.top ?? -9999 }}
-                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-body-sm font-medium text-white shadow-dropdown"
+                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg border border-rule bg-ink px-2.5 py-1.5 text-body-sm font-medium text-canvas shadow-dropdown"
               >
                 {content}
               </motion.span>

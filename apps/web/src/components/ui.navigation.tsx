@@ -224,7 +224,7 @@ export const DropdownItem = ({
       "flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-body transition-colors",
       "disabled:pointer-events-none disabled:opacity-50",
       danger
-        ? "text-neg hover:bg-red-50"
+        ? "text-neg hover:bg-neg-soft"
         : "text-ink-soft hover:bg-sunken",
     )}
   >

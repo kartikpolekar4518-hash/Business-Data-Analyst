@@ -14,6 +14,9 @@ import {
   Ruler,
   MessagesSquare,
   TrendingUp,
+  PieChart,
+  ListOrdered,
+  BarChart3,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../lib/utils";
@@ -23,10 +26,11 @@ import { money, num, timeAgo } from "../lib/utils";
 import { useAuth } from "../lib/auth";
 import { industryLabel } from "../lib/industries";
 import { kpiIcon } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Skeleton, ErrorState, Button, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Skeleton, ErrorState, EmptyState, Button, Badge, IdentityCell, useToast } from "../components/ui";
+import { PageLayout, RailSection, ActivityRow } from "../components/PageLayout";
 import { KpiCard } from "../components/Kpi";
 import { EmptyWorkspace, GettingStartedChecklist, WelcomeTour, type ChecklistStep } from "../components/Onboarding";
-import { MultiTrendChart, DonutChart, BarRankChart, CHART } from "../components/charts";
+import { MultiTrendChart, DonutChart, BarRankChart, MetricLegend } from "../components/charts";
 import { AICitation, AIInsightCard } from "../components/ai";
 import { DriverBreakdown, AnomalyPanel } from "../components/analytics";
 import type { OverviewResponse, InsightsResponse, DatasetSummary, Alert } from "../lib/types";
@@ -168,13 +172,99 @@ export default function Dashboard() {
   const showSuggestion =
     !dismissedSuggestion && data && data.suggestedIndustry && data.suggestedIndustry !== data.industry;
 
+  // The hero's "why" line. Derived from data already on the page — the top
+  // contributor in the ranking section — never invented, and dropped entirely
+  // when there is nothing honest to say. The API is untouched.
+  const heroReason = (() => {
+    const rows = data?.ranking.data;
+    if (!rows?.length) return undefined;
+    const fmt = data!.ranking.format === "money" ? money : num;
+    const total = rows.reduce((sum, r) => sum + r.value, 0);
+    const top = rows[0];
+    if (!total || top.value <= 0) return undefined;
+    const share = Math.round((top.value / total) * 100);
+    return `Led by ${top.label} at ${fmt(top.value)} — ${share}% of the ${data!.ranking.title.toLowerCase()} total.`;
+  })();
+
+  const [heroKpi, ...restKpis] = data?.kpis ?? [];
+
+  const trendFormat = (v: number) => (data?.ranking.format === "money" ? money(v) : num(v));
+
+  /* ─── The rail ───
+     Justified on this screen: an alert or a just-finished upload changes what
+     you do about the headline number. It is commentary on the answer, not the
+     answer, so it sits beside rather than above. */
+  const rail = (
+    <>
+      <RailSection
+        title="Alerts"
+        icon={Bell}
+        href="/alerts"
+        loading={alerts.isLoading}
+        error={alerts.isError ? "Couldn't load alerts." : undefined}
+        empty="Nothing flagged."
+      >
+        {alerts.data?.alerts.slice(0, 5).map((a) => (
+          <ActivityRow
+            key={a.id}
+            icon={Bell}
+            tone={a.severity === "HIGH" ? "neg" : a.severity === "MEDIUM" ? "warn" : "neutral"}
+            title={a.description}
+            meta={
+              <Badge tone={a.severity === "HIGH" ? "red" : a.severity === "MEDIUM" ? "amber" : "slate"} dot>
+                {a.severity === "HIGH" ? "High" : a.severity === "MEDIUM" ? "Medium" : "Low"}
+              </Badge>
+            }
+            time={timeAgo(a.createdAt)}
+            href="/alerts"
+          />
+        ))}
+      </RailSection>
+
+      <RailSection
+        title="Recent uploads"
+        icon={Database}
+        href="/data"
+        loading={datasets.isLoading}
+        error={datasets.isError ? "Couldn't load datasets." : undefined}
+        empty="No datasets yet."
+      >
+        {datasets.data?.datasets.slice(0, 5).map((d) => (
+          <ActivityRow
+            key={d.id}
+            icon={Database}
+            title={d.name}
+            meta={`${num(d.rowCount)} rows`}
+            time={timeAgo(d.createdAt)}
+            href={`/data/${d.id}`}
+          />
+        ))}
+      </RailSection>
+
+      <RailSection
+        title="Recent reports"
+        icon={FileText}
+        href="/reports"
+        loading={reports.isLoading}
+        error={reports.isError ? "Couldn't load reports." : undefined}
+        empty="No reports yet."
+        collapsible
+      >
+        {reports.data?.reports.slice(0, 5).map((r) => (
+          <ActivityRow key={r.id} icon={FileText} title={r.title} time={timeAgo(r.createdAt)} href="/reports" />
+        ))}
+      </RailSection>
+    </>
+  );
+
   return (
-    <div className="space-y-6">
-      {/* ─── The headline answer ───
-          The one `text-display` on the page. Composed server-side from the same
-          period split the driver attribution uses, so the change it claims and the
-          cause it names are reconciled by construction. It states both window
-          totals; the band below totals every row, and says so. */}
+    <PageLayout aside={rail}>
+      <div className="space-y-6">
+      {/* ══ PRIMARY ANSWER ══
+          The one `text-display` sentence, then the single figure that carries
+          it. Composed server-side from the same period split the driver
+          attribution uses, so the change it claims and the cause it names are
+          reconciled by construction. */}
       <div>
         {headline ? (
           <>
@@ -236,45 +326,73 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ─── Supporting figures ───
-          One ruled band, not five competing cards: these back the sentence above
-          rather than compete with it. Each cell keeps its Explain affordance. */}
-      <div>
-        {/* These total every row, while the sentence above compares two windows.
-            Both are right and they are different numbers, so say which is which. */}
-        <div className="label mb-2 text-ink-faint">
+      {/* ─── The headline figure, then the supporting band ───
+          One number is allowed to dominate; the rest are cells of a ruled band,
+          not five cards competing with it. Both total every row, while the
+          sentence above compares two windows — different numbers, so say which
+          is which. */}
+      <div className="space-y-4">
+        <div className="label text-ink-faint">
           {headline ? `Totals across all ${num(headline.rows)} rows` : "Totals"}
         </div>
-        <div
-          className={cn(
-            "grid grid-cols-2 divide-y divide-rule-soft border-y border-rule md:grid-cols-3 md:divide-y-0 lg:divide-x",
-            data ? KPI_COLS[Math.min(data.kpis.length, 5)] ?? "lg:grid-cols-5" : "lg:grid-cols-5",
-          )}
-        >
-        {!data
-          ? Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="px-4 py-3 first:pl-0 last:pr-0">
-                <Skeleton className="mb-2 h-3 w-16" />
-                <Skeleton className="h-5 w-24" />
-                <Skeleton className="mt-2 h-3 w-12" />
-              </div>
-            ))
-          : data.kpis.map((k) => (
+
+        {!data ? (
+          <>
+            <Skeleton className="h-40 w-full rounded-xl" />
+            <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="px-4 py-3 first:pl-0">
+                  <Skeleton className="mb-2 h-3 w-16" />
+                  <Skeleton className="h-5 w-24" />
+                  <Skeleton className="mt-2 h-3 w-12" />
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            {heroKpi && (
               <KpiCard
-                key={k.key}
-                variant="strip"
-                label={k.label}
-                value={k.value}
-                format={k.format}
-                changePct={k.changePct}
-                icon={kpiIcon(k.icon)}
-                spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
-                tooltip={k.tooltip}
-                metricKey={k.key}
+                variant="hero"
+                accent
+                label={heroKpi.label}
+                value={heroKpi.value}
+                format={heroKpi.format}
+                changePct={heroKpi.changePct}
+                icon={kpiIcon(heroKpi.icon)}
+                spark={heroKpi.spark && heroKpi.spark.length > 1 ? heroKpi.spark : undefined}
+                tooltip={heroKpi.tooltip}
+                metricKey={heroKpi.key}
+                reason={heroReason}
                 explain
               />
-            ))}
-        </div>
+            )}
+            {restKpis.length > 0 && (
+              <div
+                className={cn(
+                  "grid grid-cols-2 divide-y divide-rule-soft border-y border-rule md:grid-cols-3 md:divide-y-0 lg:divide-x",
+                  KPI_COLS[Math.min(restKpis.length, 5)] ?? "lg:grid-cols-4",
+                )}
+              >
+                {restKpis.map((k) => (
+                  <KpiCard
+                    key={k.key}
+                    variant="strip"
+                    label={k.label}
+                    value={k.value}
+                    format={k.format}
+                    changePct={k.changePct}
+                    icon={kpiIcon(k.icon)}
+                    spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
+                    tooltip={k.tooltip}
+                    metricKey={k.key}
+                    explain
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* ─── Getting-started checklist ─── */}
@@ -282,51 +400,82 @@ export default function Dashboard() {
         <GettingStartedChecklist steps={checklistSteps} onDismiss={dismissChecklist} />
       )}
 
-      {/* ─── Hero: performance overview + composition donut ─── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader title={data?.trend.title ?? "Performance Overview"} subtitle={data?.trend.subtitle ?? "Over time"} />
-          <CardBody>
-            {data ? (
-              <MultiTrendChart revenue={data.trend.revenue} profit={data.trend.profit} />
-            ) : (
-              <Skeleton className="h-72 w-full" />
-            )}
-          </CardBody>
-        </Card>
+      {/* ══ EVIDENCE ══
+          The flagship trend, then the two views that decompose it. */}
+      <Card>
+        <CardHeader title={data?.trend.title ?? "Performance overview"} subtitle={data?.trend.subtitle ?? "Over time"} />
+        <CardBody>
+          {data ? (
+            <MultiTrendChart
+              revenue={data.trend.revenue}
+              profit={data.trend.profit}
+              grain={data.trend.grain}
+              format={trendFormat}
+              height={320}
+            />
+          ) : (
+            <Skeleton className="h-80 w-full" />
+          )}
+        </CardBody>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Composition: the donut states its numbers rather than making you
+            estimate them off the arcs. */}
         <Card>
           <CardHeader title={data?.composition.title ?? "Composition"} subtitle={data?.composition.subtitle} />
           <CardBody>
-            {data?.composition.data.length ? (
-              <DonutChart data={data.composition.data} centerLabel={data.composition.centerLabel} />
+            {!data ? (
+              <Skeleton className="h-48 w-full" />
+            ) : data.composition.data.length ? (
+              <div className="flex flex-col items-center gap-5 sm:flex-row">
+                <DonutChart
+                  data={data.composition.data}
+                  centerLabel={data.composition.centerLabel}
+                  legend={false}
+                  height={160}
+                  formatTotal={(v) => (data.ranking.format === "money" ? money(v) : num(v))}
+                />
+                <div className="w-full min-w-0 flex-1">
+                  <MetricLegend
+                    data={data.composition.data.slice(0, 6)}
+                    format={(v) => (data.ranking.format === "money" ? money(v) : num(v))}
+                  />
+                </div>
+              </div>
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">No category data</p>
+              <EmptyState icon={PieChart} title="No category data" description="This dataset has no dimension to break the total down by." compact />
             )}
           </CardBody>
         </Card>
-      </div>
 
-      {/* ─── Primary ranking list + secondary bars ─── */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Ranking: a row you could act on names who it is about. */}
         <Card>
           <CardHeader title={data?.ranking.title ?? "Top"} subtitle={data?.ranking.subtitle} />
-          <CardBody className="space-y-1">
-            {data?.ranking.data.length ? (
-              (() => {
-                const rows = data.ranking.data;
-                const fmt = data.ranking.format === "money" ? money : num;
-                const max = Math.max(...rows.map((p) => p.value)) || 1;
-                return rows.slice(0, 6).map((p, i) => (
-                  <div key={p.label} className="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-slate-500 dark:bg-white/5 dark:text-slate-300">
-                      {i + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate text-body font-medium text-ink-soft">{p.label}</span>
-                        <span className="shrink-0 font-mono text-body tabular-nums text-ink">{fmt(p.value)}</span>
+          <CardBody>
+            {!data ? (
+              <Skeleton className="h-48 w-full" />
+            ) : data.ranking.data.length ? (
+              <ul className="divide-y divide-rule-soft">
+                {(() => {
+                  const rows = data.ranking.data.slice(0, 6);
+                  const fmt = data.ranking.format === "money" ? money : num;
+                  const max = Math.max(...rows.map((p) => p.value)) || 1;
+                  return rows.map((p, i) => (
+                    <li key={p.label} className="py-2.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <IdentityCell
+                          name={p.label}
+                          size="sm"
+                          leading={
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sunken font-mono text-body-sm text-ink-faint">
+                              {i + 1}
+                            </span>
+                          }
+                        />
+                        <span className="shrink-0 font-mono text-data tabular-nums text-ink">{fmt(p.value)}</span>
                       </div>
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-sm bg-sunken">
+                      <div className="mt-1.5 h-1 w-full overflow-hidden rounded-sm bg-sunken">
                         <motion.div
                           className="h-full rounded-sm bg-accent"
                           initial={{ width: 0 }}
@@ -334,28 +483,32 @@ export default function Dashboard() {
                           transition={{ duration: DUR.slow, ease: EASE, delay: i * 0.06 }}
                         />
                       </div>
-                    </div>
-                  </div>
-                ));
-              })()
+                    </li>
+                  ));
+                })()}
+              </ul>
             ) : (
-              <p className="py-8 text-center text-sm text-slate-400">{data?.ranking.emptyText ?? "No data"}</p>
-            )}
-          </CardBody>
-        </Card>
-        <Card>
-          <CardHeader title={data?.secondary.title ?? "Breakdown"} subtitle={data?.secondary.subtitle} />
-          <CardBody>
-            {data?.secondary.data.length ? (
-              <BarRankChart data={data.secondary.data} />
-            ) : (
-              <p className="py-8 text-center text-sm text-slate-400">{data?.secondary.emptyText ?? "No data"}</p>
+              <EmptyState icon={ListOrdered} title={data.ranking.emptyText ?? "No data"} compact />
             )}
           </CardBody>
         </Card>
       </div>
 
-      {/* ─── Driver breakdown + anomaly detection ─── */}
+      <Card>
+        <CardHeader title={data?.secondary.title ?? "Breakdown"} subtitle={data?.secondary.subtitle} />
+        <CardBody>
+          {!data ? (
+            <Skeleton className="h-56 w-full" />
+          ) : data.secondary.data.length ? (
+            <BarRankChart data={data.secondary.data} />
+          ) : (
+            <EmptyState icon={BarChart3} title={data.secondary.emptyText ?? "No data"} compact />
+          )}
+        </CardBody>
+      </Card>
+
+      {/* ══ EXPLANATION ══
+          Why the numbers above moved. */}
       {data && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <DriverBreakdown datasetId={data.datasetId} />
@@ -363,134 +516,39 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* ─── AI Recommendations + Activity Feeds ─── */}
-      <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader
-            title={
-              <div className="flex items-center gap-2">
-                <ClipboardCheck className="h-4 w-4 text-accent" />
-                <span>Recommendations</span>
-              </div>
-            }
-            subtitle="Generated from your data"
-          />
-          <CardBody>
-            {insights.isError ? (
-              <ErrorState message="Couldn't load recommendations." retry={() => insights.refetch()} />
-            ) : insights.data?.recommendations.length ? (
-              <div className="divide-y divide-border dark:divide-white/[0.06]">
-                {insights.data.recommendations.map((r) => (
-                  <AIInsightCard key={r.title} rec={r} icon={insightIconMap[insightKey(r.title)]} />
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center py-8 text-center">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 dark:bg-white/5">
-                  <ClipboardCheck className="h-5 w-5 text-ink-faint" />
-                </div>
-                <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
-                  No recommendations — data looks healthy.
-                </p>
-              </div>
-            )}
-          </CardBody>
-        </Card>
-
-        {/* Activity feeds */}
-        <div className="space-y-5">
-          <Card>
-            <CardHeader
-              title="Recent Uploads"
-              action={
-                <Link to="/data" className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
-                  View all
-                </Link>
-              }
+      <Card>
+        <CardHeader
+          title={
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4 text-accent" />
+              <span>Recommendations</span>
+            </div>
+          }
+          subtitle="Generated from your data"
+        />
+        <CardBody>
+          {insights.isError ? (
+            <ErrorState message="Couldn't load recommendations." retry={() => insights.refetch()} />
+          ) : insights.isLoading ? (
+            <div className="space-y-3">
+              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}
+            </div>
+          ) : insights.data?.recommendations.length ? (
+            <div className="divide-y divide-rule-soft">
+              {insights.data.recommendations.map((r) => (
+                <AIInsightCard key={r.title} rec={r} icon={insightIconMap[insightKey(r.title)]} />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              icon={ClipboardCheck}
+              title="No recommendations"
+              description="Nothing in this data needs your attention right now."
+              compact
             />
-            <CardBody className="space-y-1">
-              {datasets.data?.datasets.slice(0, 4).length ? (
-                datasets.data.datasets.slice(0, 4).map((d) => (
-                  <Link
-                    key={d.id}
-                    to={`/data/${d.id}`}
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
-                  >
-                    <span className="flex items-center gap-2.5 font-medium text-slate-700 dark:text-slate-300">
-                      <Database className="h-4 w-4 text-slate-400" />
-                      {d.name}
-                    </span>
-                    <span className="text-xs text-slate-400">{num(d.rowCount)} rows</span>
-                  </Link>
-                ))
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-400">No datasets uploaded yet</div>
-              )}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader
-              title="Recent Reports"
-              action={
-                <Link to="/reports" className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
-                  View all
-                </Link>
-              }
-            />
-            <CardBody className="space-y-1">
-              {reports.data?.reports.length ? (
-                reports.data.reports.slice(0, 3).map((r) => (
-                  <Link
-                    key={r.id}
-                    to="/reports"
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.03]"
-                  >
-                    <span className="flex items-center gap-2.5 truncate font-medium text-slate-700 dark:text-slate-300">
-                      <FileText className="h-4 w-4 shrink-0 text-slate-400" />
-                      {r.title}
-                    </span>
-                    <span className="shrink-0 text-xs text-slate-400">{timeAgo(r.createdAt)}</span>
-                  </Link>
-                ))
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-400">No reports yet</div>
-              )}
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader
-              title="Recent Alerts"
-              action={
-                <Link to="/alerts" className="text-xs font-medium text-brand-600 transition-colors hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300">
-                  View all
-                </Link>
-              }
-            />
-            <CardBody className="space-y-1">
-              {alerts.data?.alerts.length ? (
-                alerts.data.alerts.slice(0, 3).map((a) => (
-                  <div key={a.id} className="flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-sm">
-                    <Bell className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] text-slate-600 dark:text-slate-400">{a.description}</p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="text-[11px] text-slate-400">{timeAgo(a.createdAt)}</span>
-                        <Badge tone={a.severity === "HIGH" ? "red" : a.severity === "MEDIUM" ? "amber" : "slate"} dot>
-                          {a.severity === "HIGH" ? "High" : a.severity === "MEDIUM" ? "Medium" : "Low"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="py-4 text-center text-xs text-slate-400">No alerts</div>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-      </div>
+          )}
+        </CardBody>
+      </Card>
 
       {/* ─── Bottom CTA ─── */}
       <div className="flex justify-center pt-2">
@@ -501,6 +559,7 @@ export default function Dashboard() {
           </Button>
         </Link>
       </div>
-    </div>
+      </div>
+    </PageLayout>
   );
 }
