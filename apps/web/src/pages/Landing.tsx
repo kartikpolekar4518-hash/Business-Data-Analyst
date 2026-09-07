@@ -48,14 +48,14 @@ function HoverCard({ className, children }: { className?: string; children: Reac
 
 function Nav() {
   return (
-    <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#080c15]/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-30 border-b border-rule bg-canvas">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-5">
-        <div className="flex items-center gap-2 text-white">
+        <div className="flex items-center gap-2 text-ink">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-fg"><BrainCircuit className="h-[18px] w-[18px]" /></div>
-          <span className="text-[16px] font-bold tracking-tight">{APP_NAME}</span>
+          <span className="text-heading-3 tracking-tight">{APP_NAME}</span>
         </div>
         <nav className="flex items-center gap-2">
-          <Link to="/login"><Button variant="ghost" className="text-ink-faint hover:text-white">Sign in</Button></Link>
+          <Link to="/login"><Button variant="ghost" className="text-ink-faint hover:text-ink">Sign in</Button></Link>
           <Link to="/signup"><Button>Get started</Button></Link>
         </nav>
       </div>
@@ -75,15 +75,15 @@ function PreviewMock() {
   ];
   return (
     <motion.div
-      className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0b1120] p-4 shadow-2xl shadow-black/50"
+      className="relative overflow-hidden rounded-2xl border border-rule bg-surface p-4 shadow-modal"
       initial={{ opacity: 0, y: 24, rotateX: 6 }}
       animate={{ opacity: 1, y: 0, rotateX: 0 }}
       transition={{ duration: DUR.slow, ease: EASE, delay: 0.15 }}
     >
       <div className="mb-3 flex items-center gap-2 text-body-sm text-ink-faint">
-        <span className="h-2.5 w-2.5 rounded-full bg-red-400/70" />
-        <span className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
-        <span className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
+        <span className="h-2.5 w-2.5 rounded-full bg-neg" />
+        <span className="h-2.5 w-2.5 rounded-full bg-warn" />
+        <span className="h-2.5 w-2.5 rounded-full bg-pos" />
         <span className="ml-2">NoPS · Dashboard</span>
       </div>
 
@@ -91,21 +91,21 @@ function PreviewMock() {
         {kpis.map((k, i) => (
           <motion.div
             key={k.label}
-            className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3"
+            className="rounded-lg border border-rule bg-surface p-3"
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: DUR.base, ease: EASE, delay: 0.35 + i * 0.08 }}
           >
             <div className="text-body-sm text-ink-faint">{k.label}</div>
-            <div className="mt-1 text-heading-3 font-bold tabular-nums text-white">
+            <div className="mt-1 text-heading-3 tabular-nums text-ink">
               <AnimatedNumber value={k.value} format={k.format} duration={1.4} />
             </div>
-            <div className="text-body-sm font-medium text-emerald-400">{k.change}</div>
+            <div className="text-body-sm font-medium text-pos">{k.change}</div>
           </motion.div>
         ))}
       </div>
 
-      <div className="mt-3 rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
+      <div className="mt-3 rounded-lg border border-rule bg-surface p-3">
         <div className="mb-2 text-body-sm text-ink-faint">Revenue by category</div>
         <div className="flex h-24 items-end gap-2">
           {bars.map((h, i) => (
@@ -122,7 +122,7 @@ function PreviewMock() {
               transition={{ duration: DUR.slow, ease: EASE, delay: 0.45 + i * 0.07 }}
             >
               <motion.div
-                className="w-full rounded-t bg-brand-400"
+                className="w-full rounded-t bg-accent"
                 style={{ height: `${h}%`, originY: 1 }}
                 animate={reduced ? { scaleY: 1 } : { scaleY: [1, 0.9, 1] }}
                 transition={{
@@ -151,9 +151,9 @@ export default function Landing() {
   const gridY = useTransform(scrollYProgress, [0, 1], [0, 110]);
 
   return (
-    <div className="min-h-full bg-surface text-ink dark:bg-[#060a13]">
+    <div className="min-h-full bg-canvas text-ink">
       {/* Hero (always dark) */}
-      <div ref={heroRef} className="relative overflow-hidden bg-[#060a13] text-white">
+      <div ref={heroRef} className="on-dark relative overflow-hidden bg-canvas text-ink">
         <motion.div
           style={{ y: gridY }}
           className="pointer-events-none absolute inset-0 opacity-[0.04]"
@@ -166,7 +166,7 @@ export default function Landing() {
           <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-2 lg:py-24">
             <Stagger inView={false} stagger={0.09}>
               <StaggerItem>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-body-sm font-medium text-ink-faint">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-rule bg-surface px-3 py-1 text-body-sm font-medium text-ink-faint">
                   <ShieldCheck className="h-3.5 w-3.5 text-accent" /> Deterministic · auditable · private
                 </span>
               </StaggerItem>
@@ -183,7 +183,7 @@ export default function Landing() {
               <StaggerItem>
                 <div className="mt-7 flex flex-wrap gap-3">
                   <Link to="/signup"><Button size="lg">Start free <ArrowRight className="h-4 w-4" /></Button></Link>
-                  <Link to="/login"><Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">Sign in</Button></Link>
+                  <Link to="/login"><Button size="lg" variant="outline" className="border-rule text-ink hover:bg-sunken">Sign in</Button></Link>
                 </div>
               </StaggerItem>
               <StaggerItem>

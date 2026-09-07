@@ -19,8 +19,14 @@ export default function SettingsPage() {
   const { can } = useAuth();
   const tabs = [{ id: "organization", label: "Organization" }, { id: "calendar", label: "Calendar" }, { id: "metrics", label: "Metrics" }, { id: "cleaning", label: "Cleaning" }, { id: "relationships", label: "Connected files" }, { id: "billing", label: "Billing" }, { id: "users", label: "Users" }, { id: "activity", label: "Activity" }, { id: "api-keys", label: "API Keys" }, { id: "preferences", label: "Preferences" }];
   return (
-    <div className="space-y-6">
-      <div><h1 className="text-heading-1 font-bold">Settings</h1><p className="text-body text-ink-faint">Manage your workspace, team, and integrations.</p></div>
+    // No rail (DESIGN.md, "The right rail"): nothing here is commentary on
+    // anything else. Held to a reading measure instead — a settings form spread
+    // across 1400px is a row of labels with a horizon of empty paper.
+    <div className="max-w-4xl space-y-6">
+      <div>
+        <h1 className="page-title">Settings</h1>
+        <p className="page-subtitle">Manage your workspace, team, and integrations.</p>
+      </div>
       <Tabs tabs={tabs} active={tab} onChange={(id) => nav(`/settings/${id}`)} />
       {!can("ADMIN") && tab !== "preferences" && tab !== "activity" && <div className="flex items-center gap-2 rounded-lg border border-warn/30 bg-warn-soft p-3 text-body text-warn"><ShieldAlert className="h-4 w-4" />Some settings are read-only for your role.</div>}
       {tab === "organization" && <OrgTab />}

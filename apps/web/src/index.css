@@ -43,7 +43,12 @@
   --shadow:      22 24 28;
 }
 
-.dark {
+/* `.dark` is the theme; `.on-dark` is a region that is dark in BOTH themes —
+   the marketing hero, and anything else deliberately inverted. Same token
+   values, so a component inside it still names roles (text-ink, bg-surface)
+   rather than reaching for a palette colour. See DESIGN.md. */
+.dark,
+.on-dark {
   color-scheme: dark;
 
   --canvas:      20 21 26;
