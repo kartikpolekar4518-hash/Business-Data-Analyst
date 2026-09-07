@@ -128,7 +128,11 @@ export const Modal = ({
             role="dialog"
             aria-modal="true"
             aria-label={title}
-            className="w-full max-w-md rounded-xl border border-rule bg-surface p-5 shadow-modal"
+            // Taller-than-the-window content (a long comment thread) has to scroll
+            // inside the panel; without the cap it grows past both screen edges and
+            // the overlay has nothing to scroll, so the title and the input go
+            // permanently out of reach.
+            className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-rule bg-surface p-5 shadow-modal"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.96, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
