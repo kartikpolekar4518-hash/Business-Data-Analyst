@@ -554,8 +554,9 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
   );
 });
 
-export const ForecastChart = memo(function ForecastChart({ history, points }: { history: { period: string; value: number }[]; points: { period: string; value: number; lower: number; upper: number }[] }) {
-  const { grid, tick, tooltipStyle } = useAxis();
+export const ForecastChart = memo(function ForecastChart({ history, points, format }: { history: { period: string; value: number }[]; points: { period: string; value: number; lower: number; upper: number }[]; format?: (v: number) => string }) {
+  const { grid, tick, tooltipStyle, cursor } = useAxis();
+  const fmt = format ?? ((v: number) => v.toLocaleString());
   const anim = useSeriesAnimation();
   const data = [
     ...history.map((h) => ({ label: h.period, actual: h.value })),
@@ -568,7 +569,13 @@ export const ForecastChart = memo(function ForecastChart({ history, points }: { 
         <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
-        <Tooltip contentStyle={tooltipStyle} />
+        {/* The default tooltip printed the raw float ("actual : 85905.88"); a
+            projection is read in the units of the metric it projects. */}
+        <Tooltip
+          contentStyle={tooltipStyle}
+          cursor={cursor}
+          formatter={(v: number | string, name: string) => [typeof v === "number" ? fmt(v) : v, name === "band" ? "Confidence range" : name === "actual" ? "Actual" : "Forecast"]}
+        />
         {/* Confidence band: an invisible base up to `lower`, then the range stacked on top.
             Two independent areas would each fill from zero and paint a block to the axis
             rather than a band around the projection. */}

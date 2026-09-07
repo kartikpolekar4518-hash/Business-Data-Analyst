@@ -16,7 +16,7 @@ export const Label = ({
 }) => (
   <label
     htmlFor={htmlFor}
-    className="mb-1.5 block text-[13px] font-medium text-ink-soft"
+    className="mb-1.5 block text-body-sm font-medium text-ink-soft"
   >
     {children}
   </label>
@@ -89,7 +89,7 @@ export const Checkbox = ({
         "flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-1",
         checked || indeterminate
-          ? "border-accent bg-accent text-white"
+          ? "border-accent bg-accent text-accent-fg"
           : "border-rule bg-surface",
       )}
     >
@@ -128,7 +128,7 @@ export const Switch = ({
       className={cn(
         "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2",
-        checked ? "bg-accent" : "bg-slate-300",
+        checked ? "bg-accent" : "bg-rule-strong",
       )}
     >
       <motion.span

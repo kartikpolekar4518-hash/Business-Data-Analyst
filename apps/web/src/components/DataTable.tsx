@@ -210,8 +210,8 @@ export function DataTable<T>({
       {hasToolbar && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
           <div className="min-w-0">
-            {title && <h3 className="text-[15px] font-semibold text-ink">{title}</h3>}
-            {subtitle && <p className="mt-0.5 text-[13px] text-ink-faint">{subtitle}</p>}
+            {title && <h3 className="text-heading-3 font-semibold text-ink">{title}</h3>}
+            {subtitle && <p className="mt-0.5 text-body-sm text-ink-faint">{subtitle}</p>}
           </div>
           <div className="flex items-center gap-2">
             {searchable && (
@@ -289,7 +289,7 @@ export function DataTable<T>({
                 })}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-rule-soft">
               {view.map(({ row, key: k }, i) => {
                 const isSel = selected.has(k);
                 return (
@@ -314,7 +314,7 @@ export function DataTable<T>({
 
       {(pageSize || (selectable && bulkActions)) && sorted.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-rule px-4 py-3">
-          <div className="flex items-center gap-3 text-[13px] text-ink-faint">
+          <div className="flex items-center gap-3 text-body-sm text-ink-faint">
             {selectable && selected.size > 0 ? (
               <>
                 <span className="font-medium text-ink-soft">{selected.size} selected</span>

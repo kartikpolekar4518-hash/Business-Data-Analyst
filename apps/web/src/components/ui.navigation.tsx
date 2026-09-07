@@ -279,7 +279,7 @@ export const Pagination = ({
             className={cn(
               btn,
               p === page
-                ? "bg-accent font-medium text-white"
+                ? "bg-accent font-medium text-accent-fg"
                 : "text-ink-soft hover:bg-sunken",
             )}
           >

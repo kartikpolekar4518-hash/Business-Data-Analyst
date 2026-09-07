@@ -17,7 +17,7 @@ const variantStyles: Record<Variant, string> = {
   // is placed on, including the dark hero.
   outline: "border border-rule text-ink hover:bg-sunken hover:border-rule-strong",
   ghost: "text-ink-soft hover:bg-sunken hover:text-ink",
-  danger: "bg-neg text-white hover:bg-neg/90 active:bg-neg/80",
+  danger: "bg-neg text-canvas hover:bg-neg/90 active:bg-neg/80",
 };
 
 const sizeStyles: Record<Size, string> = {
@@ -102,8 +102,11 @@ export const CardHeader = ({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between gap-4 border-b border-rule-soft px-4 py-3">
-    <div className="min-w-0">
+  // The action wraps onto its own line rather than squeezing the title: in a
+  // rail-width card, a shrink-0 button beside the heading pushed titles and
+  // subtitles into four-word-per-line columns.
+  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-rule-soft px-4 py-3">
+    <div className="min-w-[12rem] flex-1">
       <h3 className="text-heading-3 text-ink">{title}</h3>
       {subtitle && <p className="mt-0.5 text-body-sm text-ink-soft">{subtitle}</p>}
     </div>
@@ -311,7 +314,7 @@ export const ProgressSteps = ({
           <span
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label",
-              state === "done" && "bg-pos text-white",
+              state === "done" && "bg-pos text-canvas",
               state === "active" && "bg-accent text-accent-fg",
               state === "pending" && "bg-sunken text-ink-faint",
             )}

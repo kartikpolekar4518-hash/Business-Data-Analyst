@@ -4,7 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { TrendingUp, Info, AlertTriangle, SlidersHorizontal } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { Card, CardHeader, CardBody, Button, Select, Input, Label, Slider, Skeleton, EmptyState, ErrorState, Badge, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Select, Input, Label, Slider, Skeleton, EmptyState, ErrorState, Badge, SegmentedControl, useToast } from "../components/ui";
+import { PageLayout, RailSection } from "../components/PageLayout";
 import { ForecastChart } from "../components/charts";
 import { useDebounced } from "../lib/debounce";
 import { money, num, timeAgo } from "../lib/utils";
@@ -110,54 +111,65 @@ export default function Forecasts() {
     } finally { setRunning(false); }
   }
 
-  return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Forecasts</h1><p className="text-sm text-slate-500 dark:text-slate-400">Projections from historical trend. Estimates only — not guarantees.</p></div>
-
-      {can("ADMIN", "MANAGER") && (
-        <Card><CardBody>
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-40"><Label>Metric</Label><Select value={metric} onChange={(e) => setParam("metric", e.target.value, "revenue")}>
-              {METRICS.map((m) => <option key={m} value={m}>{cap(m.replace(/_/g, " "))}</option>)}
-            </Select></div>
-            <div className="w-40"><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setParam("horizon", e.target.value, "3")}>{HORIZONS.map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
-            <div className="w-36"><Label htmlFor="goal">Goal (optional)</Label><Input id="goal" type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder="Target" /></div>
-            <Button onClick={run} loading={running}><TrendingUp className="h-4 w-4" />Generate forecast</Button>
-          </div>
-
-          <div className="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4 text-slate-400" />What-if scenario</div>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-slate-500 dark:text-slate-400">Move a lever, then generate. Your data is never changed.</span>
-                {anyLever && <button onClick={() => setLevers(NO_LEVERS)} className="text-xs font-medium text-brand-600 hover:underline dark:text-brand-400">Reset</button>}
-              </div>
-            </div>
-            <div className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-              {LEVERS.map((l) => (
-                <Slider key={l.field} label={l.label} aria-label={`${l.label} change`} value={levers[l.field]}
-                  min={-LEVER_RANGE} max={LEVER_RANGE} step={1} format={pctLabel}
-                  onChange={(v) => setLevers((prev) => ({ ...prev, [l.field]: v }))} />
-              ))}
-            </div>
-          </div>
+  /* ─── Rail ───
+     Justified: the generator and the what-if levers are controls. They decide
+     what the projection in the main column says; they are not the projection. */
+  const rail = can("ADMIN", "MANAGER") ? (
+    <>
+      <RailSection title="Generate a forecast" icon={TrendingUp}>
+        <div className="space-y-3 py-3">
+          <div><Label>Metric</Label><Select value={metric} onChange={(e) => setParam("metric", e.target.value, "revenue")}>
+            {METRICS.map((m) => <option key={m} value={m}>{cap(m.replace(/_/g, " "))}</option>)}
+          </Select></div>
+          <div><Label>Horizon (months)</Label><Select value={horizon} onChange={(e) => setParam("horizon", e.target.value, "3")}>{HORIZONS.map((h) => <option key={h} value={h}>{h}</option>)}</Select></div>
+          <div><Label htmlFor="goal">Goal (optional)</Label><Input id="goal" type="number" value={goalInput} onChange={(e) => setGoalInput(e.target.value)} placeholder="Target" /></div>
+          <Button onClick={run} loading={running} className="w-full"><TrendingUp className="h-4 w-4" />Generate forecast</Button>
           {goalStatus && (
-            <div className="mt-3 rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700">
-              Goal: <strong>{money(goalStatus.goal)}</strong> · Forecast: <strong>{money(goalStatus.forecastValue)}</strong> · <Badge tone={goalStatus.status === "on_track" ? "green" : goalStatus.status === "at_risk" ? "amber" : "red"}>{goalStatus.status.replace("_", " ")}</Badge>
+            <div className="rounded-lg border border-rule p-3 text-body-sm">
+              Goal <strong>{money(goalStatus.goal)}</strong> · forecast <strong>{money(goalStatus.forecastValue)}</strong>{" "}
+              <Badge tone={goalStatus.status === "on_track" ? "green" : goalStatus.status === "at_risk" ? "amber" : "red"}>{goalStatus.status.replace("_", " ")}</Badge>
             </div>
           )}
+        </div>
+      </RailSection>
+
+      <RailSection title="What-if scenario" icon={SlidersHorizontal}>
+        <div className="space-y-3 py-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-body-sm text-ink-faint">Move a lever, then generate. Your data is never changed.</p>
+            {anyLever && <button onClick={() => setLevers(NO_LEVERS)} className="shrink-0 text-body-sm font-medium text-accent hover:underline">Reset</button>}
+          </div>
+          {LEVERS.map((l) => (
+            <Slider key={l.field} label={l.label} aria-label={`${l.label} change`} value={levers[l.field]}
+              min={-LEVER_RANGE} max={LEVER_RANGE} step={1} format={pctLabel}
+              onChange={(v) => setLevers((prev) => ({ ...prev, [l.field]: v }))} />
+          ))}
           <ImpactPanel impact={impact} />
-        </CardBody></Card>
-      )}
+        </div>
+      </RailSection>
+    </>
+  ) : undefined;
+
+  return (
+    <PageLayout aside={rail}>
+      <div className="space-y-6">
+      <div>
+        <h1 className="page-title">Forecasts</h1>
+        <p className="page-subtitle">Projections from historical trend. Estimates only — not guarantees.</p>
+      </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+        <div className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn-soft p-3 text-body-sm text-warn">
           <Info className="mt-0.5 h-4 w-4 shrink-0" />A seasonal or linear model is chosen automatically by backtesting, with a 95% confidence band and best/base/worst scenarios that widen with the horizon.
         </div>
         {data?.forecasts.length ? (
-          <div className="inline-flex rounded-lg border border-border p-0.5 dark:border-white/10">
-            {SCENARIOS.map((s) => <button key={s.key} onClick={() => setParam("scenario", s.key, "value")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${scenario === s.key ? "bg-brand-500 text-white" : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"}`}>{s.label}</button>)}
-          </div>
+          <SegmentedControl
+            options={SCENARIOS.map((sc) => ({ id: sc.key, label: sc.label }))}
+            value={scenario}
+            onChange={(v) => setParam("scenario", v, "value")}
+            layoutId="forecast-scenario"
+            ariaLabel="Scenario"
+          />
         ) : null}
       </div>
 
@@ -176,12 +188,12 @@ export default function Forecasts() {
                 action={<div className="flex items-center gap-2">{scenarioSummary(f.scenario) && <Badge tone="blue">what-if</Badge>}<Badge tone="amber">estimate</Badge></div>}
               />
               <CardBody>
-                <ForecastChart history={f.history} points={f.points} />
+                <ForecastChart history={f.history} points={f.points} format={fmt} />
                 <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {f.points.map((p) => {
                     const shown = scenario === "best" ? (p.best ?? p.value) : scenario === "worst" ? (p.worst ?? p.value) : p.value;
                     const hasScenarios = p.best != null && p.worst != null;
-                    return <div key={p.period} className="rounded-lg border border-slate-100 p-2 text-center dark:border-slate-800"><div className="text-xs text-slate-500 dark:text-slate-400">{p.period}</div><div className="font-semibold">{fmt(shown)}</div><div className="text-xs text-slate-400">{hasScenarios ? `${fmt(p.worst!)}–${fmt(p.best!)}` : `${fmt(p.lower)}–${fmt(p.upper)}`}</div></div>;
+                    return <div key={p.period} className="rounded-lg border border-rule-soft p-2 text-center"><div className="text-body-sm text-ink-faint">{p.period}</div><div className="font-semibold">{fmt(shown)}</div><div className="text-body-sm text-ink-faint">{hasScenarios ? `${fmt(p.worst!)}–${fmt(p.best!)}` : `${fmt(p.lower)}–${fmt(p.upper)}`}</div></div>;
                   })}
                 </div>
               </CardBody>
@@ -189,7 +201,8 @@ export default function Forecasts() {
           })}
         </div>
       )}
-    </div>
+      </div>
+    </PageLayout>
   );
 }
 
@@ -213,15 +226,15 @@ function ImpactPanel({ impact }: { impact: ScenarioImpact | null }) {
   const caveats = impact.levers.filter((l) => l.note);
   const moved = impact.levers.filter((l) => l.propagatesTo.length);
   return (
-    <div className="mt-3 space-y-2 text-sm">
+    <div className="mt-3 space-y-2 text-body">
       {moved.length > 0 && (
-        <div className="rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+        <div className="rounded-lg border border-rule p-3">
           Applied to your rows before anything was calculated: {moved.map((l) => `${leverLabel(l.field)} ${pctLabel(l.changePct)} → ${l.propagatesTo.join(" and ")}`).join(" · ")}.
-          <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">Revenue is read as {impact.revenueExpression}.</div>
+          <div className="mt-1 text-body-sm text-ink-faint">Revenue is read as {impact.revenueExpression}.</div>
         </div>
       )}
       {caveats.map((l) => (
-        <div key={l.field} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-700 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-400">
+        <div key={l.field} className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn-soft p-3 text-body-sm text-warn">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <span><strong>{leverLabel(l.field)} {pctLabel(l.changePct)}:</strong> {l.note}</span>
         </div>

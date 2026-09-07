@@ -133,7 +133,7 @@ export function CommandPalette({
                 aria-label="Search commands"
                 className="h-12 flex-1 bg-transparent text-body outline-none placeholder:text-ink-faint"
               />
-              <kbd className="hidden rounded border border-rule px-1.5 py-0.5 text-[10px] font-medium text-ink-faint sm:block">
+              <kbd className="hidden rounded border border-rule px-1.5 py-0.5 text-label font-medium text-ink-faint sm:block">
                 ESC
               </kbd>
             </div>
@@ -146,7 +146,7 @@ export function CommandPalette({
               ) : (
                 groups.map(([section, items]) => (
                   <div key={section} className="mb-1">
-                    <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">
+                    <div className="px-2 py-1.5 text-body-sm font-semibold uppercase tracking-wide text-ink-faint">
                       {section}
                     </div>
                     {items.map(({ cmd, idx }) => {

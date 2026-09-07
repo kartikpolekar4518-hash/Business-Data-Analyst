@@ -296,7 +296,7 @@ function Sidebar({
         {/* Bottom — user summary */}
         <div className="border-t border-rule px-3 py-3">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-fg text-body-sm font-semibold text-ink shadow-sm shadow-brand-500/30">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent text-body-sm font-semibold text-accent-fg">
               {user?.name?.[0] ?? "U"}
             </div>
             <div className="min-w-0 flex-1">
@@ -415,7 +415,7 @@ function Header({
       >
         <Search className="h-4 w-4" />
         <span className="hidden md:inline">Search…</span>
-        <kbd className="rounded border border-rule px-1.5 py-0.5 text-[10px] font-medium text-ink-faint">
+        <kbd className="rounded border border-rule px-1.5 py-0.5 text-label font-medium text-ink-faint">
           {MOD_KEY} K
         </kbd>
       </button>
@@ -461,7 +461,7 @@ function Header({
           aria-haspopup="true"
           className="flex items-center gap-2 rounded-lg p-0.5 pr-2 transition-colors hover:bg-sunken"
         >
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-accent-fg text-body-sm font-semibold text-ink shadow-sm shadow-brand-500/30">
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-body-sm font-semibold text-accent-fg">
             {user?.name?.[0] ?? "U"}
           </div>
           <ChevronDown className="h-3.5 w-3.5 text-ink-faint" />
@@ -523,7 +523,7 @@ function Header({
               <button
                 role="menuitem"
                 onClick={logout}
-                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-body text-red-600 transition-colors hover:bg-red-50"
+                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-body text-neg transition-colors hover:bg-red-50"
               >
                 <LogOut className="h-4 w-4" />
                 Log out
@@ -588,7 +588,7 @@ function ShortcutsHelp({ open, onClose }: { open: boolean; onClose: () => void }
         {SHORTCUTS.map((s) => (
           <li key={s.label} className="flex items-center justify-between gap-4 text-body">
             <span className="text-ink-soft">{s.label}</span>
-            <kbd className="shrink-0 rounded border border-rule px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">
+            <kbd className="shrink-0 rounded border border-rule px-1.5 py-0.5 text-body-sm font-medium text-ink-faint">
               {s.keys}
             </kbd>
           </li>

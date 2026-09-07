@@ -42,7 +42,7 @@ function Avatar({ id, name }: { id: string; name: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneFor(id)} font-mono text-label text-white`}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md ${toneFor(id)} font-mono text-label text-canvas`}
     >
       {initials(name)}
     </div>
@@ -61,7 +61,7 @@ function Body({ text, mentions }: { text: string; mentions: Mention[] }) {
     <>
       {parts.map((p, i) =>
         p.startsWith("@") && names.includes(p.slice(1))
-          ? <span key={i} className="font-semibold text-brand-600 dark:text-brand-400">{p}</span>
+          ? <span key={i} className="font-semibold text-accent">{p}</span>
           : <span key={i}>{p}</span>,
       )}
     </>
@@ -138,7 +138,7 @@ export function CommentThread({ entityType, entityId }: { entityType: EntityType
   const comments = data?.comments ?? [];
 
   return (
-    <div className="space-y-4 text-sm">
+    <div className="space-y-4 text-body">
       {isLoading ? (
         <div className="space-y-3">{[0, 1].map((i) => (
           <div key={i} className="flex gap-3"><Skeleton className="h-7 w-7 rounded-md" /><div className="flex-1 space-y-2"><Skeleton className="h-3 w-32" /><Skeleton className="h-4 w-full" /></div></div>
@@ -155,18 +155,18 @@ export function CommentThread({ entityType, entityId }: { entityType: EntityType
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
                   <span className="font-medium">{c.authorName}</span>
-                  <span className="text-xs text-slate-400">{timeAgo(c.createdAt)}</span>
+                  <span className="text-body-sm text-ink-faint">{timeAgo(c.createdAt)}</span>
                   {(c.authorId === user?.id || can("ADMIN")) && (
                     <button
                       onClick={() => remove(c.id)}
                       aria-label="Delete comment"
-                      className="ml-auto rounded p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-rose-600 dark:hover:bg-slate-800"
+                      className="ml-auto rounded p-1 text-ink-faint transition-colors hover:bg-sunken hover:text-rose-600"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   )}
                 </div>
-                <p className="mt-0.5 whitespace-pre-wrap break-words text-slate-600 dark:text-slate-300">
+                <p className="mt-0.5 whitespace-pre-wrap break-words text-ink-soft">
                   <Body text={c.body} mentions={c.mentions} />
                 </p>
               </div>
@@ -188,7 +188,7 @@ export function CommentThread({ entityType, entityId }: { entityType: EntityType
           <ul
             role="listbox"
             aria-label="Mention a teammate"
-            className="absolute bottom-full z-20 mb-1 w-64 overflow-hidden rounded-xl border border-border bg-white p-1 shadow-dropdown dark:border-slate-700 dark:bg-slate-800"
+            className="absolute bottom-full z-20 mb-1 w-64 overflow-hidden rounded-xl border border-rule bg-surface p-1 shadow-dropdown"
           >
             {suggestions.map((m) => (
               <li key={m.id}>
@@ -196,7 +196,7 @@ export function CommentThread({ entityType, entityId }: { entityType: EntityType
                   role="option"
                   aria-selected="false"
                   onClick={() => pick(m)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-sunken"
                 >
                   <Avatar id={m.id} name={m.name} />
                   <span className="min-w-0 flex-1 truncate">{m.name}</span>
@@ -269,17 +269,17 @@ export function ActivityFeed({ entityType, entityId, limit }: { entityType?: Ent
   }
 
   return (
-    <ul className="space-y-3 text-sm">
+    <ul className="space-y-3 text-body">
       {entries.map((e) => (
         <li key={e.id} className="flex gap-3">
           <Avatar id={e.id} name={e.actorName ?? "System"} />
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2">
               <span className="font-medium">{e.actorName ?? "System"}</span>
-              <span className="text-slate-500 dark:text-slate-400">{ACTIONS[e.action] ?? e.action}</span>
-              <span className="ml-auto shrink-0 text-xs text-slate-400">{timeAgo(e.createdAt)}</span>
+              <span className="text-ink-faint">{ACTIONS[e.action] ?? e.action}</span>
+              <span className="ml-auto shrink-0 text-body-sm text-ink-faint">{timeAgo(e.createdAt)}</span>
             </div>
-            {e.detail && <p className="truncate text-xs text-slate-400">{e.detail}</p>}
+            {e.detail && <p className="truncate text-body-sm text-ink-faint">{e.detail}</p>}
           </div>
         </li>
       ))}

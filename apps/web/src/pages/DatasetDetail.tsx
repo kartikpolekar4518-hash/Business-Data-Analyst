@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, FilePlus2, ShieldCheck, Wand2 } from "lucide-react";
+import { ArrowLeft, FilePlus2, ShieldCheck, Wand2, Table2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Badge, Button, Input, Label, Modal, Select, Tabs, Spinner, ErrorState, useToast } from "../components/ui";
 import { useRecipes, type CleaningStep } from "../components/recipes";
 import { CommentThread, ActivityFeed } from "../components/comments";
+import { PageLayout, RailSection } from "../components/PageLayout";
 import { num } from "../lib/utils";
 
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
@@ -92,11 +93,34 @@ export default function DatasetDetail() {
   }
 
   const d = meta.data?.dataset;
+
+  /* ─── Rail ───
+     Justified: these facts qualify every tab. You want the quality score and
+     the row count in view while reading the preview, not one tab away. The
+     tabs stay the navigation — the rail does not duplicate them. */
+  const rail = (
+    <RailSection title="At a glance" icon={Table2} loading={meta.isLoading}>
+      {d && [
+        { k: "Rows", v: num(d.rowCount) },
+        { k: "Columns", v: String(d.columnCount) },
+        { k: "Quality", v: `${d.qualityScore}/100` },
+        { k: "Status", v: d.status },
+        { k: "File", v: d.fileName ?? "—" },
+      ].map((row) => (
+        <div key={row.k} className="flex items-baseline justify-between gap-3 py-2">
+          <span className="text-body-sm text-ink-faint">{row.k}</span>
+          <span className="truncate font-mono text-data text-ink">{row.v}</span>
+        </div>
+      ))}
+    </RailSection>
+  );
+
   return (
-    <div className="space-y-6">
-      <Link to="/data" className="inline-flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"><ArrowLeft className="h-4 w-4" />Back to data</Link>
+    <PageLayout aside={rail}>
+      <div className="space-y-6">
+      <Link to="/data" className="inline-flex items-center gap-1 text-body text-ink-faint hover:text-ink"><ArrowLeft className="h-4 w-4" />Back to data</Link>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">{d?.name ?? "Dataset"}</h1><p className="text-sm text-slate-500 dark:text-slate-400">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
+        <div><h1 className="text-heading-1 font-bold">{d?.name ?? "Dataset"}</h1><p className="text-body text-ink-faint">{d ? `${num(d.rowCount)} rows · ${d.columnCount} columns · ${d.fileName}` : ""}</p></div>
         <div className="flex items-center gap-2">
           {d && <Badge tone={d.qualityScore >= 90 ? "green" : d.qualityScore >= 70 ? "amber" : "red"}>Quality {d.qualityScore}/100</Badge>}
           {d && <Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge>}
@@ -118,14 +142,14 @@ export default function DatasetDetail() {
         <Card><CardHeader title="Data preview" subtitle={preview.data ? `First ${preview.data.rows.length} of ${num(preview.data.total)} rows${preview.data.cleaned ? " (cleaned)" : ""}` : undefined} />
           <CardBody className="overflow-x-auto p-0">
             {preview.isError ? <div className="p-5"><ErrorState message="Couldn't load the data preview." retry={() => preview.refetch()} /></div> : !preview.data ? <Spinner /> : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50">
-                  <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-slate-600 dark:text-slate-400">{c}</th>)}</tr>
+              <table className="w-full text-body">
+                <thead className="border-b border-rule bg-sunken text-left">
+                  <tr>{preview.data.columns.map((c) => <th key={c} className="whitespace-nowrap px-3 py-2 font-medium text-ink-soft">{c}</th>)}</tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <tbody className="divide-y divide-rule-soft">
                   {preview.data.rows.map((row, i) => (
-                    <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                      {preview.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5 text-slate-700 dark:text-slate-300">{String(row[c] ?? "—")}</td>)}
+                    <tr key={i} className="hover:bg-sunken">
+                      {preview.data!.columns.map((c) => <td key={c} className="whitespace-nowrap px-3 py-1.5 text-ink-soft">{String(row[c] ?? "—")}</td>)}
                     </tr>
                   ))}
                 </tbody>
@@ -155,10 +179,10 @@ export default function DatasetDetail() {
             ) : undefined} />
           <CardBody className="space-y-2">
             {quality.isError ? <ErrorState message="Couldn't load the quality report." retry={() => quality.refetch()} /> : !quality.data ? <Spinner /> : quality.data.issues.length === 0 ? (
-              <div className="flex items-center gap-2 py-6 text-sm text-emerald-600"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
+              <div className="flex items-center gap-2 py-6 text-body text-pos"><ShieldCheck className="h-5 w-5" />No quality issues detected — this dataset is clean.</div>
             ) : quality.data.issues.map((i) => (
-              <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-slate-100 p-3 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/40">
-                <input type="checkbox" disabled={!i.autoFixable || !can("ADMIN", "MANAGER")} checked={accepted.has(i.type)} onChange={() => toggle(i.type)} className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-600" />
+              <label key={i.id} className="flex cursor-pointer items-start gap-3 rounded-lg border border-rule-soft p-3 hover:bg-sunken">
+                <input type="checkbox" disabled={!i.autoFixable || !can("ADMIN", "MANAGER")} checked={accepted.has(i.type)} onChange={() => toggle(i.type)} className="mt-1 h-4 w-4 rounded border-rule text-accent" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{i.type.replace(/_/g, " ")}</span>
@@ -166,7 +190,7 @@ export default function DatasetDetail() {
                     <Badge tone={i.severity === "HIGH" ? "red" : i.severity === "MEDIUM" ? "amber" : "slate"}>{i.severity}</Badge>
                     {!i.autoFixable && <Badge tone="slate">manual review</Badge>}
                   </div>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{i.recommendation} {i.affectedRows > 0 && <span className="text-slate-400">· {num(i.affectedRows)} rows</span>}</p>
+                  <p className="mt-1 text-body text-ink-faint">{i.recommendation} {i.affectedRows > 0 && <span className="text-ink-faint">· {num(i.affectedRows)} rows</span>}</p>
                 </div>
               </label>
             ))}
@@ -178,11 +202,11 @@ export default function DatasetDetail() {
         <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />
           <CardBody className="overflow-x-auto p-0">
             {schema.isError ? <div className="p-5"><ErrorState message="Couldn't load the detected schema." retry={() => schema.refetch()} /></div> : !schema.data ? <Spinner /> : (
-              <table className="w-full text-sm">
-                <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <table className="w-full text-body">
+                <thead className="border-b border-rule bg-sunken text-left"><tr><th className="px-4 py-2 font-medium">Column</th><th className="px-4 py-2 font-medium">Data type</th><th className="px-4 py-2 font-medium">Business meaning</th></tr></thead>
+                <tbody className="divide-y divide-rule-soft">
                   {schema.data.columns.map((c) => (
-                    <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-slate-400">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>
+                    <tr key={c.name}><td className="px-4 py-2 font-medium">{c.name}</td><td className="px-4 py-2"><Badge>{c.type}</Badge></td><td className="px-4 py-2">{c.semantic === "none" ? <span className="text-ink-faint">—</span> : <Badge tone="blue">{c.semantic.replace(/_/g, " ")}</Badge>}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -205,7 +229,7 @@ export default function DatasetDetail() {
 
       <Modal open={!!lastSteps} onClose={() => setLastSteps(null)} title="Save these fixes as a recipe?">
         <div className="space-y-4">
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <p className="text-body text-ink-faint">
             Give it a name and the same {lastSteps?.length ?? 0} fixes can be applied to next month's
             file in one click — or automatically, from Settings → Cleaning.
           </p>
@@ -219,6 +243,7 @@ export default function DatasetDetail() {
           </div>
         </div>
       </Modal>
-    </div>
+      </div>
+    </PageLayout>
   );
 }

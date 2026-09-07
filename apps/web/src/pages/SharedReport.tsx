@@ -35,12 +35,12 @@ export default function SharedReport() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <header className="border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-900">
+    <div className="min-h-screen bg-sunken">
+      <header className="border-b border-rule bg-surface px-6 py-3">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <FileText className="h-5 w-5 text-brand-600" />
+          <FileText className="h-5 w-5 text-accent" />
           <span className="font-semibold">NoPS</span>
-          {data && <span className="text-sm text-slate-400">· {data.org.name}</span>}
+          {data && <span className="text-body text-ink-faint">· {data.org.name}</span>}
         </div>
       </header>
 
@@ -49,22 +49,22 @@ export default function SharedReport() {
           <div className="grid place-items-center py-24"><Spinner label="Loading report…" /></div>
         ) : isError || !data ? (
           <Card><CardBody className="flex flex-col items-center gap-3 py-16 text-center">
-            <div className="rounded-full bg-amber-100 p-3 text-amber-600 dark:bg-amber-950"><ShieldAlert className="h-6 w-6" /></div>
-            <h1 className="text-lg font-semibold">This link is invalid or has expired</h1>
-            <p className="max-w-sm text-sm text-slate-500 dark:text-slate-400">The report may have been unshared, or the link has expired. Ask whoever sent it for a new link.</p>
+            <div className="rounded-full bg-warn-soft p-3 text-warn"><ShieldAlert className="h-6 w-6" /></div>
+            <h1 className="text-heading-3 font-semibold">This link is invalid or has expired</h1>
+            <p className="max-w-sm text-body text-ink-faint">The report may have been unshared, or the link has expired. Ask whoever sent it for a new link.</p>
           </CardBody></Card>
         ) : (
           <Card>
             <CardBody className="space-y-4">
               <div>
-                <h1 className="text-2xl font-bold">{data.report.title}</h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Generated {timeAgo(data.report.createdAt)} · shared by {data.org.name}</p>
+                <h1 className="text-heading-1 font-bold">{data.report.title}</h1>
+                <p className="text-body text-ink-faint">Generated {timeAgo(data.report.createdAt)} · shared by {data.org.name}</p>
               </div>
               <ReportView content={data.report.content} onDownload={downloadPdf} />
             </CardBody>
           </Card>
         )}
-        <p className="mt-6 text-center text-xs text-slate-400">Powered by NoPS · Every number is deterministic and reproducible.</p>
+        <p className="mt-6 text-center text-body-sm text-ink-faint">Powered by NoPS · Every number is deterministic and reproducible.</p>
       </main>
     </div>
   );

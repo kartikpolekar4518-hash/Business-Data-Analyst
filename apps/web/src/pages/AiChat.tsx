@@ -66,7 +66,7 @@ export default function AiChat() {
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col">
       <div className="mb-4 flex items-start justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Chat with your Data</h1><p className="text-sm text-slate-500 dark:text-slate-400">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
+        <div><h1 className="text-heading-1 font-bold">Chat with your Data</h1><p className="text-body text-ink-faint">Ask questions in plain English. Answers are computed directly from your dataset.</p></div>
         <div className="flex shrink-0 items-center gap-2">
           <div className="relative">
             <Button variant="outline" size="sm" onClick={() => setHistoryOpen((o) => !o)} aria-expanded={historyOpen}>
@@ -75,17 +75,17 @@ export default function AiChat() {
             {historyOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setHistoryOpen(false)} aria-hidden="true" />
-                <div className="absolute right-0 top-full z-50 mt-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-border bg-white p-1.5 shadow-dropdown dark:border-slate-700 dark:bg-slate-800">
+                <div className="absolute right-0 top-full z-50 mt-2 max-h-80 w-72 overflow-y-auto rounded-xl border border-rule bg-surface p-1.5 shadow-dropdown">
                   {conversations.isLoading ? (
                     <div className="space-y-1.5 p-1.5">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-11 w-full" />)}</div>
                   ) : conversations.isError ? (
                     <div className="p-1.5"><ErrorState message="Couldn't load your chat history." retry={() => conversations.refetch()} /></div>
                   ) : conversations.data?.conversations.length ? conversations.data.conversations.map((c) => (
-                    <button key={c.id} onClick={() => openConversation(c.id)} className={cn("flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-slate-100 dark:hover:bg-slate-700", c.id === conversationId && "bg-slate-100 dark:bg-slate-700")}>
-                      <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
-                      <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-700 dark:text-slate-200">{c.title}</span><span className="text-xs text-slate-400">{timeAgo(c.createdAt)} · {c._count.messages} messages</span></span>
+                    <button key={c.id} onClick={() => openConversation(c.id)} className={cn("flex w-full items-start gap-2.5 rounded-lg px-3 py-2 text-left text-body transition-colors hover:bg-sunken", c.id === conversationId && "bg-sunken")}>
+                      <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
+                      <span className="min-w-0 flex-1"><span className="block truncate font-medium text-ink-soft">{c.title}</span><span className="text-body-sm text-ink-faint">{timeAgo(c.createdAt)} · {c._count.messages} messages</span></span>
                     </button>
-                  )) : <p className="px-3 py-4 text-center text-xs text-slate-400">No past conversations yet</p>}
+                  )) : <p className="px-3 py-4 text-center text-body-sm text-ink-faint">No past conversations yet</p>}
                 </div>
               </>
             )}
@@ -96,34 +96,34 @@ export default function AiChat() {
 
       <div className="flex-1 space-y-4 overflow-y-auto pb-4">
         {turns.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 p-6 dark:border-slate-700">
+          <div className="rounded-xl border border-dashed border-rule p-6">
             <SuggestedPrompts label="Try asking:" prompts={SUGGESTIONS} onPick={ask} />
           </div>
         )}
         {turns.map((t, i) => t.role === "user" ? (
           <div key={i} className="flex justify-end gap-2">
-            <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-brand-600 px-4 py-2 text-sm text-white">{t.text}</div>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700"><User className="h-4 w-4" /></div>
+            <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-accent px-4 py-2 text-body text-accent-fg">{t.text}</div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sunken"><User className="h-4 w-4" /></div>
           </div>
         ) : (
           <div key={i} className="flex gap-2">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4" /></div>
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent"><Sparkles className="h-4 w-4" /></div>
             <div className="max-w-[85%] space-y-3">
-              <div className="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm shadow-sm dark:bg-slate-900">
+              <div className="rounded-2xl rounded-tl-sm bg-surface px-4 py-3 text-body shadow-sm">
                 <p>{t.text}</p>
                 {t.result && t.result.confidence > 0 && <ConfidenceMeter value={t.result.confidence} className="mt-2.5" />}
               </div>
               {t.result?.metrics && t.result.metrics.length > 0 && !t.result.chart && (
-                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900"><div className="text-xs text-slate-500 dark:text-slate-400">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
+                <div className="flex flex-wrap gap-2">{t.result.metrics.map((m) => <div key={m.label} className="rounded-lg border border-rule bg-surface px-3 py-2"><div className="text-body-sm text-ink-faint">{m.label}</div><div className="font-semibold">{num(m.value)}</div></div>)}</div>
               )}
               {t.result?.chart && (
                 <Card><CardBody>{t.result.chart.type === "bar" ? <BarRankChart data={t.result.chart.data} /> : <TrendChart data={t.result.chart.data} />}</CardBody></Card>
               )}
               {t.result?.table && (
                 <Card><CardBody className="overflow-x-auto p-0">
-                  <table className="w-full text-sm">
-                    <thead className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-800 dark:bg-slate-800/50"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>
+                  <table className="w-full text-body">
+                    <thead className="border-b border-rule bg-sunken text-left"><tr>{t.result.table.columns.map((c) => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}</tr></thead>
+                    <tbody className="divide-y divide-rule-soft">{t.result.table.rows.map((row, ri) => <tr key={ri}>{row.map((cell, ci) => <td key={ci} className="px-3 py-1.5">{typeof cell === "number" ? num(cell) : String(cell)}</td>)}</tr>)}</tbody>
                   </table>
                 </CardBody></Card>
               )}
@@ -132,8 +132,8 @@ export default function AiChat() {
         ))}
         {loading && (
           <div className="flex gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-100 text-brand-600 dark:bg-brand-950"><Sparkles className="h-4 w-4 animate-pulse" /></div>
-            <div className="rounded-2xl bg-white px-4 py-3 shadow-sm dark:bg-slate-900"><AIThinking /></div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-accent"><Sparkles className="h-4 w-4 animate-pulse" /></div>
+            <div className="rounded-2xl bg-surface px-4 py-3 shadow-sm"><AIThinking /></div>
           </div>
         )}
         {!loading && turns.length > 0 && turns[turns.length - 1].role === "assistant" && turns[turns.length - 1].result && (
