@@ -36,22 +36,47 @@ export const CHART = {
 export const SERIES = ["#56b4e9", "#e69f00", "#009e73", "#d55e00", "#cc79a7", "#f0e442"];
 const BRAND = CHART.blue;
 
+/**
+ * Recharts writes most of its colours into SVG presentation attributes, which
+ * do not resolve `var(--token)`. So we resolve the tokens once per theme change
+ * and hand Recharts real rgb() strings — charts stay on the token layer instead
+ * of hard-coding a palette. See DESIGN.md.
+ */
+function readToken(name: string, alpha = 1): string {
+  if (typeof window === "undefined") return "rgb(0 0 0 / 0)";
+  const triple = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+  if (!triple) return "rgb(0 0 0 / 0)";
+  return alpha === 1 ? `rgb(${triple})` : `rgb(${triple} / ${alpha})`;
+}
+
 export function useAxis() {
   const { theme } = useTheme();
   const dark = theme === "dark";
-  return {
-    dark,
-    grid: dark ? "rgba(148,163,184,0.10)" : "#eef2f7",
-    tick: { fill: dark ? "#94a3b8" : "#64748b", fontSize: 11 },
-    tooltipStyle: {
-      borderRadius: 10, fontSize: 12,
-      border: `1px solid ${dark ? "rgba(255,255,255,0.08)" : "#e2e8f0"}`,
-      background: dark ? "rgba(15,23,42,0.92)" : "#fff",
-      color: dark ? "#e2e8f0" : "#0f172a",
-      boxShadow: dark ? "0 12px 30px -12px rgba(0,0,0,0.8)" : "0 4px 16px rgba(0,0,0,0.08)",
-      backdropFilter: "blur(6px)",
-    } as const,
-  };
+  // theme is the only input; recompute when it flips.
+  return useMemo(() => {
+    const ink = readToken("ink");
+    const inkFaint = readToken("ink-faint");
+    const surface = readToken("surface");
+    const rule = readToken("rule");
+    return {
+      dark,
+      grid: readToken("rule-soft"),
+      axisLine: rule,
+      tick: { fill: inkFaint, fontSize: 11 },
+      /** The crosshair rule the compare-tooltip hangs off. */
+      cursor: { stroke: readToken("ink-faint", 0.5), strokeWidth: 1, strokeDasharray: "3 3" },
+      tooltipStyle: {
+        borderRadius: 4,
+        fontSize: 12,
+        border: `1px solid ${rule}`,
+        background: surface,
+        color: ink,
+        boxShadow: dark
+          ? "0 4px 14px rgb(0 0 0 / 0.45)"
+          : "0 4px 14px rgb(22 24 28 / 0.10)",
+      } as const,
+    };
+  }, [dark]);
 }
 
 export const fmtK = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${v}`);
@@ -83,6 +108,132 @@ export function ShareTooltip({ total, active, payload }: { total: number; active
       <div className="font-medium">{label}</div>
       <div className="tabular-nums">{value.toLocaleString()}{pct == null ? "" : ` · ${pct}% of total`}</div>
     </div>
+  );
+}
+
+/**
+ * The compare tooltip: every series at the hovered point, plus the same point in
+ * the comparison period when the row carries one. Reading "this vs then" without
+ * moving the mouse is most of what makes a dense chart feel considered.
+ */
+export type CompareSeries = { key: string; name: string; color: string; format?: (v: number) => string };
+
+export function CompareTooltip({
+  series,
+  compareKeySuffix = "Prev",
+  compareLabel = "Prior period",
+  active,
+  payload,
+  label,
+}: {
+  series: CompareSeries[];
+  /** Row field holding the comparison value, e.g. `revenue` → `revenuePrev`. */
+  compareKeySuffix?: string;
+  compareLabel?: string;
+  active?: boolean;
+  payload?: { payload?: Record<string, number | string> }[];
+  label?: string | number;
+}) {
+  const { tooltipStyle } = useAxis();
+  const row = payload?.[0]?.payload;
+  if (!active || !row) return null;
+
+  const rows = series
+    .map((s) => {
+      const now = row[s.key];
+      if (typeof now !== "number") return null;
+      const then = row[`${s.key}${compareKeySuffix}`];
+      const fmt = s.format ?? ((v: number) => v.toLocaleString());
+      const delta = typeof then === "number" && then !== 0 ? ((now - then) / Math.abs(then)) * 100 : null;
+      return { ...s, now: fmt(now), then: typeof then === "number" ? fmt(then) : null, delta };
+    })
+    .filter(Boolean) as { name: string; color: string; now: string; then: string | null; delta: number | null }[];
+
+  if (!rows.length) return null;
+  const hasCompare = rows.some((r) => r.then !== null);
+
+  return (
+    <div style={{ ...tooltipStyle, padding: 0, minWidth: 168 }}>
+      <div className="border-b border-rule-soft px-3 py-1.5 text-label uppercase text-ink-faint">{label}</div>
+      <div className="divide-y divide-rule-soft">
+        {rows.map((r) => (
+          <div key={r.name} className="px-3 py-2">
+            <div className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-1.5 text-body-sm text-ink-soft">
+                <span className="h-2 w-2 rounded-full" style={{ background: r.color }} />
+                {r.name}
+              </span>
+              <span className="font-mono text-data text-ink">{r.now}</span>
+            </div>
+            {r.then !== null && (
+              <div className="mt-0.5 flex items-center justify-between gap-4 pl-3.5">
+                <span className="text-body-sm text-ink-faint">{compareLabel}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="font-mono text-body-sm text-ink-faint">{r.then}</span>
+                  {r.delta !== null && (
+                    <span className={cn("font-mono text-body-sm", r.delta >= 0 ? "text-pos" : "text-neg")}>
+                      {r.delta >= 0 ? "+" : ""}{r.delta.toFixed(1)}%
+                    </span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      {!hasCompare && null}
+    </div>
+  );
+}
+
+/**
+ * Dot · label · value rows, sat beside a donut. A composition chart on its own
+ * makes you estimate; the legend states the number.
+ */
+export function MetricLegend({
+  data,
+  colors = SERIES,
+  format = (v: number) => v.toLocaleString(),
+  onSelect,
+}: {
+  data: { label: string; value: number }[];
+  colors?: string[];
+  format?: (v: number) => string;
+  onSelect?: (label: string) => void;
+}) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  return (
+    <ul className="divide-y divide-rule-soft">
+      {data.map((d, i) => {
+        const pct = total ? (d.value / total) * 100 : 0;
+        const Row = (
+          <>
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colors[i % colors.length] }} />
+              <span className="truncate text-body text-ink-soft">{d.label}</span>
+            </span>
+            <span className="flex shrink-0 items-baseline gap-2">
+              <span className="font-mono text-data text-ink">{format(d.value)}</span>
+              <span className="w-10 text-right font-mono text-body-sm text-ink-faint">{pct.toFixed(0)}%</span>
+            </span>
+          </>
+        );
+        return (
+          <li key={d.label}>
+            {onSelect ? (
+              <button
+                onClick={() => onSelect(d.label)}
+                className="flex w-full items-center justify-between gap-3 py-2 text-left transition-colors hover:bg-sunken"
+              >
+                {Row}
+              </button>
+            ) : (
+              <div className="flex items-center justify-between gap-3 py-2">{Row}</div>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

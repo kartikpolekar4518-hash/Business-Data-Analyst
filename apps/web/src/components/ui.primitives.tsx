@@ -166,6 +166,73 @@ export const Badge = ({
 );
 
 // ─────────────────────────────────────────────
+// IdentityCell — who a row is about
+// ─────────────────────────────────────────────
+/**
+ * Name + sub-label with a monogram in front. A ranked list of bare strings
+ * reads as data; the same list with an identity in front reads as a list of
+ * people or accounts you could act on. Monograms, not photographs — an audit
+ * tool has no business shipping avatar images it cannot vouch for.
+ */
+const MONOGRAM_SIZES = {
+  sm: "h-6 w-6 text-[0.625rem]",
+  md: "h-8 w-8 text-body-sm",
+} as const;
+
+export function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export const Monogram = ({
+  name,
+  size = "md",
+  className,
+}: {
+  name: string;
+  size?: keyof typeof MONOGRAM_SIZES;
+  className?: string;
+}) => (
+  <span
+    aria-hidden="true"
+    className={cn(
+      "flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold uppercase text-accent",
+      MONOGRAM_SIZES[size],
+      className,
+    )}
+  >
+    {initialsOf(name)}
+  </span>
+);
+
+export const IdentityCell = ({
+  name,
+  sub,
+  size = "md",
+  leading,
+  className,
+}: {
+  name: string;
+  sub?: ReactNode;
+  size?: keyof typeof MONOGRAM_SIZES;
+  /** Replaces the monogram — e.g. a rank number or a category icon. */
+  leading?: ReactNode;
+  className?: string;
+}) => (
+  <span className={cn("flex min-w-0 items-center gap-2.5", className)}>
+    {leading ?? <Monogram name={name} size={size} />}
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate text-body font-medium text-ink">{name}</span>
+      {sub != null && sub !== "" && (
+        <span className="truncate text-body-sm text-ink-faint">{sub}</span>
+      )}
+    </span>
+  </span>
+);
+
+// ─────────────────────────────────────────────
 // Feedback states
 // ─────────────────────────────────────────────
 export const Spinner = ({ label }: { label?: string }) => (

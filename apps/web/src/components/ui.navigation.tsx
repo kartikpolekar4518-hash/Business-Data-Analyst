@@ -51,6 +51,99 @@ export const Tabs = ({
 );
 
 // ─────────────────────────────────────────────
+// SegmentedControl / RangePills
+// ─────────────────────────────────────────────
+/**
+ * A pill-shaped sibling of Tabs: same `layoutId` glide, but the marker is a
+ * filled chip rather than an underline. Use it for a small, mutually exclusive
+ * switch that sits *inside* a card — a time range, or a series toggle — where a
+ * full tab bar would out-shout the chart it belongs to.
+ */
+export const SegmentedControl = <T extends string>({
+  options,
+  value,
+  onChange,
+  layoutId = "segmented-marker",
+  size = "md",
+  ariaLabel,
+  className,
+}: {
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (id: T) => void;
+  layoutId?: string;
+  size?: "sm" | "md";
+  ariaLabel?: string;
+  className?: string;
+}) => (
+  <div
+    role="group"
+    aria-label={ariaLabel}
+    className={cn("inline-flex gap-0.5 rounded-lg border border-rule bg-sunken p-0.5", className)}
+  >
+    {options.map((o) => {
+      const on = value === o.id;
+      return (
+        <button
+          key={o.id}
+          type="button"
+          aria-pressed={on}
+          onClick={() => onChange(o.id)}
+          className={cn(
+            "relative rounded-md font-medium transition-colors",
+            size === "sm" ? "px-2 py-0.5 text-body-sm" : "px-2.5 py-1 text-body-sm",
+            on ? "text-ink" : "text-ink-faint hover:text-ink-soft",
+          )}
+        >
+          {on && (
+            <motion.span
+              layoutId={layoutId}
+              className="absolute inset-0 rounded-md bg-surface shadow-card"
+              transition={SPRING}
+            />
+          )}
+          <span className="relative">{o.label}</span>
+        </button>
+      );
+    })}
+  </div>
+);
+
+export const RANGES = [
+  { id: "1D", label: "1D" },
+  { id: "1W", label: "1W" },
+  { id: "1M", label: "1M" },
+  { id: "6M", label: "6M" },
+  { id: "1Y", label: "1Y" },
+] as const;
+export type RangeId = (typeof RANGES)[number]["id"];
+
+/** The chart time-range switch. Thin wrapper so every chart offers the same set. */
+export const RangePills = ({
+  value,
+  onChange,
+  options = RANGES,
+  layoutId = "range-marker",
+  className,
+}: {
+  value: RangeId;
+  onChange: (id: RangeId) => void;
+  options?: readonly { id: RangeId; label: string }[];
+  layoutId?: string;
+  className?: string;
+}) => (
+  <SegmentedControl
+    options={[...options]}
+    value={value}
+    onChange={onChange}
+    layoutId={layoutId}
+    size="sm"
+    ariaLabel="Time range"
+    className={className}
+  />
+);
+
+// ─────────────────────────────────────────────
 // Dropdown — trigger + menu, closes on outside click / escape
 // ─────────────────────────────────────────────
 export const Dropdown = ({

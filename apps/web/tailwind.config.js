@@ -49,9 +49,9 @@ export default {
           fg: token("accent-fg"),
           soft: token("accent-soft"),
         },
-        pos: token("pos"),
-        neg: token("neg"),
-        warn: token("warn"),
+        pos: { DEFAULT: token("pos"), soft: token("pos-soft") },
+        neg: { DEFAULT: token("neg"), soft: token("neg-soft") },
+        warn: { DEFAULT: token("warn"), soft: token("warn-soft") },
       },
 
       fontFamily: {

@@ -19,6 +19,7 @@ export function KpiCard({
   metricKey,
   explainQuery,
   variant = "card",
+  reason,
 }: {
   label: string;
   value: number;
@@ -34,12 +35,20 @@ export function KpiCard({
   explainQuery?: string;
   // "strip" is the supporting-role treatment: cells of one ruled band rather than
   // a row of competing cards, for pages where something else is the headline.
-  variant?: "card" | "strip";
+  // "hero" is the opposite end: this tile IS the page's primary answer.
+  variant?: "card" | "strip" | "hero";
+  /**
+   * The one-line "why" under a hero figure — "Driven mainly by Paid traffic
+   * +18%". Subordinate to the number in weight and colour, but always visible;
+   * never hidden behind a hover. Hero variant only.
+   */
+  reason?: string;
 }) {
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
   const strip = variant === "strip";
+  const hero = variant === "hero";
 
   return (
     <div
@@ -48,9 +57,9 @@ export function KpiCard({
         // down its edge, not by lifting, glowing or washing colour behind the
         // number it is supposed to be showing.
         "group relative transition-colors duration-100",
-        strip
-          ? "px-4 py-3 text-ink-faint first:pl-0 last:pr-0"
-          : "rounded-xl border border-rule bg-surface p-4",
+        strip && "px-4 py-3 text-ink-faint first:pl-0 last:pr-0",
+        hero && "rounded-xl border border-rule bg-surface p-5",
+        !strip && !hero && "rounded-xl border border-rule bg-surface p-4",
         !strip && accent && "border-l-2 border-l-accent",
       )}
     >
@@ -66,7 +75,14 @@ export function KpiCard({
       </div>
 
       {/* Value */}
-      <div className={cn("tabular-nums text-ink", strip ? "mt-1 text-data" : "mt-2.5 text-data-lg")}>
+      <div
+        className={cn(
+          "tabular-nums text-ink",
+          strip && "mt-1 text-data",
+          hero && "mt-3 text-display",
+          !strip && !hero && "mt-2.5 text-data-lg",
+        )}
+      >
         <AnimatedNumber value={value} format={format} />
       </div>
 
@@ -96,6 +112,14 @@ export function KpiCard({
           </div>
         )}
       </div>
+
+      {/* The "why" line — hero only. It explains the number above it, so it sits
+          below the delta, quieter than both, and is never truncated away. */}
+      {hero && reason && (
+        <p className="mt-3 border-t border-rule-soft pt-2.5 text-body-sm text-ink-soft">
+          {reason}
+        </p>
+      )}
 
       {/* Tooltip */}
       {tooltip && (

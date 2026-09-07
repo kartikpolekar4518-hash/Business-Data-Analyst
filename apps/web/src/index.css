@@ -34,6 +34,12 @@
   --neg:         163 38 28;
   --warn:        160 107 4;
 
+  /* Soft tints of the semantic trio — the only fill allowed behind an
+     up/down/flagged message. Never used decoratively. */
+  --pos-soft:    228 238 230;
+  --neg-soft:    247 229 227;
+  --warn-soft:   247 238 220;
+
   --shadow:      22 24 28;
 }
 
@@ -59,6 +65,10 @@
   --pos:         121 190 141;
   --neg:         228 121 108;
   --warn:        220 169 74;
+
+  --pos-soft:    28 46 34;
+  --neg-soft:    56 30 27;
+  --warn-soft:   54 43 20;
 
   --shadow:      0 0 0;
 }
