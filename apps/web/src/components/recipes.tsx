@@ -53,7 +53,7 @@ export function CleaningRecipesSection() {
     <Card>
       <CardHeader
         title="Cleaning recipes"
-        subtitle="The tidy-up steps you applied once, saved so the same file next month is fixed the same way."
+        subtitle="The tidy-up steps you applied once, saved so the same file next month is fixed way."
       />
       <CardBody className="space-y-3">
         {isError ? <ErrorState message="Couldn't load your recipes." retry={() => refetch()} />
@@ -65,7 +65,7 @@ export function CleaningRecipesSection() {
               description="Open a dataset, tick the fixes you want on its Quality Report, apply them, and save them as a recipe."
             />
           ) : data.recipes.map((r) => (
-            <div key={r.id} className="rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+            <div key={r.id} className="rounded-lg border border-rule-soft p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
@@ -73,7 +73,7 @@ export function CleaningRecipesSection() {
                     <Badge>{r.steps.length} step{r.steps.length === 1 ? "" : "s"}</Badge>
                     {r.autoApply && <Badge tone="green">Applied to new data</Badge>}
                   </div>
-                  <ul className="mt-1 list-inside list-disc text-sm text-slate-500 dark:text-slate-400">
+                  <ul className="mt-1 list-inside list-disc text-body text-ink-faint">
                     {r.description.map((d, i) => <li key={i}>{d}</li>)}
                   </ul>
                 </div>
@@ -93,7 +93,7 @@ export function CleaningRecipesSection() {
               </div>
             </div>
           ))}
-        <p className="text-xs text-slate-400">
+        <p className="text-body-sm text-ink-faint">
           Only one recipe can be used on new data at a time — turning one on turns the others off.
           It runs on every new upload, sample and connector sync, before any chart is drawn.
         </p>

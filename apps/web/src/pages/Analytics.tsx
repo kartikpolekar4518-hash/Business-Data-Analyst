@@ -3,9 +3,10 @@ import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { api } from "../lib/api";
-import { num } from "../lib/utils";
+import { num, share } from "../lib/utils";
 import { kpiIcon } from "../lib/kpi";
-import { Card, CardHeader, CardBody, Button, Spinner, EmptyState, Label, useToast } from "../components/ui";
+import { Card, CardHeader, CardBody, Button, Skeleton, EmptyState, NoResults, Label, useToast } from "../components/ui";
+import { PageLayout } from "../components/PageLayout";
 import { DataTable, type Column } from "../components/DataTable";
 import { RelativeDateSelect, MultiSelect, FilterChips, SavedViews, CompareSelect, ComparisonNote, type Chip } from "../components/filters";
 import { TrendChart, BarRankChart } from "../components/charts";
@@ -34,20 +35,20 @@ function Trail({ label, crumbs, onNavigate }: {
   onNavigate: (index: number) => void;
 }) {
   return (
-    <nav aria-label={`${label} drill-down`} className="flex flex-wrap items-center gap-1 text-sm">
-      <span className="mr-1 text-xs font-medium uppercase tracking-wide text-slate-400">{label}</span>
+    <nav aria-label={`${label} drill-down`} className="flex flex-wrap items-center gap-1 text-body">
+      <span className="label mr-1 text-ink-faint">{label}</span>
       {crumbs.map((crumb, i) => {
         const last = i === crumbs.length - 1;
         return (
           <span key={crumb.id} className="flex items-center gap-1">
-            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-300 dark:text-slate-600" />}
+            {i > 0 && <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint" />}
             {last ? (
-              <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-slate-900 dark:text-white">{crumb.text}</span>
+              <span aria-current="page" className="rounded px-1.5 py-0.5 font-medium text-ink">{crumb.text}</span>
             ) : (
               <button
                 type="button"
                 onClick={() => onNavigate(i)}
-                className="rounded px-1.5 py-0.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-white"
+                className="rounded px-1.5 py-0.5 text-ink-soft transition hover:bg-sunken hover:text-ink"
               >
                 {crumb.text}
               </button>
@@ -186,10 +187,10 @@ export default function Analytics() {
 
   const chips: Chip[] = [];
   if (query.dateFrom || query.dateTo)
-    chips.push({ id: "date", label: <><span className="text-slate-400">Date:</span> {query.dateFrom || "…"} → {query.dateTo || "…"}</>, onRemove: () => setDates(undefined, undefined) });
+    chips.push({ id: "date", label: <><span className="text-ink-faint">Date:</span> {query.dateFrom || "…"} → {query.dateTo || "…"}</>, onRemove: () => setDates(undefined, undefined) });
   FILTERS.forEach((f) =>
     params.getAll(f.key).forEach((v) =>
-      chips.push({ id: `${f.key}:${v}`, label: <><span className="text-slate-400">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.key, v) }),
+      chips.push({ id: `${f.key}:${v}`, label: <><span className="text-ink-faint">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.key, v) }),
     ),
   );
 
@@ -221,26 +222,64 @@ export default function Analytics() {
   if (ov.isError) return <EmptyState icon={BarChart3} title="No data to analyze" description="Upload a dataset first." />;
   const opts = ov.data?.filterOptions ?? {};
 
+  // The drill bar is the page's one sticky element — so it must not be an
+  // empty ruled strip pinned over the charts when nothing has been drilled yet.
+  const hasDrill =
+    hierarchies.some((h) => drillPath(h, params).length > 0) ||
+    (ov.data?.trend.path?.length ?? 0) >= 2;
+
+  const heroKpi = ov.data?.kpis[0];
+  const restKpis = ov.data?.kpis.slice(1, 4) ?? [];
+
+  // Same rule as the dashboard: the "why" is derived from rows already drawn on
+  // this page, under the same filters, so the explanation cannot disagree with
+  // the evidence. Dropped when there is nothing honest to say.
+  const heroReason = (() => {
+    const rows = ov.data?.ranking.data;
+    if (!rows?.length) return undefined;
+    const total = rows.reduce((sum, r) => sum + r.value, 0);
+    const top = rows[0];
+    if (!total || top.value <= 0) return undefined;
+    return `Led by ${top.label} — ${share((top.value / total) * 100)} of the ${ov.data!.ranking.title.toLowerCase()} total under these filters.`;
+  })();
+
+  /* ─── Rail ───
+     Drivers, segments and correlations explain the numbers in the main column.
+     They are commentary on the answer, so they sit beside it. */
+  const rail = ov.data ? (
+    <>
+      <DriverBreakdown datasetId={ov.data.datasetId} filters={qs} />
+      <SegmentTiers datasetId={ov.data.datasetId} filters={qs} />
+      <CorrelationList datasetId={ov.data.datasetId} filters={qs} />
+    </>
+  ) : undefined;
+
   return (
-    <div className="space-y-6">
+    <PageLayout aside={rail} asideWidth="wide">
+      <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h1 className="text-2xl font-bold">Analytics</h1><p className="text-sm text-slate-500 dark:text-slate-400">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p></div>
+        <div>
+          <h1 className="page-title">Analytics</h1>
+          <p className="page-subtitle">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p>
+        </div>
         <Button variant="outline" onClick={exportCsv} disabled={!table.data}><Download className="h-4 w-4" />Export CSV</Button>
       </div>
 
-      {/* Filters */}
+      {/* ─── Filters ───
+          The input that defines every number below, so it stays above them
+          rather than hiding in the rail. */}
       <Card><CardBody className="space-y-4">
         <div className="flex flex-wrap items-end gap-3">
           <RelativeDateSelect onSelect={(r) => setDates(r.from, r.to)} />
           <div>
             <Label htmlFor="f-from">From</Label>
             <input id="f-from" type="date" value={query.dateFrom ?? ""} onChange={(e) => setField("dateFrom", e.target.value)}
-              className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
+              className="h-10 rounded-lg border border-rule bg-surface px-3 text-body text-ink outline-none focus:border-accent" />
           </div>
           <div>
             <Label htmlFor="f-to">To</Label>
             <input id="f-to" type="date" value={query.dateTo ?? ""} onChange={(e) => setField("dateTo", e.target.value)}
-              className="h-10 rounded-lg border border-border bg-white px-3 text-sm outline-none focus:border-brand-500 dark:border-white/10 dark:bg-slate-900/60 dark:text-slate-100" />
+              className="h-10 rounded-lg border border-rule bg-surface px-3 text-body text-ink outline-none focus:border-accent" />
           </div>
           <CompareSelect value={compare} onChange={setCompare} />
           <div className="ml-auto">
@@ -258,37 +297,104 @@ export default function Analytics() {
         <FilterChips chips={chips} onClearAll={clear} />
       </CardBody></Card>
 
-      {/* KPIs (driven by the industry pack) */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {!ov.data ? Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />)
-          : ov.data.kpis.slice(0, 4).map((k) => (
-              <KpiCard key={k.key} label={k.label} value={k.value} format={k.format} changePct={k.changePct} icon={kpiIcon(k.icon)} tooltip={k.tooltip} metricKey={k.key} explainQuery={qs ? `&${qs}` : ""} explain />
-            ))}
-      </div>
+      {/* ══ PRIMARY ANSWER ══
+          What these filters add up to. One figure leads; the rest support. */}
+      {!ov.data ? (
+        <div className="space-y-4">
+          <Skeleton className="h-40 w-full rounded-xl" />
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {heroKpi && (
+            <KpiCard
+              variant="hero"
+              accent
+              label={heroKpi.label}
+              value={heroKpi.value}
+              format={heroKpi.format}
+              changePct={heroKpi.changePct}
+              icon={kpiIcon(heroKpi.icon)}
+              spark={heroKpi.spark && heroKpi.spark.length > 1 ? heroKpi.spark : undefined}
+              tooltip={heroKpi.tooltip}
+              metricKey={heroKpi.key}
+              explainQuery={qs ? `&${qs}` : ""}
+              reason={heroReason}
+              explain
+            />
+          )}
+          {restKpis.length > 0 && (
+            <div className="grid grid-cols-2 divide-y divide-rule-soft border-y border-rule md:grid-cols-3 md:divide-y-0 md:divide-x">
+              {restKpis.map((k) => (
+                <KpiCard
+                  key={k.key}
+                  variant="strip"
+                  label={k.label}
+                  value={k.value}
+                  format={k.format}
+                  changePct={k.changePct}
+                  icon={kpiIcon(k.icon)}
+                  spark={k.spark && k.spark.length > 1 ? k.spark : undefined}
+                  tooltip={k.tooltip}
+                  metricKey={k.key}
+                  explainQuery={qs ? `&${qs}` : ""}
+                  explain
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       <ComparisonNote info={ov.data?.comparison} />
 
-      {/* Charts — a bar click drills one level down its hierarchy */}
-      <div className="flex flex-col gap-1.5">
-        <DrillBreadcrumb hierarchies={hierarchies} params={params} onNavigate={navigateUp} />
-        <DateBreadcrumb path={ov.data?.trend.path ?? []} onNavigate={(crumb) => setDates(crumb.from, crumb.to)} />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card><CardHeader title={ov.data?.trend.title ?? "Revenue trend"} /><CardBody>{ov.data ? <TrendChart data={ov.data.trend.revenue} onSelect={drillTrend} /> : <Spinner />}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.composition.title ?? "Composition"} /><CardBody>{ov.data?.composition.data.length ? <BarRankChart data={ov.data.composition.data} onSelect={drillHandler(ov.data.composition.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">No category data</p>}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.ranking.title ?? "Top"} /><CardBody>{ov.data?.ranking.data.length ? <BarRankChart data={ov.data.ranking.data} onSelect={drillHandler(ov.data.ranking.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.ranking.emptyText ?? "No data"}</p>}</CardBody></Card>
-        <Card><CardHeader title={ov.data?.secondary.title ?? "Breakdown"} /><CardBody>{ov.data?.secondary.data.length ? <BarRankChart data={ov.data.secondary.data} onSelect={drillHandler(ov.data.secondary.dimension)} /> : <p className="py-8 text-center text-sm text-slate-400">{ov.data?.secondary.emptyText ?? "No data"}</p>}</CardBody></Card>
-      </div>
-
-      {/* Advanced analytics: drivers, segments, correlations */}
-      {ov.data && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <DriverBreakdown datasetId={ov.data.datasetId} filters={qs} />
-          <SegmentTiers datasetId={ov.data.datasetId} filters={qs} />
-          <CorrelationList datasetId={ov.data.datasetId} filters={qs} className="lg:col-span-2" />
+      {/* ══ EVIDENCE ══
+          Where you are in the drill is the one thing worth keeping on screen
+          while you scroll the charts — so it is the page's only sticky element.
+          A bar click drills one level down its hierarchy. */}
+      {hasDrill && (
+        <div className="sticky top-0 z-20 -mx-1 flex flex-col gap-1.5 border-b border-rule bg-canvas px-1 py-2">
+          <DrillBreadcrumb hierarchies={hierarchies} params={params} onNavigate={navigateUp} />
+          <DateBreadcrumb path={ov.data?.trend.path ?? []} onNavigate={(crumb) => setDates(crumb.from, crumb.to)} />
         </div>
       )}
 
-      {/* Data table */}
+      <Card>
+        <CardHeader title={ov.data?.trend.title ?? "Revenue trend"} subtitle="Click a point to drill into that period" />
+        <CardBody>
+          {ov.data
+            ? <TrendChart data={ov.data.trend.revenue} onSelect={drillTrend} name={ov.data.trend.title} height={300} />
+            : <Skeleton className="h-72 w-full" />}
+        </CardBody>
+      </Card>
+
+      {/* One per row: beside a wide rail, a two-up grid squeezes every category
+          label on the y-axis into an ellipsis. */}
+      <div className="grid gap-4">
+        {([
+          ["composition", ov.data?.composition, "No category data"],
+          ["ranking", ov.data?.ranking, ov.data?.ranking.emptyText],
+          ["secondary", ov.data?.secondary, ov.data?.secondary.emptyText],
+        ] as const).map(([key, section, emptyText]) => (
+          <Card key={key}>
+            <CardHeader title={section?.title ?? "Breakdown"} subtitle={section?.subtitle} />
+            <CardBody>
+              {!ov.data ? (
+                <Skeleton className="h-56 w-full" />
+              ) : section && section.data.length ? (
+                <BarRankChart data={section.data} onSelect={drillHandler(section.dimension)} />
+              ) : chips.length ? (
+                <NoResults onClear={clear} compact />
+              ) : (
+                <EmptyState icon={BarChart3} title={emptyText ?? "No data"} compact />
+              )}
+            </CardBody>
+          </Card>
+        ))}
+      </div>
+
+      {/* ══ THE ROWS BEHIND IT ══ */}
       <DataTable
         title="Filtered rows"
         subtitle={table.data ? `${num(table.data.rows.length)} loaded of ${num(table.data.total)} rows — sort, search and page through them here; CSV export includes up to 500` : undefined}
@@ -303,6 +409,7 @@ export default function Analytics() {
         pageSize={25}
         stickyHeader
       />
-    </div>
+      </div>
+    </PageLayout>
   );
 }

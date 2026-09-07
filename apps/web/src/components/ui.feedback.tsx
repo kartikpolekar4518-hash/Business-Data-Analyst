@@ -3,33 +3,96 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { cn } from "../lib/utils";
 import { DUR, EASE, SPRING } from "../lib/motion";
-import { X, AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { X, AlertCircle, CheckCircle2, Info, SearchX, LineChart } from "lucide-react";
 
 export const EmptyState = ({
   icon: Icon,
   title,
   description,
   action,
+  compact = false,
 }: {
   icon: ComponentType<{ className?: string }>;
   title: string;
   description?: string;
   action?: ReactNode;
+  /** Rail sections and in-card slots get the tighter box. */
+  compact?: boolean;
 }) => (
-  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-rule py-14 text-center">
-    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sunken">
-      <Icon className="h-6 w-6 text-ink-faint" />
+  <div
+    className={cn(
+      "flex flex-col items-center justify-center rounded-xl border border-dashed border-rule text-center",
+      compact ? "px-4 py-8" : "py-14",
+    )}
+  >
+    <div
+      className={cn(
+        "flex items-center justify-center rounded-xl bg-sunken",
+        compact ? "h-9 w-9" : "h-12 w-12",
+      )}
+    >
+      <Icon className={cn("text-ink-faint", compact ? "h-4 w-4" : "h-6 w-6")} />
     </div>
-    <h3 className="mt-4 text-[15px] font-semibold text-ink">
+    <h3 className={cn("font-semibold text-ink", compact ? "mt-3 text-body" : "mt-4 text-heading-3")}>
       {title}
     </h3>
     {description && (
-      <p className="mt-1 max-w-sm text-[13px] text-ink-faint">
+      <p className="mt-1 max-w-sm text-body-sm text-ink-faint">
         {description}
       </p>
     )}
-    {action && <div className="mt-5">{action}</div>}
+    {action && <div className={compact ? "mt-3" : "mt-5"}>{action}</div>}
   </div>
+);
+
+/**
+ * Filtered-to-nothing is not the same as having nothing — the fix is to widen
+ * the filter, not to go and load data. See DESIGN.md, "States".
+ */
+export const NoResults = ({
+  query,
+  onClear,
+  compact = false,
+}: {
+  query?: string;
+  onClear?: () => void;
+  compact?: boolean;
+}) => (
+  <EmptyState
+    icon={SearchX}
+    title="Nothing matches those filters"
+    description={query ? `No rows for “${query}”. Try a wider range or fewer filters.` : "Try a wider date range or fewer filters."}
+    compact={compact}
+    action={
+      onClear && (
+        <button
+          onClick={onClear}
+          className="text-body-sm font-medium text-accent underline-offset-2 hover:underline"
+        >
+          Clear filters
+        </button>
+      )
+    }
+  />
+);
+
+/**
+ * A trend needs at least two points, a share needs a non-zero total. Saying so
+ * is more honest than drawing an empty axis.
+ */
+export const InsufficientData = ({
+  need = "at least two periods of data",
+  compact = true,
+}: {
+  need?: string;
+  compact?: boolean;
+}) => (
+  <EmptyState
+    icon={LineChart}
+    title="Not enough data yet"
+    description={`This view needs ${need} before it can show a number worth trusting.`}
+    compact={compact}
+  />
 );
 
 export const ErrorState = ({
@@ -39,7 +102,7 @@ export const ErrorState = ({
   message: string;
   retry?: () => void;
 }) => (
-  <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-body text-neg">
+  <div className="flex items-center gap-3 rounded-lg border border-neg/30 bg-neg-soft px-4 py-3 text-body text-neg">
     <AlertCircle className="h-4 w-4 shrink-0" />
     <span className="flex-1">{message}</span>
     {retry && (
@@ -140,7 +203,7 @@ export const Modal = ({
             transition={{ duration: DUR.base, ease: EASE }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-ink">
+              <h3 className="text-heading-3 text-ink">
                 {title}
               </h3>
               <button
@@ -222,7 +285,7 @@ function ToastItem({ toast, onDismiss }: { toast: ToastRecord; onDismiss: (id: n
         className={cn(
           "h-4 w-4 shrink-0",
           toast.tone === "success" && "text-emerald-500",
-          toast.tone === "error" && "text-red-500",
+          toast.tone === "error" && "text-neg",
           toast.tone === "info" && "text-accent",
         )}
       />
@@ -357,7 +420,7 @@ export const Tooltip = ({
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: DUR.fast, ease: EASE }}
                 style={{ position: "fixed", left: coords?.left ?? -9999, top: coords?.top ?? -9999 }}
-                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg bg-slate-900 px-2.5 py-1.5 text-body-sm font-medium text-white shadow-dropdown"
+                className="pointer-events-none z-[80] w-max max-w-xs rounded-lg border border-rule bg-ink px-2.5 py-1.5 text-body-sm font-medium text-canvas shadow-dropdown"
               >
                 {content}
               </motion.span>

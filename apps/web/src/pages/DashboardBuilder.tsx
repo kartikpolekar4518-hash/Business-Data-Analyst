@@ -65,7 +65,7 @@ export default function DashboardBuilder() {
     if (!ov.data) return <Skeleton className="h-40 w-full" />;
     const visual = VISUALS_BY_ID.get(item.type);
     // A layout saved before a visual was renamed or removed, rather than a broken widget.
-    if (!visual?.builder) return <p className="py-6 text-center text-sm text-slate-400">This widget is no longer available.</p>;
+    if (!visual?.builder) return <p className="py-6 text-center text-body text-ink-faint">This widget is no longer available.</p>;
 
     const ctx: BuilderContext = {
       overview: ov.data,
@@ -75,14 +75,14 @@ export default function DashboardBuilder() {
       filters,
       setFilter: (key, values) => setFilters((prev) => ({ ...prev, [key]: values })),
     };
-    return visual.builder.render(ctx) ?? <p className="py-6 text-center text-sm text-slate-400">No data for this visual yet.</p>;
+    return visual.builder.render(ctx) ?? <p className="py-6 text-center text-body text-ink-faint">No data for this visual yet.</p>;
   };
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Dashboard builder</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="text-heading-1 font-bold">Dashboard builder</h1>
+        <p className="text-body text-ink-faint">
           Compose your own view — drag to reorder, resize, duplicate, or remove widgets. Add a slicer to filter every
           widget at once. Your layout is saved automatically.
         </p>

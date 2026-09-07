@@ -96,3 +96,156 @@ honoured globally.
 Instruments, not magic. Rules, checks, ledger marks, arrows. No `Sparkles`, no
 `BrainCircuit` — the copy says "readable rules, no black box" and the icons must
 not say "oracle".
+
+## Layout
+
+Established by the dashboard rebuild. Every screen follows it; a screen that
+cannot be expressed in it is a screen with too much on it.
+
+### Reading order
+
+**Primary answer → evidence → explanation → secondary context / controls.**
+
+- **Primary answer** — the one thing the screen exists to say. One per screen:
+  a `text-display` sentence, a hero metric, or both. Nothing above it, nothing
+  the same size as it.
+- **Evidence** — the chart or table that proves the answer.
+- **Explanation** — drivers, anomalies, citations. Why the number moved.
+- **Secondary context / controls** — everything else. Usually the rail.
+
+A block that does not fit one of those four does not belong on the screen.
+
+### The hero metric
+
+`<KpiCard variant="hero">` is the primary answer, not a larger KPI card. It
+gets the `text-display` figure, the delta, and a one-line `reason` under a
+hairline rule — "Led by Aero Laptop 16 at $623.4K — 34% of the top products
+total". The reason is subordinate to the figure in size and colour but always
+visible: never behind a hover, never truncated. It must be derived from data
+already on the page, so the explanation and the evidence cannot disagree.
+
+Supporting figures go in the `strip` band underneath. They do not compete.
+
+### The right rail
+
+`<PageLayout aside={…}>`. **Contextual, never mandatory.** A screen gets a rail
+only when secondary information, commentary, activity or controls materially
+change what you do about the primary answer. Alerts beside a revenue headline
+qualify. Omit `aside` and the page is a plain single column.
+
+Where it landed, and why:
+
+| Screen | Rail | Reason |
+| --- | --- | --- |
+| Dashboard | alerts, uploads, reports | they change what you do about the headline |
+| Analytics | drivers, tiers, correlations | commentary on the filtered total |
+| Data | upload, connectors, sources | controls over the list that leads the page |
+| Reports | template picker, schedules | controls over the list |
+| Forecasts | generator, what-if levers | controls over the projection |
+| Alerts | anomalies, alert rules | they produce the list |
+| Dataset detail | the dataset's facts | qualifies every tab without duplicating them |
+| **Alerts list, Settings, Auth, Landing, AI chat** | **none** | nothing there is commentary on anything else |
+
+AI chat is the instructive exclusion: the conversation is the whole screen and
+citations already sit inline with the message they support. A rail there would
+be the rule applied without the reason behind it.
+
+Rail content is `RailSection` + `ActivityRow`: one line per item, scannable.
+A rail earns its column by being scannable, not by being another stack of cards.
+
+**Container width is not viewport width.** Tailwind breakpoints (`sm:`, `lg:`)
+fire on the viewport, so a `sm:grid-cols-3` inside a rail splits into three
+columns on a wide screen and wraps its prose to two words per line. Inside a
+rail, use a list.
+
+A screen with no rail and no wide content is held to a reading measure
+(`max-w-4xl`), not stretched to the window.
+
+### Responsive
+
+The rail yields; the primary content never compresses.
+
+| Width | Shape |
+| --- | --- |
+| `≥ 1280px` | main + rail side by side, rail sticky |
+| `768–1279px` | rail stacks **below** main, two-up |
+| `< 768px` | single column; long rail sections collapse |
+
+### Sticky
+
+**One sticky element per screen**, and it is the most useful contextual one —
+usually a drill breadcrumb or a range control. Never stack competing sticky
+headers, rails, breadcrumbs and toolbars.
+
+## Charts, interaction
+
+The standard for any chart that is a screen's evidence:
+
+- **Crosshair** — `cursor` from `useAxis()`. A dashed rule and a dot at the
+  hovered point.
+- **`CompareTooltip`** — every series at that point, plus the same point in the
+  comparison period, with the delta in `pos`/`neg`. Reading "this vs then"
+  without moving the mouse is most of what makes a dense chart feel considered.
+- **Range control** — `SegmentedControl` / `RangePills`, inside the card.
+  Name the window after what a bucket actually is. The trend grain is whatever
+  the engine chose, so calendar pills ("1D / 1W / 1M") would be a lie; count
+  buckets instead.
+- A composition chart pairs with `MetricLegend` and turns its own legend off.
+  Two legends is one too many.
+
+Charts read their colours through `useAxis()`, which resolves the tokens at
+runtime — Recharts writes colours into SVG presentation attributes, which do
+not resolve `var(--token)`, so nothing may hard-code a palette hex.
+
+### Inverted regions
+
+`.on-dark` is a region that is dark in **both** themes — the marketing hero,
+and anything else deliberately inverted. It carries the same values as `.dark`,
+so components inside it still name roles (`text-ink`, `bg-surface`) instead of
+reaching for `text-white` and a hex. There is no other legitimate reason to
+write a raw colour.
+
+## Identity
+
+A ranked row that names who it is about reads as something you could act on.
+`IdentityCell` — monogram, name, sub-label. **Monograms, not photographs**: an
+audit tool has no business shipping avatar images it cannot vouch for.
+
+## States
+
+Every screen and every primitive draws all five:
+
+| State | Component |
+| --- | --- |
+| loading | `Skeleton` (shaped like the content, not a grey box) |
+| empty | `EmptyState` |
+| error | `ErrorState` |
+| filtered to nothing | `NoResults` — the fix is a wider filter, not loading data |
+| not enough data | `InsufficientData` — a trend needs two points; say so rather than drawing an empty axis |
+
+All on the token layer and the named type scale. No bespoke spinners, no
+hand-written "No data" paragraphs.
+
+## Anti-patterns
+
+Do not introduce a one-off card style, spacing value, colour, shadow, radius,
+type size, or interaction pattern when an existing token or shared primitive
+can express it. If something genuinely new is needed, it becomes a shared
+primitive and is recorded here — it is never inlined into one screen.
+
+Percentages are rounded at the point of display (`pct`, `share`). An engine
+that divides raw numbers hands back fifteen decimal places; that is not the
+call site's problem to remember. The same goes for chart tooltips: a projection
+reads in the units of the metric it projects, never as a raw float.
+
+A shared primitive absorbs the fix. When a rail-width card squeezed its title
+against its action, the change went into `CardHeader` — not into the four
+callers that happened to show the symptom.
+
+**The migration is finished, and stays finished.** There are zero raw palette
+utilities and zero `dark:` variants outside this token layer. A single
+`slate-500` or `dark:text-white` in a diff is a regression, not a shortcut:
+
+    rg 'dark:|slate-[0-9]|bg-white\b|text-white\b|text-\[[0-9]+px\]' apps/web/src --glob '*.tsx'
+
+should stay empty.

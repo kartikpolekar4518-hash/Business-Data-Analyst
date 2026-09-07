@@ -17,7 +17,7 @@ const variantStyles: Record<Variant, string> = {
   // is placed on, including the dark hero.
   outline: "border border-rule text-ink hover:bg-sunken hover:border-rule-strong",
   ghost: "text-ink-soft hover:bg-sunken hover:text-ink",
-  danger: "bg-neg text-white hover:bg-neg/90 active:bg-neg/80",
+  danger: "bg-neg text-canvas hover:bg-neg/90 active:bg-neg/80",
 };
 
 const sizeStyles: Record<Size, string> = {
@@ -102,8 +102,11 @@ export const CardHeader = ({
   subtitle?: ReactNode;
   action?: ReactNode;
 }) => (
-  <div className="flex items-start justify-between gap-4 border-b border-rule-soft px-4 py-3">
-    <div className="min-w-0">
+  // The action wraps onto its own line rather than squeezing the title: in a
+  // rail-width card, a shrink-0 button beside the heading pushed titles and
+  // subtitles into four-word-per-line columns.
+  <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-rule-soft px-4 py-3">
+    <div className="min-w-[12rem] flex-1">
       <h3 className="text-heading-3 text-ink">{title}</h3>
       {subtitle && <p className="mt-0.5 text-body-sm text-ink-soft">{subtitle}</p>}
     </div>
@@ -162,6 +165,73 @@ export const Badge = ({
       />
     )}
     {children}
+  </span>
+);
+
+// ─────────────────────────────────────────────
+// IdentityCell — who a row is about
+// ─────────────────────────────────────────────
+/**
+ * Name + sub-label with a monogram in front. A ranked list of bare strings
+ * reads as data; the same list with an identity in front reads as a list of
+ * people or accounts you could act on. Monograms, not photographs — an audit
+ * tool has no business shipping avatar images it cannot vouch for.
+ */
+const MONOGRAM_SIZES = {
+  sm: "h-6 w-6 text-[0.625rem]",
+  md: "h-8 w-8 text-body-sm",
+} as const;
+
+export function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+export const Monogram = ({
+  name,
+  size = "md",
+  className,
+}: {
+  name: string;
+  size?: keyof typeof MONOGRAM_SIZES;
+  className?: string;
+}) => (
+  <span
+    aria-hidden="true"
+    className={cn(
+      "flex shrink-0 items-center justify-center rounded-full bg-accent-soft font-semibold uppercase text-accent",
+      MONOGRAM_SIZES[size],
+      className,
+    )}
+  >
+    {initialsOf(name)}
+  </span>
+);
+
+export const IdentityCell = ({
+  name,
+  sub,
+  size = "md",
+  leading,
+  className,
+}: {
+  name: string;
+  sub?: ReactNode;
+  size?: keyof typeof MONOGRAM_SIZES;
+  /** Replaces the monogram — e.g. a rank number or a category icon. */
+  leading?: ReactNode;
+  className?: string;
+}) => (
+  <span className={cn("flex min-w-0 items-center gap-2.5", className)}>
+    {leading ?? <Monogram name={name} size={size} />}
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate text-body font-medium text-ink">{name}</span>
+      {sub != null && sub !== "" && (
+        <span className="truncate text-body-sm text-ink-faint">{sub}</span>
+      )}
+    </span>
   </span>
 );
 
@@ -244,7 +314,7 @@ export const ProgressSteps = ({
           <span
             className={cn(
               "flex h-5 w-5 shrink-0 items-center justify-center rounded-full font-mono text-label",
-              state === "done" && "bg-pos text-white",
+              state === "done" && "bg-pos text-canvas",
               state === "active" && "bg-accent text-accent-fg",
               state === "pending" && "bg-sunken text-ink-faint",
             )}

@@ -95,14 +95,14 @@ export function RelationshipsSection() {
               description="Upload two files that share a column — a customer id, a product code — and any matches we spot will show up below."
             />
           ) : data.relations.map((r) => (
-            <div key={r.id} className="rounded-lg border border-slate-100 p-3 dark:border-slate-800">
+            <div key={r.id} className="rounded-lg border border-rule-soft p-3">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{r.leftDatasetName} → {r.rightDatasetName}</span>
                     <Badge>{r.kind === "one_to_one" ? "one row each" : "many to one"}</Badge>
                   </div>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  <p className="mt-1 text-body text-ink-faint">
                     Matched on <code>{r.leftColumn}</code> = <code>{r.rightColumn}</code>.
                   </p>
                 </div>
@@ -116,15 +116,15 @@ export function RelationshipsSection() {
           ))}
 
         {writable && !!suggestions.data?.suggestions.length && (
-          <div className="space-y-2 rounded-lg border border-dashed border-slate-200 p-3 dark:border-slate-700">
-            <p className="text-sm font-medium">Files that look connectable</p>
+          <div className="space-y-2 rounded-lg border border-dashed border-rule p-3">
+            <p className="text-body font-medium">Files that look connectable</p>
             {suggestions.data.suggestions.map((s) => {
               const key = `${s.leftDatasetId}|${s.leftColumn}|${s.rightDatasetId}|${s.rightColumn}`;
               return (
                 <div key={key} className="flex flex-wrap items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <span className="text-sm">{s.leftDatasetName} → {s.rightDatasetName}</span>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{s.reason}</p>
+                    <span className="text-body">{s.leftDatasetName} → {s.rightDatasetName}</span>
+                    <p className="text-body-sm text-ink-faint">{s.reason}</p>
                   </div>
                   <Button variant="secondary" onClick={() => connect(s)} disabled={busy === key}>
                     {busy === key ? "Connecting…" : "Connect"}
@@ -132,13 +132,13 @@ export function RelationshipsSection() {
                 </div>
               );
             })}
-            <p className="text-xs text-slate-400">
+            <p className="text-body-sm text-ink-faint">
               Nothing is connected until you press Connect — a wrong match would change every number on your dashboard.
             </p>
           </div>
         )}
 
-        <p className="text-xs text-slate-400">
+        <p className="text-body-sm text-ink-faint">
           Connecting only lets your charts read the extra columns; your files themselves are never changed, and
           disconnecting puts every number back exactly as it was. We won't connect files where one row would be
           counted twice, because that would quietly make your totals too high.

@@ -4,8 +4,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { UploadCloud, Database, FileSpreadsheet, Table2, Plug, Sparkles, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth } from "../lib/auth";
-import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, Button, Modal, Input, Label, Progress, ProgressSteps } from "../components/ui";
-import { bytes, num, timeAgo } from "../lib/utils";
+import { useToast, Card, CardBody, CardHeader, Badge, EmptyState, ErrorState, Skeleton, IdentityCell, Button, Modal, Input, Label, Progress, ProgressSteps } from "../components/ui";
+import { PageLayout, RailSection } from "../components/PageLayout";
+import { bytes, num, timeAgo, cn } from "../lib/utils";
 import type { DatasetSummary, Connection, ConnectorType } from "../lib/types";
 
 const CONNECTORS: { type: ConnectorType; label: string }[] = [
@@ -44,8 +45,8 @@ export default function DataList() {
   const [connectType, setConnectType] = useState<ConnectorType | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
-  const { data: connData } = useQuery({ queryKey: ["connections"], queryFn: () => api.get<{ connections: Connection[] }>("/connections") });
+  const { data, isLoading, isError, refetch } = useQuery({ queryKey: ["datasets"], queryFn: () => api.get<{ datasets: DatasetSummary[] }>("/uploads") });
+  const { data: connData, isLoading: connLoading } = useQuery({ queryKey: ["connections"], queryFn: () => api.get<{ connections: Connection[] }>("/connections") });
 
   async function syncConnection(c: Connection) {
     setSyncingId(c.id);
@@ -99,119 +100,166 @@ export default function DataList() {
 
   const canUpload = can("ADMIN", "MANAGER");
 
-  return (
-    <div className="space-y-6">
-      <div><h1 className="text-2xl font-bold">Data</h1><p className="text-sm text-slate-500 dark:text-slate-400">Upload files or connect a source. We profile and quality-check every dataset automatically.</p></div>
-
+  /* ─── Rail ───
+     Justified: uploading and connecting are the controls that change what the
+     list holds. They are how you act on this screen, not what it is about — so
+     the datasets lead and the controls sit beside them. */
+  const rail = (
+    <>
       {canUpload && (
-        <div
-          onDragOver={(e) => { e.preventDefault(); if (!busy) setDrag(true); }}
-          onDragLeave={() => setDrag(false)}
-          onDrop={(e) => { e.preventDefault(); setDrag(false); if (busy) return; const f = e.dataTransfer.files[0]; if (f) upload(f); }}
-          onClick={() => { if (!job) inputRef.current?.click(); }}
-          className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 text-center transition ${job ? "cursor-default border-slate-300 dark:border-slate-700" : "cursor-pointer"} ${drag ? "border-brand-500 bg-brand-50 dark:bg-brand-950/40" : job ? "" : "border-slate-300 hover:border-brand-400 dark:border-slate-700"}`}>
-          {job ? (
-            <div className="w-full max-w-sm text-left">
-              <Progress
-                value={job.pct}
-                label={
-                  job.phase === "uploading" ? `Uploading ${job.fileName}` :
-                  job.phase === "processing" ? "Processing & profiling" :
-                  "Upload complete"
-                }
-              />
-              <div className="mt-4">
-                <ProgressSteps steps={UPLOAD_STEPS} current={job.phase === "uploading" ? 0 : job.phase === "processing" ? 1 : 2} />
-              </div>
+        <RailSection title="Add data" icon={UploadCloud}>
+          <div className="py-3">
+            <div
+              onDragOver={(e) => { e.preventDefault(); if (!busy) setDrag(true); }}
+              onDragLeave={() => setDrag(false)}
+              onDrop={(e) => { e.preventDefault(); setDrag(false); if (busy) return; const f = e.dataTransfer.files[0]; if (f) upload(f); }}
+              onClick={() => { if (!job) inputRef.current?.click(); }}
+              className={cn(
+                "flex flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition",
+                job ? "cursor-default border-rule" : "cursor-pointer",
+                drag ? "border-accent bg-accent-soft" : job ? "" : "border-rule hover:border-accent",
+              )}
+            >
+              {job ? (
+                <div className="w-full text-left">
+                  <Progress
+                    value={job.pct}
+                    label={
+                      job.phase === "uploading" ? `Uploading ${job.fileName}` :
+                      job.phase === "processing" ? "Processing & profiling" :
+                      "Upload complete"
+                    }
+                  />
+                  <div className="mt-4">
+                    <ProgressSteps steps={UPLOAD_STEPS} current={job.phase === "uploading" ? 0 : job.phase === "processing" ? 1 : 2} />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <UploadCloud className="h-6 w-6 text-ink-faint" />
+                  <p className="mt-2 text-body font-medium text-ink">Drop a file, or click to browse</p>
+                  <p className="mt-1 text-body-sm text-ink-faint">CSV, XLSX or XLS · up to 15 MB</p>
+                </>
+              )}
+              <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
             </div>
-          ) : (
-            <>
-              <UploadCloud className="h-8 w-8 text-slate-400" />
-              <p className="mt-3 font-medium">Drag & drop a file, or click to browse</p>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">CSV, XLSX or XLS · up to 15 MB</p>
-            </>
-          )}
-          <input ref={inputRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); e.target.value = ""; }} />
-        </div>
+            <div className="mt-3 flex items-center gap-2 text-body-sm text-ink-faint">
+              <span>No file handy?</span>
+              <Button variant="outline" size="sm" loading={loadingSample} onClick={loadSample}>
+                <Sparkles className="h-4 w-4" /> Load sample
+              </Button>
+            </div>
+          </div>
+        </RailSection>
       )}
 
-      {canUpload && (
-        <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400">
-          <span>No file handy?</span>
-          <Button variant="outline" size="sm" loading={loadingSample} onClick={loadSample}>
-            <Sparkles className="h-4 w-4" /> Load sample data
-          </Button>
-        </div>
-      )}
-
-      <Card>
-        <CardHeader title="Datasets" subtitle={data ? `${data.datasets.length} total` : undefined} />
-        <CardBody className="p-0">
-          {isLoading ? <div className="p-6 text-sm text-slate-400">Loading…</div> :
-           !data?.datasets.length ? <div className="p-6"><EmptyState icon={Database} title="No datasets yet" description={canUpload ? "Upload a CSV or Excel file, or load sample data, to get started." : "No data has been added yet. Ask an admin or manager to upload a dataset."} /></div> :
-           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-             {data.datasets.map((d) => (
-               <Link key={d.id} to={`/data/${d.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                 <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><FileSpreadsheet className="h-5 w-5 text-slate-500 dark:text-slate-400" /></div>
-                 <div className="min-w-0 flex-1"><div className="truncate font-medium">{d.name}</div><div className="text-xs text-slate-500 dark:text-slate-400">{d.fileName} · {d.fileSize ? bytes(d.fileSize) : ""} · {timeAgo(d.createdAt)}</div></div>
-                 <div className="hidden text-right text-xs text-slate-500 dark:text-slate-400 sm:block"><div className="flex items-center gap-1"><Table2 className="h-3 w-3" />{num(d.rowCount)} rows · {d.columnCount} cols</div></div>
-                 <QualityBadge score={d.qualityScore} />
-                 <Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge>
-               </Link>
-             ))}
-           </div>}
-        </CardBody>
-      </Card>
-
-      {/* Data-source connectors */}
-      <Card>
-        <CardHeader title="Connect a data source" subtitle="Pull a snapshot from a database or Google Sheet" />
-        <CardBody className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <RailSection title="Connect a source" icon={Plug}>
+        <div className="py-3">
+          <div className="grid grid-cols-2 gap-2">
             {CONNECTORS.map((c) => (
               <button
                 key={c.type}
                 disabled={!canUpload}
                 onClick={() => setConnectType(c.type)}
-                className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 p-4 text-center transition hover:border-brand-400 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-slate-200 disabled:hover:bg-transparent dark:border-slate-800 dark:hover:bg-brand-950/40">
-                <Plug className="h-5 w-5 text-slate-400" /><span className="text-sm font-medium">{c.label}</span><Badge tone="blue">Connect</Badge>
+                className="flex flex-col items-center gap-1.5 rounded-lg border border-rule p-3 text-center transition hover:border-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-rule disabled:hover:bg-transparent"
+              >
+                <Plug className="h-4 w-4 text-ink-faint" />
+                <span className="text-body-sm font-medium text-ink">{c.label}</span>
               </button>
             ))}
           </div>
+        </div>
+      </RailSection>
 
-          {connData?.connections.length ? (
-            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
-              {connData.connections.map((c) => (
-                <div key={c.id} className="flex items-center gap-4 px-4 py-3">
-                  <div className="rounded-lg bg-slate-100 p-2 dark:bg-slate-800"><Database className="h-4 w-4 text-slate-500 dark:text-slate-400" /></div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{c.name}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {CONNECTOR_LABEL[c.type]}
-                      {c.lastSyncedAt ? ` · synced ${timeAgo(c.lastSyncedAt)}` : " · never synced"}
-                      {c.lastSyncStatus === "error" && c.lastSyncError ? ` · ${c.lastSyncError}` : ""}
-                    </div>
-                  </div>
-                  {c.lastSyncStatus === "error" && <Badge tone="red">Error</Badge>}
-                  {canUpload && (
-                    <>
-                      <Button variant="outline" size="sm" loading={syncingId === c.id} onClick={() => syncConnection(c)}>
-                        <RefreshCw className="h-4 w-4" /> Sync now
-                      </Button>
-                      <button onClick={() => deleteConnection(c)} className="text-slate-400 hover:text-red-500" aria-label={`Remove ${c.name}`}>
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </CardBody>
-      </Card>
+      <RailSection
+        title="Connected sources"
+        icon={Database}
+        loading={connLoading}
+        empty="Nothing connected yet."
+      >
+        {connData?.connections.map((c) => (
+          <div key={c.id} className="flex items-center gap-2 py-2.5">
+            <IdentityCell
+              name={c.name}
+              size="sm"
+              leading={<span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sunken"><Database className="h-3 w-3 text-ink-faint" /></span>}
+              sub={
+                <>
+                  {CONNECTOR_LABEL[c.type]}
+                  {c.lastSyncedAt ? ` · synced ${timeAgo(c.lastSyncedAt)}` : " · never synced"}
+                </>
+              }
+            />
+            <span className="ml-auto flex shrink-0 items-center gap-1.5">
+              {c.lastSyncStatus === "error" && <Badge tone="red">Error</Badge>}
+              {canUpload && (
+                <>
+                  <Button variant="ghost" size="sm" loading={syncingId === c.id} onClick={() => syncConnection(c)} aria-label={`Sync ${c.name}`}>
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                  <button onClick={() => deleteConnection(c)} className="text-ink-faint hover:text-neg" aria-label={`Remove ${c.name}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </span>
+          </div>
+        ))}
+      </RailSection>
+    </>
+  );
 
-      {connectType && <ConnectModal type={connectType} onClose={() => setConnectType(null)} onSaved={() => { setConnectType(null); qc.invalidateQueries({ queryKey: ["connections"] }); }} />}
-    </div>
+  return (
+    <PageLayout aside={rail}>
+      <div className="space-y-6">
+        <div>
+          <h1 className="page-title">Data</h1>
+          <p className="page-subtitle">Every dataset behind the numbers. We profile and quality-check each one automatically.</p>
+        </div>
+
+        {/* ══ PRIMARY ══ the datasets themselves. */}
+        <Card>
+          <CardHeader title="Datasets" subtitle={data ? `${data.datasets.length} total` : undefined} />
+          <CardBody className="p-0">
+            {isLoading ? (
+              <div className="space-y-2 p-5">
+                {[0, 1, 2].map((i) => <Skeleton key={i} className="h-12 w-full rounded-lg" />)}
+              </div>
+            ) : isError ? (
+              <div className="p-5"><ErrorState message="Couldn't load your datasets." retry={() => refetch()} /></div>
+            ) : !data?.datasets.length ? (
+              <div className="p-6">
+                <EmptyState
+                  icon={Database}
+                  title="No datasets yet"
+                  description={canUpload ? "Upload a CSV or Excel file, or load sample data, to get started." : "No data has been added yet. Ask an admin or manager to upload a dataset."}
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-rule-soft">
+                {data.datasets.map((d) => (
+                  <Link key={d.id} to={`/data/${d.id}`} className="flex items-center gap-4 px-5 py-3 hover:bg-sunken">
+                    <IdentityCell
+                      name={d.name}
+                      className="min-w-0 flex-1"
+                      leading={<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sunken"><FileSpreadsheet className="h-4 w-4 text-ink-faint" /></span>}
+                      sub={`${d.fileName} · ${d.fileSize ? bytes(d.fileSize) : ""} · ${timeAgo(d.createdAt)}`}
+                    />
+                    <span className="hidden shrink-0 items-center gap-1 font-mono text-body-sm text-ink-faint sm:flex">
+                      <Table2 className="h-3 w-3" />{num(d.rowCount)} rows · {d.columnCount} cols
+                    </span>
+                    <QualityBadge score={d.qualityScore} />
+                    <Badge tone={d.status === "CLEANED" ? "green" : "blue"}>{d.status}</Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardBody>
+        </Card>
+
+        {connectType && <ConnectModal type={connectType} onClose={() => setConnectType(null)} onSaved={() => { setConnectType(null); qc.invalidateQueries({ queryKey: ["connections"] }); }} />}
+      </div>
+    </PageLayout>
   );
 }
 
@@ -245,7 +293,7 @@ function ConnectModal({ type, onClose, onSaved }: { type: ConnectorType; onClose
           <div>
             <Label>Google Sheet URL</Label>
             <Input value={form.sheetUrl} onChange={set("sheetUrl")} placeholder="https://docs.google.com/spreadsheets/d/…" />
-            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Share the sheet as “anyone with the link” so we can read it.</p>
+            <p className="mt-1 text-body-sm text-ink-faint">Share the sheet as “anyone with the link” so we can read it.</p>
           </div>
         ) : (
           <>
