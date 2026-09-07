@@ -297,11 +297,34 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
 // period key, which is what the date drill filters by. The handler sits on the chart
 // rather than on the series: an area is a thin target, and Recharts' chart-level click
 // already resolves to the nearest x category, which is the bucket the user aimed at.
-export const TrendChart = memo(function TrendChart({ data, color = BRAND, height = 260, onSelect }: { data: { label?: string; period?: string; value: number }[]; color?: string; height?: number; onSelect?: (label: string) => void }) {
-  const { grid, tick, tooltipStyle } = useAxis();
+export const TrendChart = memo(function TrendChart({
+  data,
+  color = BRAND,
+  height = 260,
+  onSelect,
+  name = "Value",
+  format,
+}: {
+  data: { label?: string; period?: string; value: number }[];
+  color?: string;
+  height?: number;
+  onSelect?: (label: string) => void;
+  name?: string;
+  format?: (v: number) => string;
+}) {
+  const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
   const gradientId = useId();
-  const norm = data.map((d) => ({ label: d.label ?? d.period, value: d.value }));
+  // Carry the prior bucket on each row so the tooltip can compare without the
+  // client inventing a comparison window the engine never computed.
+  const norm = data.map((d, i) => ({
+    label: d.label ?? d.period,
+    value: d.value,
+    valuePrev: i > 0 ? data[i - 1].value : undefined,
+  }));
+
+  if (norm.length < 2) return <InsufficientData need="at least two periods" />;
+
   return (
     <ResponsiveContainer width="100%" height={height}>
       <AreaChart
@@ -310,18 +333,17 @@ export const TrendChart = memo(function TrendChart({ data, color = BRAND, height
         style={onSelect ? { cursor: "pointer" } : undefined}
         onClick={onSelect ? (state: { activeLabel?: string }) => { const l = String(state?.activeLabel ?? "").trim(); if (l) onSelect(l); } : undefined}
       >
-        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.35} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.22} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
-        <Tooltip contentStyle={tooltipStyle} />
-        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2.5} fill={`url(#${gradientId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />
+        <Tooltip cursor={cursor} content={<CompareTooltip series={[{ key: "value", name, color, format }]} compareLabel="Previous period" />} />
+        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gradientId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />
       </AreaChart>
     </ResponsiveContainer>
   );
 });
 
-/* ───────── Multi-series hero chart with a Revenue/Profit/Both toggle ───────── */
 export const MultiTrendChart = memo(function MultiTrendChart({
   revenue,
   profit,

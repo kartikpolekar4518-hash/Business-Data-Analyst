@@ -80,10 +80,10 @@ export function MatrixVisual({
   return (
     <div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[32rem] border-collapse text-sm">
+        <table className="w-full min-w-[32rem] border-collapse text-body">
           <thead>
-            <tr className="border-b border-border dark:border-white/10">
-              <th scope="col" className="sticky left-0 z-10 bg-white py-2 pr-3 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:bg-slate-950 dark:text-slate-400">
+            <tr className="border-b border-rule">
+              <th scope="col" className="sticky left-0 z-10 bg-surface py-2 pr-3 text-left text-body-sm font-semibold uppercase tracking-wider text-ink-faint">
                 {rowHeaders.join(" › ")}
               </th>
               {columns.map((c) => (
@@ -91,7 +91,7 @@ export function MatrixVisual({
                   <button
                     type="button"
                     onClick={() => setSort((s) => (s?.column === c ? { column: c, dir: s.dir === "desc" ? "asc" : "desc" } : { column: c, dir: "desc" }))}
-                    className="rounded text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-400 dark:hover:text-white"
+                    className="rounded text-body-sm font-semibold uppercase tracking-wider text-ink-faint hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     aria-label={`Sort by ${c === TOTAL_COLUMN && columnHeader ? columnHeader : c}`}
                   >
                     {c === TOTAL_COLUMN && columnHeader ? columnHeader : c}
@@ -99,7 +99,7 @@ export function MatrixVisual({
                   </button>
                 </th>
               ))}
-              <th scope="col" className="py-2 pl-3 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total</th>
+              <th scope="col" className="py-2 pl-3 text-right text-body-sm font-semibold uppercase tracking-wider text-ink-faint">Total</th>
             </tr>
           </thead>
           <tbody>
@@ -108,12 +108,12 @@ export function MatrixVisual({
               const parent = n.children.length > 0;
               const isSubtotal = parent && showSubtotals;
               return (
-                <tr key={key} className="border-b border-border/60 last:border-0 dark:border-white/[0.06]">
+                <tr key={key} className="border-b border-border/60 last:border-0">
                   <th
                     scope="row"
                     className={cn(
-                      "sticky left-0 z-10 bg-white py-2 pr-3 text-left font-normal dark:bg-slate-950",
-                      isSubtotal ? "font-semibold text-slate-900 dark:text-white" : "text-slate-600 dark:text-slate-300",
+                      "sticky left-0 z-10 bg-surface py-2 pr-3 text-left font-normal",
+                      isSubtotal ? "font-semibold text-ink" : "text-ink-soft",
                     )}
                     style={{ paddingLeft: n.depth * 18 }}
                   >
@@ -122,7 +122,7 @@ export function MatrixVisual({
                         type="button"
                         onClick={() => toggle(key)}
                         aria-expanded={open.has(key)}
-                        className="inline-flex items-center gap-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                        className="inline-flex items-center gap-1 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                       >
                         {open.has(key) ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
                         <span className="truncate">{n.label}</span>
@@ -132,35 +132,35 @@ export function MatrixVisual({
                     )}
                   </th>
                   {columns.map((c) => (
-                    <td key={c} className={cn("py-2 pl-3 text-right tabular-nums", isSubtotal ? "font-semibold text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-300")}>
+                    <td key={c} className={cn("py-2 pl-3 text-right tabular-nums", isSubtotal ? "font-semibold text-ink" : "text-ink-soft")}>
                       {cell(n.cells, c)}
                     </td>
                   ))}
-                  <td className={cn("py-2 pl-3 text-right tabular-nums font-semibold", isSubtotal ? "text-slate-900 dark:text-white" : "text-slate-800 dark:text-slate-200")}>
+                  <td className={cn("py-2 pl-3 text-right tabular-nums font-semibold", isSubtotal ? "text-ink" : "text-ink")}>
                     {formatKpiValue(n.total, format)}
                   </td>
                 </tr>
               );
             })}
             {!visible.length && (
-              <tr><td colSpan={columns.length + 2} className="py-8 text-center text-sm text-slate-400">No rows to pivot</td></tr>
+              <tr><td colSpan={columns.length + 2} className="py-8 text-center text-body text-ink-faint">No rows to pivot</td></tr>
             )}
           </tbody>
           {showGrandTotal && visible.length > 0 && (
             <tfoot>
-              <tr className="border-t-2 border-border dark:border-white/15">
-                <th scope="row" className="sticky left-0 z-10 bg-white py-2 pr-3 text-left text-sm font-bold text-slate-900 dark:bg-slate-950 dark:text-white">Total</th>
+              <tr className="border-t-2 border-rule">
+                <th scope="row" className="sticky left-0 z-10 bg-surface py-2 pr-3 text-left text-body font-bold text-ink">Total</th>
                 {columns.map((c) => (
-                  <td key={c} className="py-2 pl-3 text-right font-bold tabular-nums text-slate-900 dark:text-white">{cell(result.grand.cells, c)}</td>
+                  <td key={c} className="py-2 pl-3 text-right font-bold tabular-nums text-ink">{cell(result.grand.cells, c)}</td>
                 ))}
-                <td className="py-2 pl-3 text-right font-bold tabular-nums text-slate-900 dark:text-white">{formatKpiValue(result.grand.total, format)}</td>
+                <td className="py-2 pl-3 text-right font-bold tabular-nums text-ink">{formatKpiValue(result.grand.total, format)}</td>
               </tr>
             </tfoot>
           )}
         </table>
       </div>
       {result.truncated && (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+        <p className="mt-2 text-body-sm text-warn">
           Showing the top groups from {result.truncated.used.toLocaleString()} of {result.truncated.source.toLocaleString()} rows — narrow your filters for the full picture.
         </p>
       )}
@@ -182,35 +182,35 @@ export function KeyInfluencers({
   direction?: "up" | "down";
 }) {
   if (!influencers.length) {
-    return <p className="py-8 text-center text-sm text-slate-400">Not enough history to attribute {metric} yet.</p>;
+    return <p className="py-8 text-center text-body text-ink-faint">Not enough history to attribute {metric} yet.</p>;
   }
   const max = Math.max(...influencers.map((i) => Math.abs(i.impact)), 1);
   const Icon = direction === "up" ? TrendingUp : TrendingDown;
 
   return (
     <div className="space-y-3">
-      <p className="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
-        <Icon className={cn("h-4 w-4", direction === "up" ? "text-emerald-500" : "text-rose-500")} />
-        What makes <span className="font-semibold text-slate-900 dark:text-white">{metric}</span> go {direction}
+      <p className="flex items-center gap-1.5 text-body text-ink-soft">
+        <Icon className={cn("h-4 w-4", direction === "up" ? "text-pos" : "text-neg")} />
+        What makes <span className="font-semibold text-ink">{metric}</span> go {direction}
       </p>
       {influencers.map((inf) => {
         const positive = inf.impact >= 0;
         return (
           <div key={`${inf.factor}-${inf.value}`}>
-            <div className="flex items-baseline justify-between gap-2 text-sm">
+            <div className="flex items-baseline justify-between gap-2 text-body">
               <span className="min-w-0 truncate">
-                <span className="text-slate-500 dark:text-slate-400">{inf.factor} is </span>
-                <span className="font-medium text-slate-800 dark:text-slate-100">{inf.value}</span>
+                <span className="text-ink-faint">{inf.factor} is </span>
+                <span className="font-medium text-ink">{inf.value}</span>
               </span>
-              <span className={cn("shrink-0 font-semibold tabular-nums", positive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400")}>
+              <span className={cn("shrink-0 font-semibold tabular-nums", positive ? "text-pos" : "text-neg")}>
                 {positive ? "+" : "−"}{formatKpiValue(Math.abs(inf.impact), format)}
                 {/* The API returns a full-precision share; round here so no caller has to pre-format. */}
-                {inf.share != null && <span className="ml-1 text-xs font-normal text-slate-400">{Math.round(inf.share)}%</span>}
+                {inf.share != null && <span className="ml-1 text-body-sm font-normal text-ink-faint">{Math.round(inf.share)}%</span>}
               </span>
             </div>
-            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-sunken">
               <div
-                className={cn("h-full rounded-full", positive ? "bg-emerald-500" : "bg-rose-500")}
+                className={cn("h-full rounded-full", positive ? "bg-pos" : "bg-neg")}
                 style={{ width: `${(Math.abs(inf.impact) / max) * 100}%` }}
               />
             </div>
@@ -286,9 +286,9 @@ export function DecompositionTree({
   if (!fields.length) {
     return (
       <div className="flex flex-col items-center gap-2 py-10 text-center">
-        <Network className="h-7 w-7 text-slate-300 dark:text-slate-600" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">No dimensions to break this metric down by.</p>
-        <p className="text-xs text-slate-400">Add a category column to this dataset to use the decomposition tree.</p>
+        <Network className="h-7 w-7 text-ink-faint" />
+        <p className="text-body text-ink-faint">No dimensions to break this metric down by.</p>
+        <p className="text-body-sm text-ink-faint">Add a category column to this dataset to use the decomposition tree.</p>
       </div>
     );
   }
@@ -299,22 +299,22 @@ export function DecompositionTree({
 
   return (
     <div>
-      <div className="mb-3 flex flex-wrap items-center gap-1.5 text-xs">
+      <div className="mb-3 flex flex-wrap items-center gap-1.5 text-body-sm">
         <button
           type="button"
           onClick={() => setSteps([])}
-          className="rounded px-1.5 py-0.5 font-medium text-brand-600 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-400 dark:hover:bg-white/5"
+          className="rounded px-1.5 py-0.5 font-medium text-accent hover:bg-accent-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
           {rootLabel}
         </button>
         {steps.map((s, i) =>
           s.picked ? (
             <span key={i} className="flex items-center gap-1.5">
-              <ChevronRight className="h-3 w-3 text-slate-400" />
+              <ChevronRight className="h-3 w-3 text-ink-faint" />
               <button
                 type="button"
                 onClick={() => setSteps(steps.slice(0, i + 1))}
-                className="rounded px-1.5 py-0.5 font-medium text-brand-600 hover:bg-brand-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-400 dark:hover:bg-white/5"
+                className="rounded px-1.5 py-0.5 font-medium text-accent hover:bg-accent-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 {s.picked}
               </button>
@@ -325,9 +325,9 @@ export function DecompositionTree({
 
       <div className="flex gap-4 overflow-x-auto pb-2">
         <div className="w-40 shrink-0">
-          <div className="rounded-lg border border-brand-500 bg-brand-500/5 px-3 py-2">
-            <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{rootLabel}</div>
-            <div className="mt-0.5 font-bold tabular-nums text-slate-900 dark:text-white">{formatKpiValue(sum(rows), format)}</div>
+          <div className="rounded-lg border border-accent bg-accent/5 px-3 py-2">
+            <div className="text-body-sm font-semibold uppercase tracking-wider text-ink-faint">{rootLabel}</div>
+            <div className="mt-0.5 font-bold tabular-nums text-ink">{formatKpiValue(sum(rows), format)}</div>
           </div>
         </div>
 
@@ -336,7 +336,7 @@ export function DecompositionTree({
           const left = remaining(depth);
           if (!left.length) {
             return (
-              <div key={depth} className="w-40 shrink-0 self-center text-xs text-slate-400">
+              <div key={depth} className="w-40 shrink-0 self-center text-body-sm text-ink-faint">
                 Nothing left to split by.
               </div>
             );
@@ -345,13 +345,13 @@ export function DecompositionTree({
             const suggested = highValueField(depth);
             return (
               <div key={depth} className="w-44 shrink-0">
-                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Split by</div>
+                <div className="mb-1.5 text-body-sm font-semibold uppercase tracking-wider text-ink-faint">Split by</div>
                 <div className="space-y-1">
                   {suggested && (
                     <button
                       type="button"
                       onClick={() => setStep(depth, { field: suggested })}
-                      className="w-full rounded-md border border-brand-500 bg-brand-500/5 px-2.5 py-1.5 text-left text-xs font-medium text-brand-700 hover:bg-brand-500/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300"
+                      className="w-full rounded-md border border-accent bg-accent/5 px-2.5 py-1.5 text-left text-body-sm font-medium text-accent hover:bg-accent/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       High value · {labelOf(suggested)}
                     </button>
@@ -361,7 +361,7 @@ export function DecompositionTree({
                       key={f.key}
                       type="button"
                       onClick={() => setStep(depth, { field: f.key })}
-                      className="w-full rounded-md border border-border px-2.5 py-1.5 text-left text-xs text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-white/10 dark:text-slate-300 dark:hover:bg-slate-800"
+                      className="w-full rounded-md border border-rule px-2.5 py-1.5 text-left text-body-sm text-ink-soft hover:bg-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                     >
                       {f.label}
                     </button>
@@ -380,11 +380,11 @@ export function DecompositionTree({
           return (
             <div key={depth} className="w-52 shrink-0">
               <div className="mb-1.5 flex items-center justify-between gap-2">
-                <span className="truncate text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">{labelOf(step.field)}</span>
+                <span className="truncate text-body-sm font-semibold uppercase tracking-wider text-ink-faint">{labelOf(step.field)}</span>
                 <button
                   type="button"
                   onClick={() => setStep(depth, null)}
-                  className="rounded text-[11px] text-slate-400 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:text-slate-200"
+                  className="rounded text-body-sm text-ink-faint hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   aria-label={`Collapse ${labelOf(step.field)}`}
                 >
                   ✕
@@ -400,15 +400,15 @@ export function DecompositionTree({
                       aria-pressed={on}
                       onClick={() => setStep(depth, { field: step.field, picked: on ? undefined : g.label })}
                       className={cn(
-                        "block w-full rounded-md border px-2.5 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500",
-                        on ? "border-brand-500 bg-brand-500/5" : "border-border hover:bg-slate-100 dark:border-white/10 dark:hover:bg-slate-800",
+                        "block w-full rounded-md border px-2.5 py-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-accent",
+                        on ? "border-accent bg-accent/5" : "border-rule hover:bg-sunken",
                       )}
                     >
-                      <span className="flex items-baseline justify-between gap-2 text-xs">
-                        <span className="min-w-0 truncate text-slate-700 dark:text-slate-200">{g.label}</span>
-                        <span className="shrink-0 font-semibold tabular-nums text-slate-900 dark:text-white">{formatKpiValue(g.value, format)}</span>
+                      <span className="flex items-baseline justify-between gap-2 text-body-sm">
+                        <span className="min-w-0 truncate text-ink-soft">{g.label}</span>
+                        <span className="shrink-0 font-semibold tabular-nums text-ink">{formatKpiValue(g.value, format)}</span>
                       </span>
-                      <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/5">
+                      <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-sunken">
                         <span className="block h-full rounded-full" style={{ width: `${(Math.abs(g.value) / max) * 100}%`, background: SERIES[i % SERIES.length] }} />
                       </span>
                     </button>
@@ -418,7 +418,7 @@ export function DecompositionTree({
                   <button
                     type="button"
                     onClick={() => setShowAll((s) => new Set(s).add(depth))}
-                    className="w-full rounded-md px-2.5 py-1 text-left text-[11px] font-medium text-brand-600 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-400"
+                    className="w-full rounded-md px-2.5 py-1 text-left text-body-sm font-medium text-accent hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     +{hidden} more
                   </button>
