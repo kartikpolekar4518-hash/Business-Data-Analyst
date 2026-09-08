@@ -66,37 +66,38 @@ model User {
 }
 
 model Organization {
-  id          String               @id @default(uuid())
-  name        String
-  industry    String               @default("generic") // industry pack key: retail | pharmacy | saas | generic
-  plan        String               @default("free")     // billing tier key: free | pro | business
-  planStatus  String               @default("active")   // active | past_due | canceled
+  id                   String               @id @default(uuid())
+  name                 String
+  industry             String               @default("generic") // industry pack key: retail | pharmacy | saas | generic
+  plan                 String               @default("free") // billing tier key: free | pro | business
+  planStatus           String               @default("active") // active | past_due | canceled
   // Business calendar (see engine/calendar.ts). The defaults reproduce Gregorian
   // calendar months exactly, so an org that never sets these sees unchanged numbers.
-  fiscalYearStartMonth Int         @default(1)          // 1 = January … 12 = December
-  periodScheme         String      @default("calendar") // calendar | 445 | 454 | 544
-  weekStartDay         Int         @default(1)          // 0 = Sunday … 6 = Saturday; retail schemes only
-  stripeCustomerId     String?     // set once the org starts a Stripe checkout
+  fiscalYearStartMonth Int                  @default(1) // 1 = January … 12 = December
+  periodScheme         String               @default("calendar") // calendar | 445 | 454 | 544
+  weekStartDay         Int                  @default(1) // 0 = Sunday … 6 = Saturday; retail schemes only
+  stripeCustomerId     String? // set once the org starts a Stripe checkout
   stripeSubscriptionId String?
-  createdAt   DateTime             @default(now())
-  updatedAt   DateTime             @updatedAt
-  members     OrganizationMember[]
-  datasets    Dataset[]
-  reports     Report[]
-  forecasts   Forecast[]
-  alerts      Alert[]
-  conversations AIConversation[]
-  apiKeys     ApiKey[]
-  connections Connection[]
-  activity    ActivityLog[]
-  scheduledReports ScheduledReport[]
-  alertRules  AlertRule[]
-  reportTemplates ReportTemplate[]
-  customMetrics   CustomMetric[]
-  savedViews      SavedView[]
-  cleaningRecipes CleaningRecipe[]
-  datasetRelations DatasetRelation[]
-  comments        Comment[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  members              OrganizationMember[]
+  datasets             Dataset[]
+  reports              Report[]
+  forecasts            Forecast[]
+  alerts               Alert[]
+  conversations        AIConversation[]
+  apiKeys              ApiKey[]
+  connections          Connection[]
+  activity             ActivityLog[]
+  scheduledReports     ScheduledReport[]
+  alertRules           AlertRule[]
+  reportTemplates      ReportTemplate[]
+  customMetrics        CustomMetric[]
+  savedViews           SavedView[]
+  cleaningRecipes      CleaningRecipe[]
+  datasetRelations     DatasetRelation[]
+  comments             Comment[]
+  forecastScores       ForecastScore[]
 }
 
 model OrganizationMember {
@@ -113,56 +114,56 @@ model OrganizationMember {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
+  id        String    @id @default(uuid())
+  token     String    @unique
   expiresAt DateTime
   usedAt    DateTime?
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId    String
 
   @@index([userId])
 }
 
 model Dataset {
-  id             String        @id @default(uuid())
-  name           String
-  fileName       String
-  fileType       String
-  fileSize       Int
-  sourceType     String        @default("upload") // "upload" | "sample" | "connector"
-  status         DatasetStatus @default(UPLOADED)
-  rowCount       Int           @default(0)
-  columnCount    Int           @default(0)
-  qualityScore   Int?
-  columns        Json          // [{ name, type, semantic, ... }]
-  schemaMap      Json          // { revenue: "revenue", date: "order_date", ... }
-  profile        Json          // per-column profiling stats
-  rows           Json          // original parsed rows
-  cleanedRows    Json?         // rows after accepted cleaning suggestions
+  id               String             @id @default(uuid())
+  name             String
+  fileName         String
+  fileType         String
+  fileSize         Int
+  sourceType       String             @default("upload") // "upload" | "sample" | "connector"
+  status           DatasetStatus      @default(UPLOADED)
+  rowCount         Int                @default(0)
+  columnCount      Int                @default(0)
+  qualityScore     Int?
+  columns          Json // [{ name, type, semantic, ... }]
+  schemaMap        Json // { revenue: "revenue", date: "order_date", ... }
+  profile          Json // per-column profiling stats
+  rows             Json // original parsed rows
+  cleanedRows      Json? // rows after accepted cleaning suggestions
   // ─── Identity/provenance (see engine/identity.ts) ───
-  rawFileHash    String?       // sha256 of the uploaded bytes: "what file was uploaded?"
-  datasetHash    String?       // sha256 of the canonical analytical rows: "what was analysed?"
-  engineVersion  String?       // engine that ingested/cleaned these rows
-  cleaningLog    Json?         // [{ type, column, affectedRows }] applied during cleaning
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  connection     Connection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
-  connectionId   String?
+  rawFileHash      String? // sha256 of the uploaded bytes: "what file was uploaded?"
+  datasetHash      String? // sha256 of the canonical analytical rows: "what was analysed?"
+  engineVersion    String? // engine that ingested/cleaned these rows
+  cleaningLog      Json? // [{ type, column, affectedRows }] applied during cleaning
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  organization     Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId   String
+  connection       Connection?        @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  connectionId     String?
   // The recipe whose steps produced `cleanedRows`. Recorded so appending more data to
   // this dataset can replay the identical transform over the combined rows.
-  recipe         CleaningRecipe? @relation(fields: [recipeId], references: [id], onDelete: SetNull)
-  recipeId       String?
-  issues         DataQualityIssue[]
+  recipe           CleaningRecipe?    @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  recipeId         String?
+  issues           DataQualityIssue[]
   // Relationships this dataset takes part in. Two named relations because both ends
   // point at Dataset; a relation to a deleted dataset means nothing, so both cascade.
-  relationsAsLeft  DatasetRelation[] @relation("RelationLeft")
-  relationsAsRight DatasetRelation[] @relation("RelationRight")
-  reports        Report[]
-  forecasts      Forecast[]
-  conversations  AIConversation[]
+  relationsAsLeft  DatasetRelation[]  @relation("RelationLeft")
+  relationsAsRight DatasetRelation[]  @relation("RelationRight")
+  reports          Report[]
+  forecasts        Forecast[]
+  conversations    AIConversation[]
   scheduledReports ScheduledReport[]
 
   @@index([organizationId])
@@ -204,7 +205,7 @@ model DatasetRelation {
   id             String       @id @default(uuid())
   leftColumn     String
   rightColumn    String
-  kind           String       // one_to_one | many_to_one (a fan-out join is never stored)
+  kind           String // one_to_one | many_to_one (a fan-out join is never stored)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -221,36 +222,36 @@ model DatasetRelation {
 }
 
 model DataQualityIssue {
-  id            String   @id @default(uuid())
-  type          String
-  column        String?
-  affectedRows  Int      @default(0)
-  severity      Severity @default(LOW)
+  id             String   @id @default(uuid())
+  type           String
+  column         String?
+  affectedRows   Int      @default(0)
+  severity       Severity @default(LOW)
   recommendation String
-  autoFixable   Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  dataset       Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
-  datasetId     String
+  autoFixable    Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  dataset        Dataset  @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  datasetId      String
 
   @@index([datasetId])
 }
 
 model Report {
-  id             String       @id @default(uuid())
-  title          String
-  content        Json         // structured report sections
+  id                      String        @id @default(uuid())
+  title                   String
+  content                 Json // structured report sections
   // Identification metadata for the computational context that produced this report.
   // NOT a replay capability: a stored hash identifies the inputs, it does not let the
   // engine reconstruct this report after the dataset or engine has changed.
   datasetHash             String?
   engineVersion           String?
   industryKeyAtGeneration String?
-  createdAt      DateTime     @default(now())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  organizationId String
-  dataset        Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
-  datasetId      String?
-  shares         ReportShare[]
+  createdAt               DateTime      @default(now())
+  organization            Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId          String
+  dataset                 Dataset?      @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  datasetId               String?
+  shares                  ReportShare[]
 
   @@index([organizationId])
 }
@@ -260,13 +261,13 @@ model Report {
 model ReportShare {
   id             String    @id @default(uuid())
   token          String    @unique
-  expiresAt      DateTime?  // null = never expires
+  expiresAt      DateTime? // null = never expires
   revokedAt      DateTime?
   createdAt      DateTime  @default(now())
   createdById    String?
   report         Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
   reportId       String
-  organizationId String     // denormalized so the authed list/revoke can scope by org
+  organizationId String // denormalized so the authed list/revoke can scope by org
 
   @@index([reportId])
   @@index([organizationId])
@@ -323,25 +324,65 @@ model SavedView {
 }
 
 model Forecast {
-  id             String       @id @default(uuid())
+  id             String          @id @default(uuid())
   // Identification metadata (see Report) — identifies inputs, does not enable replay.
   datasetHash    String?
   engineVersion  String?
   metric         String
   horizon        Int
   method         String
-  history        Json         // [{ period, value }]
-  points         Json         // [{ period, value, lower, upper }]
+  history        Json // [{ period, value }]
+  points         Json // [{ period, value, lower, upper }]
   // What-if inputs that produced `points`: { levers, goal, driverDelta }. NULL for a
   // plain forecast, which is what every forecast saved before scenarios existed was.
   scenario       Json?
-  createdAt      DateTime     @default(now())
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // The bake-off that chose `method`: every candidate's held-out error, why the
+  // ineligible ones were skipped, and the rule that picked the winner. Stored rather
+  // than re-derived on read, because a scoreboard recomputed against a since-changed
+  // dataset would sit beside `points` computed from the old one and contradict them.
+  // NULL for forecasts saved before the bake-off existed.
+  scoreboard     Json?
+  createdAt      DateTime        @default(now())
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
-  dataset        Dataset?     @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  dataset        Dataset?        @relation(fields: [datasetId], references: [id], onDelete: SetNull)
   datasetId      String?
+  scores         ForecastScore[]
 
   @@index([organizationId])
+}
+
+// A single matured prediction graded against what actually happened. Separate from
+// Forecast because the two have different lifetimes: a Forecast is an immutable
+// snapshot of what was projected, while a score appears only once its period is
+// complete, changes if the actual is later corrected, and has to aggregate across
+// forecasts to answer "how accurate have we been".
+model ForecastScore {
+  id             String       @id @default(uuid())
+  forecast       Forecast     @relation(fields: [forecastId], references: [id], onDelete: Cascade)
+  forecastId     String
+  period         String // the forecast's own period key, matched exactly — never re-keyed
+  horizonStep    Int // 1 = one period beyond the history it was made from
+  predicted      Float
+  lower          Float
+  upper          Float
+  actual         Float
+  absError       Float
+  pctError       Float? // NULL when the actual was 0, where a percentage error does not exist
+  withinBand     Boolean // did the 95% band contain the actual? the calibration number
+  // The forecast was made against data that has since changed. Still scored — the
+  // actual is the actual — but kept out of the headline and counted separately.
+  stale          Boolean      @default(false)
+  datasetHash    String? // the data the ACTUAL was read from, not the prediction
+  engineVersion  String?
+  scoredAt       DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId String
+
+  // Scoring is an upsert on this key, which is what makes re-running it converge
+  // instead of accumulating, and lets a corrected actual update in place.
+  @@unique([forecastId, period])
+  @@index([organizationId, scoredAt])
 }
 
 model Alert {
@@ -353,7 +394,7 @@ model Alert {
   threshold      Float?
   description    String
   read           Boolean      @default(false)
-  ruleId         String?      // set for custom_alert rows so de-dup survives rule renames
+  ruleId         String? // set for custom_alert rows so de-dup survives rule renames
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   organizationId String
@@ -378,9 +419,9 @@ model AIConversation {
 
 model AIMessage {
   id             String         @id @default(uuid())
-  role           String         // "user" | "assistant"
+  role           String // "user" | "assistant"
   content        String
-  data           Json?          // intent + result (table/chart/metrics)
+  data           Json? // intent + result (table/chart/metrics)
   createdAt      DateTime       @default(now())
   conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   conversationId String
@@ -392,7 +433,7 @@ model ApiKey {
   id             String       @id @default(uuid())
   name           String
   provider       String       @default("openai")
-  keyHash        String       // stored hashed, never returned
+  keyHash        String // stored hashed, never returned
   lastFour       String
   createdAt      DateTime     @default(now())
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -408,10 +449,10 @@ model Connection {
   id             String        @id @default(uuid())
   name           String
   type           ConnectorType
-  config         Json          // { host, port, database, user, table } or { sheetUrl }
-  secret         String        // encrypted password / token
+  config         Json // { host, port, database, user, table } or { sheetUrl }
+  secret         String // encrypted password / token
   lastSyncedAt   DateTime?
-  lastSyncStatus String?       // "ok" | "error"
+  lastSyncStatus String? // "ok" | "error"
   lastSyncError  String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
@@ -449,7 +490,7 @@ model ActivityLog {
 // against OrganizationMember, so removing a user never orphans a comment row.
 model Comment {
   id               String       @id @default(uuid())
-  entityType       String       // "report" | "dataset" | "saved_view"
+  entityType       String // "report" | "dataset" | "saved_view"
   entityId         String
   body             String
   mentionedUserIds String[]     @default([])
@@ -470,7 +511,7 @@ model ScheduledReport {
   enabled        Boolean           @default(true)
   recipients     String[]          @default([]) // email addresses; empty = generate only, no send
   lastRunAt      DateTime?
-  lastRunStatus  String?           // "ok" | "error" | "skipped"
+  lastRunStatus  String? // "ok" | "error" | "skipped"
   lastError      String?
   nextRunAt      DateTime
   createdAt      DateTime          @default(now())
@@ -489,7 +530,7 @@ model ScheduledReport {
 model AlertRule {
   id              String            @id @default(uuid())
   name            String
-  metric          String            // "revenue" | "profit" | "margin" | "orders" | "customers"
+  metric          String // "revenue" | "profit" | "margin" | "orders" | "customers"
   comparator      Comparator
   threshold       Float
   frequency       ScheduleFrequency @default(DAILY)

@@ -8,6 +8,7 @@ import { buildSteps, validateSteps, type CleaningStep } from "../engine/cleaning
 import { reshapeDataset } from "../engine/ingest.js";
 import { stripRows } from "./context.js";
 import { refreshAlerts } from "./alerts.js";
+import { scoreForecasts } from "./forecastAccuracy.js";
 import type { Row } from "../engine/parse.js";
 import { ENGINE_VERSION } from "../engine/version.js";
 
@@ -130,6 +131,7 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
   ]);
   await prisma.activityLog.create({ data: { organizationId: req.auth!.organizationId, action: "dataset.cleaned", detail: d.name, actorId: req.auth!.userId, entityType: "dataset", entityId: d.id } });
   await refreshAlerts(req.auth!.organizationId); // alerts derive on data change, not on read
+  await scoreForecasts(req.auth!.organizationId); // accuracy scores derive on data change, not on read
   // `steps` goes back so the client can offer to save exactly what just ran as a recipe.
   res.json({ dataset: stripRows(updated), steps, appliedFixes: cleaningLog, newQualityScore: shaped.profile.qualityScore });
 }));

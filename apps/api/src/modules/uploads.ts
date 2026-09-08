@@ -11,6 +11,7 @@ import { ingestRows, reshapeDataset } from "../engine/ingest.js";
 import { validateSteps, type CleaningStep } from "../engine/cleaning.js";
 import { getPack } from "../engine/industries.js";
 import { refreshAlerts } from "./alerts.js";
+import { scoreForecasts } from "./forecastAccuracy.js";
 import { stripRows } from "./context.js";
 import { ENGINE_VERSION } from "../engine/version.js";
 import type { Row } from "../engine/parse.js";
@@ -161,6 +162,7 @@ uploadsRouter.post("/:id/append", uploadLimiter, requireRole("ADMIN", "MANAGER")
   ]);
   await prisma.activityLog.create({ data: { organizationId: auth.organizationId, action: "dataset.combined", detail: `${req.file.originalname} -> ${dataset.name}`, actorId: auth.userId, entityType: "dataset", entityId: dataset.id } });
   await refreshAlerts(auth.organizationId); // alerts derive on data change, not on read
+  await scoreForecasts(auth.organizationId); // accuracy scores derive on data change, not on read
   res.json({
     dataset: stripRows(updated),
     addedRows: parsed.rows.length,

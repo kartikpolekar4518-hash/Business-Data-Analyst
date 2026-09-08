@@ -125,3 +125,118 @@ test("running a scenario is a write: a VIEWER cannot, and forecasts stay inside 
   const theirs = await request(app).get("/api/forecasts").set("Authorization", b.token);
   assert.ok(!theirs.body.forecasts.some((f: any) => f.id === mine.body.forecast.id), "another org never sees it");
 });
+
+// ---- the bake-off scoreboard, and the production track record ----
+
+// The scenario fixture above deliberately cycles through the same twelve months, so
+// adding rows to it adds no later period. Scoring needs the opposite: a history that
+// genuinely extends, so a forecast's periods can later complete.
+function monthlyRows(months: number) {
+  const out: Record<string, unknown>[] = [];
+  let y = 2023, m = 1;
+  for (let i = 0; i < months; i++) {
+    out.push({
+      order_date: `${y}-${String(m).padStart(2, "0")}-14`,
+      qty: 10 + (i % 5), price: 20 + i, cost: 100 + i, region: i % 2 ? "West" : "East",
+    });
+    if (++m > 12) { m = 1; y++; }
+  }
+  return out;
+}
+
+test("a saved forecast carries the bake-off that chose its method", async () => {
+  const { token } = await setupOrg("board");
+  const res = await request(app).post("/api/forecasts").set("Authorization", token).send({ metric: "revenue", horizon: 3 });
+  assert.equal(res.status, 201);
+
+  const board = res.body.forecast.scoreboard;
+  assert.ok(board, "the comparison is stored beside the points it produced, not re-derived on read");
+  const winners = board.candidates.filter((c: any) => c.winner);
+  assert.equal(winners.length, 1, "exactly one winner");
+  assert.equal(winners[0].method, res.body.forecast.method, "the winner is the method that produced the points");
+  assert.ok(board.selection.rule.length > 0, "the rule is printable, so the page never restates it");
+  assert.ok(board.candidates.every((c: any) => c.mase !== null || c.reason !== null),
+    "every candidate either scored or says why it could not");
+});
+
+test("the track record is empty, not broken, before any prediction has matured", async () => {
+  const { token } = await setupOrg("empty");
+  const res = await request(app).get("/api/forecasts/accuracy").set("Authorization", token);
+  assert.equal(res.status, 200, "an org with no matured predictions gets an empty page, not a 500");
+  assert.equal(res.body.summary.predictions, 0);
+  assert.equal(res.body.summary.accuracyPct, null, "no predictions is not 0% accurate");
+  assert.deepEqual(res.body.byMetric, []);
+  assert.deepEqual(res.body.byHorizonStep, []);
+  assert.deepEqual(res.body.recent, []);
+});
+
+test("a matured prediction is scored, and re-scoring converges instead of accumulating", async () => {
+  const { orgId, token } = await setupOrg("score");
+  // Forecast from 18 months, then let the data run on to 24: the projected periods
+  // are now complete, so they can be graded against what actually happened.
+  const full = monthlyRows(24);
+  await prisma.dataset.updateMany({ where: { organizationId: orgId }, data: { rows: full.slice(0, 18) } });
+  const made = await request(app).post("/api/forecasts").set("Authorization", token).send({ metric: "revenue", horizon: 3 });
+  assert.equal(made.status, 201);
+
+  await prisma.dataset.updateMany({ where: { organizationId: orgId }, data: { rows: full } });
+  const scored = await request(app).post("/api/forecasts/rescore").set("Authorization", token).send({});
+  assert.equal(scored.status, 200);
+  assert.ok(scored.body.summary.predictions > 0, "periods the data has since completed are graded");
+
+  const first = await prisma.forecastScore.count({ where: { organizationId: orgId } });
+  await request(app).post("/api/forecasts/rescore").set("Authorization", token).send({});
+  const second = await prisma.forecastScore.count({ where: { organizationId: orgId } });
+  assert.equal(second, first, "scoring is an upsert — re-running it does not pile up second verdicts");
+
+  // Production accuracy is a different measurement from the bake-off's held-out error,
+  // and the payload keeps them apart: nothing here carries a backtest figure.
+  const page = await request(app).get("/api/forecasts/accuracy").set("Authorization", token);
+  assert.equal(page.body.summary.predictions, first - page.body.summary.staleCount);
+  assert.ok(page.body.byHorizonStep.every((h: any) => h.horizonStep >= 1));
+  assert.ok(page.body.recent.every((r: any) => typeof r.actual === "number"), "every row states what actually happened");
+});
+
+test("a what-if forecast is never graded against the real world", async () => {
+  const { orgId, token } = await setupOrg("lever-score");
+  const full = monthlyRows(24);
+  await prisma.dataset.updateMany({ where: { organizationId: orgId }, data: { rows: full.slice(0, 18) } });
+  const scenario = await request(app).post("/api/forecasts").set("Authorization", token)
+    .send({ metric: "revenue", horizon: 3, levers: [{ field: "unit_price", changePct: 10 }] });
+  assert.equal(scenario.status, 201);
+
+  await prisma.dataset.updateMany({ where: { organizationId: orgId }, data: { rows: full } });
+  await request(app).post("/api/forecasts/rescore").set("Authorization", token).send({});
+  assert.equal(
+    await prisma.forecastScore.count({ where: { forecastId: scenario.body.forecast.id } }),
+    0,
+    "a lever projects a counterfactual world; grading it against the real one measures nothing",
+  );
+});
+
+test("the track record stays inside its own organisation", async () => {
+  const a = await setupOrg("acc-mine");
+  const b = await setupOrg("acc-theirs");
+  const full = monthlyRows(24);
+  await prisma.dataset.updateMany({ where: { organizationId: a.orgId }, data: { rows: full.slice(0, 18) } });
+  await request(app).post("/api/forecasts").set("Authorization", a.token).send({ metric: "revenue", horizon: 3 });
+  await prisma.dataset.updateMany({ where: { organizationId: a.orgId }, data: { rows: full } });
+  await request(app).post("/api/forecasts/rescore").set("Authorization", a.token).send({});
+
+  const mine = await request(app).get("/api/forecasts/accuracy").set("Authorization", a.token);
+  const theirs = await request(app).get("/api/forecasts/accuracy").set("Authorization", b.token);
+  assert.ok(mine.body.summary.predictions > 0, "org A has a track record");
+  assert.equal(theirs.body.summary.predictions, 0, "org B's track record never counts org A's predictions");
+  assert.deepEqual(theirs.body.recent, []);
+});
+
+test("a viewer can read the track record but cannot trigger a re-score", async () => {
+  const { orgId, token } = await setupOrg("acc-rbac");
+  const viewer = await prisma.user.create({ data: { name: "Val", email: email("acc-viewer"), passwordHash: "x" } });
+  await prisma.organizationMember.create({ data: { userId: viewer.id, organizationId: orgId, role: "VIEWER" } });
+  const viewerToken = `Bearer ${signToken({ userId: viewer.id, organizationId: orgId, role: "VIEWER" })}`;
+  void token;
+
+  assert.equal((await request(app).get("/api/forecasts/accuracy").set("Authorization", viewerToken)).status, 200);
+  assert.equal((await request(app).post("/api/forecasts/rescore").set("Authorization", viewerToken).send({})).status, 403);
+});

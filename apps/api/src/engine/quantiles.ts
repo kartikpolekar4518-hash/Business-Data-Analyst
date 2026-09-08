@@ -15,3 +15,8 @@ export function quartiles(xs: number[]): { q1: number; median: number; q3: numbe
   const s = [...xs].sort((a, b) => a - b);
   return { q1: percentileOfSorted(s, 25), median: percentileOfSorted(s, 50), q3: percentileOfSorted(s, 75) };
 }
+
+/** A single percentile — sorts once and delegates to the same order-statistic rule. */
+export function percentile(xs: number[], p: number): number {
+  return percentileOfSorted([...xs].sort((a, b) => a - b), p);
+}

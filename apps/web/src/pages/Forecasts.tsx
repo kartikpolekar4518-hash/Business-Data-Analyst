@@ -1,18 +1,31 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { TrendingUp, Info, AlertTriangle, SlidersHorizontal } from "lucide-react";
+import { TrendingUp, AlertTriangle, SlidersHorizontal, ChevronRight } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { Card, CardHeader, CardBody, Button, Select, Input, Label, Slider, Skeleton, EmptyState, ErrorState, Badge, SegmentedControl, useToast } from "../components/ui";
 import { PageLayout, RailSection } from "../components/PageLayout";
+import { DataTable, type Column } from "../components/DataTable";
 import { ForecastChart } from "../components/charts";
 import { useDebounced } from "../lib/debounce";
-import { money, num, timeAgo } from "../lib/utils";
+import { cn, money, num, timeAgo } from "../lib/utils";
 
 interface ForecastPoint { period: string; value: number; lower: number; upper: number; best?: number; worst?: number; }
 interface SavedScenario { levers: Lever[]; goal: number | null; driverDelta: number | null; }
-interface Forecast { id: string; metric: string; horizon: number; method: string; history: { period: string; value: number }[]; points: ForecastPoint[]; scenario?: SavedScenario | null; createdAt: string; }
+interface CandidateScore {
+  method: string; label: string; params: Record<string, number> | null;
+  mase: number | null; mape: number | null; mae: number | null;
+  origins: number; eligible: boolean; reason: string | null; winner: boolean;
+}
+interface Selection {
+  origins: number; horizonScored: number; metric: "mase"; rule: string;
+  winsorized: string[]; bandBasis: "empirical" | "normal" | "residual";
+}
+// The bake-off stored with the forecast it produced. Null on forecasts saved before
+// it existed, which is why every read of it is guarded rather than assumed.
+interface Scoreboard { candidates: CandidateScore[]; selection: Selection }
+interface Forecast { id: string; metric: string; horizon: number; method: string; history: { period: string; value: number }[]; points: ForecastPoint[]; scenario?: SavedScenario | null; scoreboard?: Scoreboard | null; createdAt: string; }
 interface GoalStatus { goal: number; forecastValue: number; status: "on_track" | "at_risk" | "missed"; gap: number; gapPct: number; }
 interface LeverEffect { field: LeverField; changePct: number; column: string | null; applied: boolean; propagatesTo: ("revenue" | "profit")[]; note: string | null; }
 interface ScenarioImpact { levers: LeverEffect[]; revenueExpression: string; revenueDerived: boolean; profitDerived: boolean; }
@@ -158,10 +171,10 @@ export default function Forecasts() {
         <p className="page-subtitle">Projections from historical trend. Estimates only — not guarantees.</p>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-start gap-2 rounded-lg border border-warn/30 bg-warn-soft p-3 text-body-sm text-warn">
-          <Info className="mt-0.5 h-4 w-4 shrink-0" />A seasonal or linear model is chosen automatically by backtesting, with a 95% confidence band and best/base/worst scenarios that widen with the horizon.
-        </div>
+      {/* The old banner described a two-model engine and would now be a false
+          description of it. Each forecast states its own selection below its chart,
+          against its own history, which says more and can't go stale. */}
+      <div className="flex flex-wrap items-center justify-end gap-3">
         {data?.forecasts.length ? (
           <SegmentedControl
             options={SCENARIOS.map((sc) => ({ id: sc.key, label: sc.label }))}
@@ -196,6 +209,7 @@ export default function Forecasts() {
                     return <div key={p.period} className="rounded-lg border border-rule-soft p-2 text-center"><div className="text-body-sm text-ink-faint">{p.period}</div><div className="font-semibold">{fmt(shown)}</div><div className="text-body-sm text-ink-faint">{hasScenarios ? `${fmt(p.worst!)}–${fmt(p.best!)}` : `${fmt(p.lower)}–${fmt(p.upper)}`}</div></div>;
                   })}
                 </div>
+                <Leaderboard scoreboard={f.scoreboard} />
               </CardBody>
             </Card>;
           })}
@@ -239,6 +253,94 @@ function ImpactPanel({ impact }: { impact: ScenarioImpact | null }) {
           <span><strong>{leverLabel(l.field)} {pctLabel(l.changePct)}:</strong> {l.note}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+// The bake-off, stated below the forecast rather than beside it. DESIGN.md allows one
+// hero metric per screen and the projection is it; this is explanation, so it reads as
+// evidence for the number above and never competes with it.
+//
+// Every figure here is held-out backtest error over slices of past history — how the
+// methods compared while one was being chosen. It is NOT how accurate this forecast
+// turned out to be; that only exists once the periods complete, and it lives on the
+// Track record screen. The two are never mixed or averaged.
+function Leaderboard({ scoreboard }: { scoreboard: Scoreboard | null | undefined }) {
+  const [open, setOpen] = useState(false);
+  // Null for every forecast saved before the bake-off existed. Those numbers were
+  // produced by different code and cannot be reconstructed, so the section is simply
+  // absent rather than showing an empty or invented comparison.
+  if (!scoreboard?.candidates?.length) return null;
+
+  const { candidates, selection } = scoreboard;
+  const winner = candidates.find((c) => c.winner);
+  const tested = candidates.filter((c) => c.eligible);
+  // MAPE is the readable number and leads; MASE is what actually ranked them, so it is
+  // always shown too rather than being quietly dropped when a percentage exists.
+  const score = winner
+    ? [winner.mape !== null ? `${winner.mape}% average error` : null,
+       winner.mase !== null ? `MASE ${winner.mase}` : null].filter(Boolean).join(" · ")
+    : null;
+
+  const columns: Column<CandidateScore>[] = [
+    {
+      key: "label", header: "Method", width: "14rem",
+      render: (c) => (
+        <span className={c.eligible ? undefined : "text-ink-faint"}>
+          {c.label}
+          {c.winner && <span className="ml-2"><Badge tone="green">winner</Badge></span>}
+        </span>
+      ),
+    },
+    { key: "mase", header: "MASE", align: "right", sortable: true, accessor: (c) => c.mase,
+      render: (c) => <span className={c.eligible ? undefined : "text-ink-faint"}>{c.mase ?? "—"}</span> },
+    { key: "mape", header: "Average error", align: "right", sortable: true, accessor: (c) => c.mape,
+      render: (c) => <span className={c.eligible ? undefined : "text-ink-faint"}>{c.mape === null ? "—" : `${c.mape}%`}</span> },
+    {
+      key: "origins", header: "Tested on", align: "right", accessor: (c) => c.origins,
+      // An untested method states WHY it could not be tested. Showing what the data
+      // could not support is as honest as showing what won.
+      render: (c) => c.eligible
+        ? <span>{c.origins} {c.origins === 1 ? "slice" : "slices"}</span>
+        : <span className="text-ink-faint">{c.reason ?? "not tested"}</span>,
+    },
+  ];
+
+  return (
+    <div className="mt-4 border-t border-rule-soft pt-3">
+      {/* The summary line is always visible and never truncated: it is the answer to
+          "why this method?", and hiding it behind a click would make the comparison
+          feel like a footnote rather than the reason the number above exists. */}
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-start gap-2 text-left text-body"
+      >
+        <ChevronRight className={cn("mt-0.5 h-4 w-4 shrink-0 text-ink-faint transition-transform", open && "rotate-90")} />
+        <span>
+          <strong>{winner ? `${winner.label} won` : "No method could be tested"}</strong>
+          {" — tested "}{tested.length} {tested.length === 1 ? "method" : "methods"}
+          {" over "}{selection.origins} rolling {selection.origins === 1 ? "slice" : "slices"} of your history.
+          {score ? ` ${score}.` : ""}
+        </span>
+      </button>
+
+      {open && (
+        <div className="mt-3 space-y-2">
+          <DataTable columns={columns} rows={candidates} rowKey={(c) => c.method} />
+          {/* The rule is printed from the engine's own string rather than restated here,
+              so the page can never describe a selection rule the code stopped using. */}
+          <p className="text-body-sm text-ink-faint">{selection.rule}</p>
+          <p className="text-body-sm text-ink-faint">
+            Errors above are measured on parts of your past that were hidden from each method while it
+            was being fitted, {selection.horizonScored} {selection.horizonScored === 1 ? "period" : "periods"} ahead
+            each time. They describe the comparison, not how this forecast turned out — that appears on
+            the Track record screen once these periods complete.
+            {selection.winsorized.length > 0 && ` Unusual months toned down before fitting: ${selection.winsorized.join(", ")}.`}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
