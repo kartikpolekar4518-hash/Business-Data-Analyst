@@ -83,6 +83,7 @@ const NAV: NavItem[] = [
     tabs: [
       { to: "/analytics", label: "Explore" },
       { to: "/forecasts", label: "Forecasts", keywords: "forecast projection predict what-if scenario goal horizon" },
+      { to: "/forecasts/accuracy", label: "Track record", keywords: "accuracy track record hit rate error mape backtest how accurate were forecasts" },
       { to: "/charts", label: "Chart library", keywords: "chart graph library visual catalog plot map" },
       { to: "/builder", label: "Builder", keywords: "builder widget canvas custom dashboard layout" },
     ],

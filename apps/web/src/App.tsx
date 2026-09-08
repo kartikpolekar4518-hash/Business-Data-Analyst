@@ -20,6 +20,7 @@ const Analytics = lazy(() => import("./pages/Analytics"));
 const ChartLibrary = lazy(() => import("./pages/ChartLibrary"));
 const AiChat = lazy(() => import("./pages/AiChat"));
 const Forecasts = lazy(() => import("./pages/Forecasts"));
+const ForecastAccuracy = lazy(() => import("./pages/ForecastAccuracy"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Alerts = lazy(() => import("./pages/Alerts"));
 const Activity = lazy(() => import("./pages/Activity"));
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/charts" element={<Protected><ChartLibrary /></Protected>} />
             <Route path="/ai-chat" element={<Protected><AiChat /></Protected>} />
             <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
+            <Route path="/forecasts/accuracy" element={<Protected><ForecastAccuracy /></Protected>} />
             <Route path="/reports" element={<Protected><Reports /></Protected>} />
             <Route path="/alerts" element={<Protected><Alerts /></Protected>} />
             <Route path="/activity" element={<Protected><Activity /></Protected>} />
