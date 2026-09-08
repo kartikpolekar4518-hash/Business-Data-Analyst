@@ -257,6 +257,8 @@ All analytics logic lives in `apps/api/src/engine/`. Each file is a pure TypeScr
 
 Add a new insight in `insights.ts`; add a new column semantic in `schema.ts`; add a new NL intent branch in `intent.ts`. Every change gets a regression assert in `selfcheck.ts`.
 
+Machine-learning estimates deliberately live **outside** this engine. `docs/signals-plan.md` plans "Signals" — an optional, separately-gated prediction layer (customer segmentation, churn risk, basket affinities) served by a stateless Python service that never touches the database. It is planned, not implemented, and nothing in it may alter a figure the deterministic engine produces.
+
 ## Troubleshooting
 
 - **`Can't reach database`** — is Postgres running and does `DATABASE_URL` match? `docker compose up -d db`.
