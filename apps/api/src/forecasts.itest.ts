@@ -131,8 +131,11 @@ test("running a scenario is a write: a VIEWER cannot, and forecasts stay inside 
 // The scenario fixture above deliberately cycles through the same twelve months, so
 // adding rows to it adds no later period. Scoring needs the opposite: a history that
 // genuinely extends, so a forecast's periods can later complete.
+// The row shape is stated concretely rather than as Record<string, unknown>: a
+// `unknown` value is not assignable to Prisma's InputJsonValue, so the loose type
+// makes every `data: { rows }` below a type error.
 function monthlyRows(months: number) {
-  const out: Record<string, unknown>[] = [];
+  const out: { order_date: string; qty: number; price: number; cost: number; region: string }[] = [];
   let y = 2023, m = 1;
   for (let i = 0; i < months; i++) {
     out.push({
