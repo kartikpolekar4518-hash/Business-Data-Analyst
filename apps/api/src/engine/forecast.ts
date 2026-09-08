@@ -1,11 +1,23 @@
-// Deterministic forecasting. Fits the trend, and — when there is enough history —
-// an additive seasonal model, picking whichever backtests better on held-out
-// periods. A residual-based 95% confidence band brackets the central projection,
-// and best/base/worst scenarios fan out from the trend's slope uncertainty. Pure:
-// same history always yields the same forecast.
+// Deterministic forecasting. Eleven candidate methods compete on the history you
+// actually uploaded: each is fitted on a training slice and scored on periods held
+// out from it, at several rolling origins, and the simplest one that gets within 5%
+// of the best error wins. The full scoreboard is returned so the interface can show
+// what was tried and why one won, rather than asserting a choice.
+//
+// The confidence band is measured, not assumed: where enough origins were scored it
+// is the empirical spread of the winner's own held-out errors at that step ahead.
+// Anomalous periods are toned down before fitting, using the same MAD band the
+// Alerts page draws, so the two screens cannot disagree about what is abnormal.
+//
+// Pure: same history always yields the same forecast, down to the chosen smoothing
+// parameters. No model chooses a number here — the code does, and shows its work.
 
-import { nextPeriodKey, periodIndexInYear } from "./calendar.js";
+import { nextPeriodKey } from "./calendar.js";
 import { round } from "./analytics.js";
+import { mean, stdDev } from "./statistics.js";
+import { percentile } from "./quantiles.js";
+import { detectAnomalies, type SeriesPoint } from "./anomaly.js";
+import { CANDIDATES, LABELS, SEASON, monthOf, type Candidate, type Model } from "./forecastModels.js";
 
 export interface HistoryPoint { period: string; value: number; }
 export interface ForecastPoint {
@@ -17,10 +29,36 @@ export interface ForecastPoint {
   worst: number;   // pessimistic scenario (flatter/declining sustained trend)
 }
 
+// One row of the bake-off. `mase` ranks; `mape` is for humans and is null whenever a
+// scored actual was zero, where a percentage error does not exist.
+export interface CandidateScore {
+  method: string;
+  label: string;
+  params: Record<string, number> | null;
+  mase: number | null;
+  mape: number | null;
+  mae: number | null;
+  origins: number;
+  eligible: boolean;
+  reason: string | null;
+  winner: boolean;
+}
+
+export interface ForecastSelection {
+  origins: number;          // rolling origins the winner was scored over
+  horizonScored: number;    // steps ahead each origin was scored to
+  metric: "mase";
+  rule: string;             // the printable selection rule
+  winsorized: string[];     // periods toned down before fitting
+  bandBasis: "empirical" | "normal" | "residual";
+}
+
 export interface ForecastResult {
-  method: string;  // "flat" | "linear_regression" | "seasonal_additive"
+  method: string;  // "flat" | "linear_regression" | "holt_winters_additive" | ...
   history: HistoryPoint[];
   points: ForecastPoint[];
+  scoreboard: CandidateScore[];
+  selection: ForecastSelection;
 }
 
 // Goal evaluation: is the forecast on track vs a target?
@@ -39,6 +77,14 @@ export interface WhatIfResult {
   goal?: GoalStatus;
 }
 
+export const SELECTION_RULE =
+  "The winner is the simplest method whose held-out error (MASE) is within 5% of the best, " +
+  "where simplest means fewest fitted parameters.";
+
+const Z95 = 1.96;
+const TOLERANCE = 1.05;   // "within 5% of the best"
+const MAX_SCORED_HORIZON = 6;
+
 // Periods are "YYYY-MM" on a calendar year and "FY2026-P03" on a retail one; the
 // calendar module owns both formats so the forecaster never has to know which is which.
 function nextPeriod(last: string): string {
@@ -46,8 +92,8 @@ function nextPeriod(last: string): string {
 }
 
 // Ordinary-least-squares line `value = a + b*x` over `ys` at x = 0..n-1, plus the
-// residual population std-dev. Shared by the forecaster and the anomaly detector so
-// both measure "expected value" and "normal variation" identically.
+// residual population std-dev. Still exported: it is the shape the scenario fan-out
+// is derived from, and callers outside the bake-off use it to mean "the trend".
 export interface LinearFit { a: number; b: number; std: number; }
 export function linearFit(ys: number[]): LinearFit {
   const n = ys.length;
@@ -61,52 +107,6 @@ export function linearFit(ys: number[]): LinearFit {
   const resid = ys.map((y, i) => y - (a + b * i));
   const std = Math.sqrt(resid.reduce((s, r) => s + r * r, 0) / n);
   return { a, b, std };
-}
-
-const SEASON = 12;        // monthly data -> yearly season
-const Z95 = 1.96;
-
-// 0-based slot within the year. Retail years also run 12 periods, so SEASON holds for
-// both calendar and retail schemes and seasonality works identically on each.
-function monthOf(period: string): number | null {
-  const index = periodIndexInYear(period);
-  return index === null ? null : index - 1;
-}
-
-// Centered additive seasonal indices (one per month), or null if the periods aren't
-// month-shaped or there isn't at least one point per season slot on average.
-function seasonalIndices(values: number[], periods: string[]): number[] | null {
-  const months = periods.map(monthOf);
-  if (months.some((m) => m === null)) return null;
-  const { a, b } = linearFit(values);
-  const sum = new Array(SEASON).fill(0), cnt = new Array(SEASON).fill(0);
-  for (let i = 0; i < values.length; i++) {
-    const m = months[i]!;
-    sum[m] += values[i] - (a + b * i); cnt[m]++;
-  }
-  if (cnt.some((c) => c === 0)) return null; // an uncovered month makes the index unreliable
-  const idx = sum.map((s, m) => s / cnt[m]);
-  const mean = idx.reduce((x, y) => x + y, 0) / SEASON;
-  return idx.map((v) => v - mean); // center so the seasonal part nets to zero
-}
-
-interface Model {
-  method: string;
-  fitted: number[];                                  // in-sample fit, for residual std
-  at: (x: number, month: number | null) => number;   // central value at future index x
-}
-
-function linearModel(values: number[]): Model {
-  const { a, b } = linearFit(values);
-  return { method: "linear_regression", fitted: values.map((_, i) => a + b * i), at: (x) => a + b * x };
-}
-
-function seasonalModel(values: number[], periods: string[]): Model | null {
-  const idx = seasonalIndices(values, periods);
-  if (!idx) return null;
-  const { a, b } = linearFit(values);
-  const fitted = values.map((_, i) => a + b * i + idx[monthOf(periods[i])!]);
-  return { method: "seasonal_additive", fitted, at: (x, month) => a + b * x + (month === null ? 0 : idx[month]) };
 }
 
 function residStd(values: number[], fitted: number[]): number {
@@ -123,49 +123,190 @@ function slopeStdErr(values: number[], std: number): number {
   return sxx > 0 ? std / Math.sqrt(sxx) : 0;
 }
 
-// Mean absolute error of a model trained on all-but-last-`h` points, scored on the
-// held-out tail. Used to choose seasonal vs linear honestly rather than by assumption.
-function backtestMae(build: (v: number[], p: string[]) => Model | null, values: number[], periods: string[], h: number): number | null {
-  const cut = values.length - h;
-  if (cut < 2) return null;
-  const model = build(values.slice(0, cut), periods.slice(0, cut));
-  if (!model) return null;
-  let err = 0;
-  for (let i = cut; i < values.length; i++) err += Math.abs(values[i] - model.at(i, monthOf(periods[i])));
-  return err / h;
+// A spike or a data-entry error would otherwise tilt every fitted line through it.
+// The clamp band comes from the anomaly detector rather than a fresh rule of its own,
+// so a period the Alerts page calls abnormal is exactly the period the forecaster
+// tones down — a second rule here would let one screen flag what the other kept.
+function winsorize(history: HistoryPoint[]): { values: number[]; clamped: string[] } {
+  const values = history.map((h) => h.value);
+  const { points } = detectAnomalies(history as SeriesPoint[], "forecast");
+  if (!points.length) return { values, clamped: [] };
+  const clamped: string[] = [];
+  const out = values.map((v, i) => {
+    const p = points[i];
+    if (!p || !p.isAnomaly) return v;
+    clamped.push(history[i].period);
+    return Math.min(p.upper, Math.max(p.lower, v));
+  });
+  return { values: out, clamped };
+}
+
+// Mean absolute one-step error of the seasonal-naive forecast on the TRAINING window
+// only — never the held-out one, which is the window being graded. This is what makes
+// MASE comparable across metrics and across organisations: an error of 1.0 means "no
+// better than repeating last year's same period".
+function maseScale(train: number[]): number {
+  const lag = train.length > SEASON ? SEASON : 1;
+  if (train.length <= lag) return 0;
+  let s = 0;
+  for (let i = lag; i < train.length; i++) s += Math.abs(train[i] - train[i - lag]);
+  return s / (train.length - lag);
+}
+
+interface FoldOutcome {
+  errorsByStep: number[][];   // [step][fold], signed actual - predicted
+  mase: number | null;
+  mape: number | null;
+  mae: number | null;
+  origins: number;
+}
+
+const EMPTY_FOLD: FoldOutcome = { errorsByStep: [], mase: null, mape: null, mae: null, origins: 0 };
+
+// Rolling-origin evaluation. Fitting uses the winsorized series; scoring always uses
+// the raw one — grading a model against data it was allowed to clean would be
+// circular, and would hide exactly the misses an anomalous period causes.
+function rollingOrigin(
+  candidate: Candidate, raw: number[], fitValues: number[], periods: string[], H: number, K: number,
+): FoldOutcome {
+  const n = raw.length;
+  const errorsByStep: number[][] = Array.from({ length: H }, () => []);
+  let absSum = 0, scaledSum = 0, pctSum = 0, scored = 0, origins = 0;
+  let scaleUsable = true, pctUsable = true;
+
+  for (let k = 0; k < K; k++) {
+    const cut = n - H - k;
+    if (cut < candidate.minPoints) continue;
+    const model = candidate.build(fitValues.slice(0, cut), periods.slice(0, cut));
+    if (!model) continue;
+    const scale = maseScale(raw.slice(0, cut));
+    if (scale <= 0) scaleUsable = false;
+    origins++;
+    for (let step = 0; step < H; step++) {
+      const i = cut + step;
+      const predicted = model.at(i, monthOf(periods[i]));
+      if (!Number.isFinite(predicted)) continue;
+      const err = raw[i] - predicted;
+      errorsByStep[step].push(err);
+      const abs = Math.abs(err);
+      absSum += abs; scored++;
+      if (scale > 0) scaledSum += abs / scale;
+      if (raw[i] === 0) pctUsable = false;
+      else pctSum += abs / Math.abs(raw[i]);
+    }
+  }
+
+  if (!scored) return EMPTY_FOLD;
+  return {
+    errorsByStep,
+    mase: scaleUsable && scaledSum >= 0 ? round4(scaledSum / scored) : null,
+    mape: pctUsable ? round4((pctSum / scored) * 100) : null,
+    mae: round4(absSum / scored),
+    origins,
+  };
+}
+
+function round4(n: number): number {
+  return Number.isFinite(n) ? Math.round(n * 10000) / 10000 : 0;
+}
+
+function ineligible(c: Candidate, reason: string): CandidateScore {
+  return {
+    method: c.method, label: c.label, params: null,
+    mase: null, mape: null, mae: null, origins: 0,
+    eligible: false, reason, winner: false,
+  };
+}
+
+function flatResult(history: HistoryPoint[], horizon: number): ForecastResult {
+  const base = history[0]?.value ?? 0;
+  let last = history[0]?.period ?? "2024-01";
+  const points: ForecastPoint[] = [];
+  for (let i = 0; i < horizon; i++) {
+    last = nextPeriod(last);
+    points.push({ period: last, value: base, lower: base * 0.8, upper: base * 1.2, best: base, worst: base });
+  }
+  return {
+    method: "flat", history, points, scoreboard: [],
+    selection: {
+      origins: 0, horizonScored: 0, metric: "mase", rule: SELECTION_RULE,
+      winsorized: [], bandBasis: "residual",
+    },
+  };
 }
 
 export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
   const n = history.length;
-  if (n < 2) {
-    const base = history[0]?.value ?? 0;
-    let last = history[0]?.period ?? "2024-01";
-    const points: ForecastPoint[] = [];
-    for (let i = 0; i < horizon; i++) {
-      last = nextPeriod(last);
-      points.push({ period: last, value: base, lower: base * 0.8, upper: base * 1.2, best: base, worst: base });
-    }
-    return { method: "flat", history, points };
-  }
+  if (n < 2) return flatResult(history, horizon);
 
-  const values = history.map((h) => h.value);
+  const raw = history.map((h) => h.value);
   const periods = history.map((h) => h.period);
+  const { values: fitValues, clamped } = winsorize(history);
 
-  // Model selection: prefer seasonal only when there are ≥2 full seasons AND it
-  // backtests at least as well as the linear trend. Otherwise stay linear.
-  let model = linearModel(values);
-  const seasonal = n >= 2 * SEASON ? seasonalModel(values, periods) : null;
-  if (seasonal) {
-    const h = Math.min(SEASON, Math.max(1, Math.floor(n / 4)));
-    const linMae = backtestMae((v) => linearModel(v), values, periods, h);
-    const seaMae = backtestMae((v, p) => seasonalModel(v, p), values, periods, h);
-    // Only switch to seasonal when it materially beats the trend (≥10% lower error),
-    // so a near-linear series with negligible seasonality stays labelled linear.
-    if (linMae !== null && seaMae !== null && seaMae < linMae * 0.9) model = seasonal;
+  // Which candidates could be fitted at all, before any scoring.
+  const runnable = CANDIDATES.filter((c) => n >= c.minPoints && (!c.eligible || c.eligible(raw)));
+
+  // One scored horizon for every candidate, so their errors stay comparable. Shrink
+  // it only if no candidate can hold that many periods out of a history this short.
+  let H = Math.min(horizon, MAX_SCORED_HORIZON);
+  while (H > 1 && !runnable.some((c) => n - H - c.minPoints + 1 >= 1)) H--;
+  const baseK = n < 12 ? 1 : n < 24 ? 3 : n < 48 ? 5 : 8;
+
+  const outcomes = new Map<string, FoldOutcome>();
+  const models = new Map<string, Model>();
+  const scoreboard: CandidateScore[] = CANDIDATES.map((c) => {
+    if (n < c.minPoints) return ineligible(c, `needs ${c.minPoints} periods of history, has ${n}`);
+    if (c.eligible && !c.eligible(raw)) return ineligible(c, "needs every period above zero");
+
+    const model = c.build(fitValues, periods);
+    if (!model) return ineligible(c, "could not be fitted to this history");
+    models.set(c.method, model);
+
+    const K = Math.min(baseK, n - H - c.minPoints + 1);
+    const outcome = K >= 1 ? rollingOrigin(c, raw, fitValues, periods, H, K) : EMPTY_FOLD;
+    outcomes.set(c.method, outcome);
+    return {
+      method: c.method, label: c.label, params: model.params ?? null,
+      mase: outcome.mase, mape: outcome.mape, mae: outcome.mae, origins: outcome.origins,
+      eligible: true,
+      reason: outcome.origins ? null : `needs ${H + c.minPoints} periods to hold any out, has ${n}`,
+      winner: false,
+    };
+  });
+
+  // Selection. CANDIDATES is ordered by fitted-parameter count ascending, so taking
+  // the FIRST entry within tolerance of the best error is exactly "the simplest
+  // method that is not meaningfully worse" — and it is what keeps a plainly linear
+  // history labelled linear instead of flipping to whichever smoother squeezed out
+  // another decimal place.
+  const ranked = scoreboard.filter((s) => s.mase !== null);
+  const byMae = ranked.length ? [] : scoreboard.filter((s) => s.mae !== null);
+  const pool = ranked.length ? ranked : byMae;
+  const key = (s: CandidateScore) => (ranked.length ? s.mase! : s.mae!);
+
+  let winner: CandidateScore | undefined;
+  if (pool.length) {
+    const best = Math.min(...pool.map(key));
+    winner = pool.find((s) => key(s) <= best * TOLERANCE) ?? pool[0];
+  } else {
+    // Nothing could be scored — too little history to hold anything out. Fall through
+    // to the simplest candidate that merely fits, and say so via origins: 0.
+    winner = scoreboard.find((s) => s.eligible);
   }
+  if (!winner) return flatResult(history, horizon);
+  winner.winner = true;
 
-  const std = residStd(values, model.fitted);
-  const seB = slopeStdErr(values, std); // slope uncertainty drives the scenario fan-out
+  const model = models.get(winner.method)!;
+  const outcome = outcomes.get(winner.method) ?? EMPTY_FOLD;
+
+  // Band basis, by how much evidence there actually is. Empirical quantiles need
+  // enough folds to have quantiles; below that a normal fit of the same errors; below
+  // that the residual formula this engine has always used, so short series are
+  // unchanged.
+  const bandBasis: ForecastSelection["bandBasis"] =
+    outcome.origins >= 8 ? "empirical" : outcome.origins >= 3 ? "normal" : "residual";
+  const std = residStd(raw, model.fitted);
+  const seB = slopeStdErr(raw, std); // slope uncertainty drives the scenario fan-out
 
   let last = periods[n - 1];
   const points: ForecastPoint[] = [];
@@ -173,8 +314,37 @@ export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
     const x = n - 1 + i;
     last = nextPeriod(last);
     const month = monthOf(last);
-    const value = Math.max(0, model.at(x, month));
-    const band = Z95 * std * Math.sqrt(1 + i / n);        // noise band, widens with horizon
+    const projected = model.at(x, month);
+    const value = Math.max(0, Number.isFinite(projected) ? projected : raw[n - 1]);
+
+    // Past the scored horizon there is no measured error to use, so reuse the last
+    // scored step's spread and widen it as a random walk would: variance grows with
+    // distance, so the half-width grows with its square root.
+    const stepIdx = Math.min(i, outcome.errorsByStep.length) - 1;
+    const errs = stepIdx >= 0 ? outcome.errorsByStep[stepIdx] : [];
+    const stretch = i > outcome.errorsByStep.length && outcome.errorsByStep.length > 0
+      ? Math.sqrt(i / outcome.errorsByStep.length)
+      : 1;
+
+    let lo: number, hi: number;
+    if (bandBasis === "empirical" && errs.length >= 8) {
+      lo = percentile(errs, 2.5) * stretch;
+      hi = percentile(errs, 97.5) * stretch;
+    } else if (bandBasis === "normal" && errs.length >= 3) {
+      const m = mean(errs), s = stdDev(errs);
+      lo = (m - Z95 * s) * stretch;
+      hi = (m + Z95 * s) * stretch;
+    } else {
+      const band = Z95 * std * Math.sqrt(1 + i / n); // noise band, widens with horizon
+      lo = -band; hi = band;
+    }
+
+    // The band brackets the projection by construction. It is NOT forced to widen
+    // with the horizon: where the measured error at three steps out is tighter than
+    // at two, saying otherwise would be a decorative lie.
+    const lower = Math.max(0, Math.min(value, value + lo));
+    const upper = Math.max(value, value + hi);
+
     // Scenarios: sustained steeper / flatter slope, so they fan out over the horizon.
     // Scale by the horizon offset i (distance beyond the last actual), not the absolute
     // time index x, so the fan widens with the forecast rather than the history length.
@@ -182,11 +352,25 @@ export function forecast(history: HistoryPoint[], horizon = 3): ForecastResult {
     const worst = Math.max(0, value - seB * i);
     points.push({
       period: last, value: round(value),
-      lower: round(Math.max(0, value - band)), upper: round(value + band),
+      lower: round(lower), upper: round(upper),
       best: round(Math.max(best, value)), worst: round(Math.min(worst, value)),
     });
   }
-  return { method: model.method, history, points };
+
+  return {
+    method: winner.method,
+    history,
+    points,
+    scoreboard,
+    selection: {
+      origins: outcome.origins,
+      horizonScored: outcome.origins ? H : 0,
+      metric: "mase",
+      rule: SELECTION_RULE,
+      winsorized: clamped,
+      bandBasis,
+    },
+  };
 }
 
 
@@ -224,3 +408,5 @@ export function whatIf(history: HistoryPoint[], horizon: number, driverDelta: nu
     goal: goal === undefined ? undefined : evaluateGoal(scenario.points[0]?.value ?? 0, goal),
   };
 }
+
+export { LABELS as FORECAST_METHOD_LABELS };

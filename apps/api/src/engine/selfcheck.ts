@@ -18,6 +18,7 @@ import { availableHierarchies, currentLevel, nextLevel, drillPath, drillTo, dril
 import { applyScenario, scenarioImpact } from "./scenario.js";
 import { analyzeJoin, createsCycle, joinRows, mergeSchemas, suggestRelations } from "./join.js";
 import { analyzeDrivers } from "./drivers.js";
+import { canonicalJson } from "./identity.js";
 import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
@@ -827,5 +828,70 @@ assert.deepEqual(
   ["2025-08-03", "2025-08-09"],
   "the Gregorian default compares the same calendar dates instead",
 );
+
+// ---- Phase 6: the forecasting bake-off ----
+// The engine now picks between eleven candidate methods on held-out error. These
+// assertions are the contract that survives whichever one wins on a given series:
+// exactly one winner, a printable rule, a band that brackets its own projection, an
+// identical answer twice, and a sweep fast enough for the upload path that runs it.
+
+function bakeoffPeriods(n: number): string[] {
+  const out: string[] = [];
+  let y = 2020, m = 1;
+  for (let i = 0; i < n; i++) { out.push(`${y}-${String(m).padStart(2, "0")}`); if (++m > 12) { m = 1; y++; } }
+  return out;
+}
+const bakeoffHistory = bakeoffPeriods(60).map((period, i) => ({
+  period,
+  value: 1000 + 9 * i + 150 * Math.sin((2 * Math.PI * i) / 12) + (i % 7) * 11,
+}));
+
+const bakeoff = forecast(bakeoffHistory, 6);
+assert.equal(bakeoff.scoreboard.filter((s) => s.winner).length, 1, "the bake-off names exactly one winner");
+assert.equal(bakeoff.scoreboard.find((s) => s.winner)!.method, bakeoff.method, "the winner is the method that produced the points");
+assert(bakeoff.selection.rule.length > 0, "the selection rule is printable, so the UI never has to restate it");
+assert(bakeoff.selection.origins >= 8, `60 periods yields 8 rolling origins, got ${bakeoff.selection.origins}`);
+assert.equal(bakeoff.selection.bandBasis, "empirical", "with 8 origins the band is measured, not assumed");
+for (const s of bakeoff.scoreboard) {
+  assert(s.mase !== null || s.reason !== null, `${s.method} either scored or says why it could not`);
+}
+
+// Determinism, including key order and -0/NaN drift that deepEqual would tolerate.
+assert.equal(
+  canonicalJson(forecast(bakeoffHistory, 6)),
+  canonicalJson(bakeoff),
+  "the same history forecasts identically twice, byte for byte",
+);
+
+// The band brackets the projection for every pack's primary metric, on real sample
+// rows rather than a synthetic curve.
+for (const pack of Object.values(PACKS)) {
+  const primary = pack.metrics[0];
+  if (!primary) continue;
+  const series = A.timeSeries(rows, map, primary, {}, DEFAULT_CALENDAR);
+  if (series.length < 2) continue;
+  const packFc = forecast(series, 3);
+  assert(
+    packFc.points.every((p) => p.lower <= p.value && p.value <= p.upper),
+    `${pack.id}/${primary.id}: every projection sits inside its own band`,
+  );
+  assert(packFc.points.every((p) => Number.isFinite(p.lower) && Number.isFinite(p.upper)), `${pack.id}: the band is finite`);
+}
+
+// The sweep runs on every upload, via refreshAlerts -> deriveInsights -> forecast.
+// This is the tripwire: if it fires, coarsen the smoothing grid in forecastModels.ts
+// rather than adding a mode that makes the answer depend on a flag.
+forecast(bakeoffHistory, 6); // warm, so the first call's JIT cost is not the measurement
+const sweepStart = performance.now();
+forecast(bakeoffHistory, 6);
+const sweepMs = performance.now() - sweepStart;
+assert(sweepMs < 100, `a 60-period bake-off must stay under 100ms, took ${sweepMs.toFixed(1)}ms`);
+
+// A lever moves the projection; it must not change which model won. If it did, a
+// what-if comparison would be comparing two different forecasters.
+const leverBase = forecast(bakeoffHistory, 3);
+const leverRaised = forecast(bakeoffHistory.map((h) => ({ ...h, value: h.value * 1.05 })), 3);
+assert.equal(leverRaised.method, leverBase.method, "a uniform lever does not change which method wins");
+
 
 console.log("✓ engine selfcheck passed");

@@ -4,6 +4,7 @@ import { detectSchema, type SemanticRule } from "./schema.js";
 import { cleanRows, validateSteps, type CleaningStep } from "./cleaning.js";
 import { getPack, suggestIndustry } from "./industries.js";
 import { refreshAlerts } from "../modules/alerts.js";
+import { scoreForecasts } from "../modules/forecastAccuracy.js";
 import { stripRows } from "../modules/context.js";
 import type { Row } from "./parse.js";
 import { canonicalDatasetHash } from "./identity.js";
@@ -108,5 +109,6 @@ export async function ingestRows(input: IngestInput) {
 
   await prisma.activityLog.create({ data: { organizationId, action: input.activityAction, detail: input.activityDetail, actorId, entityType: "dataset", entityId: dataset.id } });
   await refreshAlerts(organizationId); // alerts derive on data change, not on read
+  await scoreForecasts(organizationId); // accuracy scores derive on data change, not on read
   return { dataset: stripRows(dataset), suggestedIndustry, recipeApplied: recipe ? { id: recipe.id, name: recipe.name } : null };
 }

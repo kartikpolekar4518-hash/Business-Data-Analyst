@@ -8,6 +8,7 @@ import * as A from "../engine/analytics.js";
 import { forecast, evaluateGoal, whatIf } from "../engine/forecast.js";
 import { detectPack, packMetric } from "../engine/industries.js";
 import { applyScenario, scenarioImpact, isEmptyScenario, SCENARIO_FIELDS, MIN_CHANGE_PCT, MAX_CHANGE_PCT } from "../engine/scenario.js";
+import { accuracyBreakdown, scoreForecasts } from "./forecastAccuracy.js";
 
 export const forecastingRouter = Router();
 forecastingRouter.use(requireAuth);
@@ -70,6 +71,9 @@ forecastingRouter.post("/", requireRole("ADMIN", "MANAGER"), wrap(async (req, re
       datasetHash: dataset.datasetHash, engineVersion: dataset.engineVersion,
       history: result.history as object,
       points: result.points as object,
+      // The comparison that chose `method`, stored beside the points it produced so
+      // the two can never be read against different data.
+      scoreboard: { candidates: result.scoreboard, selection: result.selection } as object,
       // Recorded so a saved scenario can be told apart from a plain forecast of the
       // same metric. Null when nothing was asked for, which is what every forecast
       // saved before this column existed carries.
@@ -91,4 +95,30 @@ forecastingRouter.get("/", wrap(async (req, res) => {
     take: 20,
   });
   res.json({ forecasts });
+}));
+
+// The track record: predictions that matured and were then observed. Readable by
+// anyone in the org — a view-only person is often the first to notice a figure that
+// did not hold up. This is production accuracy only; the bake-off's held-out error
+// stays on the forecast that produced it, because they answer different questions.
+forecastingRouter.get("/accuracy", wrap(async (req, res) => {
+  res.json(await accuracyBreakdown(req.auth!.organizationId));
+}));
+
+// Scoring normally happens when new data arrives. This is the manual equivalent, so
+// an org can see its track record fill in without waiting for the next upload.
+forecastingRouter.post("/rescore", requireRole("ADMIN", "MANAGER"), wrap(async (req, res) => {
+  const auth = req.auth!;
+  await scoreForecasts(auth.organizationId);
+  const breakdown = await accuracyBreakdown(auth.organizationId);
+  // Logged only from this explicit route. The data-change hook has no actor and runs
+  // on every upload, so logging there would flood the activity page.
+  await prisma.activityLog.create({
+    data: {
+      organizationId: auth.organizationId, action: "forecast.scored", actorId: auth.userId,
+      entityType: "forecast",
+      detail: `Scored saved forecasts: ${breakdown.summary.predictions} matured predictions`,
+    },
+  });
+  res.json(breakdown);
 }));
