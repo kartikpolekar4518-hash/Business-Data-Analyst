@@ -1,0 +1,15 @@
+{
+  "name": "microtorch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Miniature PyTorch-style deep learning framework in pure TypeScript — eager mode, define-by-run autograd, zero dependencies",
+  "type": "module",
+  "main": "microtorch.ts",
+  "scripts": {
+    "demo": "tsx demo.ts",
+    "test": "tsx gradcheck.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2"
+  }
+}
