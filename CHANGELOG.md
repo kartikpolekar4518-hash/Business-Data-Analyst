@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Fixed — sample orders had only one product each
+
+- **Every order in the built-in demo data contained exactly one product.** The generator
+  gave each line its own order number, so an "order" and a "product line" were the same
+  thing. Average basket size was 1.00 in every demo, and the Orders figure was really just
+  a row count wearing a different name.
+- **Sample orders now hold one to four different products**, bought by one customer on one
+  day in one place — the way a real order looks. Some products now genuinely sell together
+  (a phone with earbuds, a laptop with a monitor), so the demo shows a pattern worth
+  spotting rather than pure noise.
+- **None of your own numbers change.** This is the sample dataset only. Data you uploaded
+  is untouched, and no figure computed from it moves.
+- The demo dataset is larger as a result — about 4,500 rows across roughly 1,900 orders,
+  where before it was about 1,500 of each.
+
 ### Work together — comments, mentions, and a visible activity trail
 
 - **Leave a note on a report, a file, or a saved view.** Anyone in your organisation

@@ -19,7 +19,7 @@ import { applyScenario, scenarioImpact } from "./scenario.js";
 import { analyzeJoin, createsCycle, joinRows, mergeSchemas, suggestRelations } from "./join.js";
 import { analyzeDrivers } from "./drivers.js";
 import { canonicalJson } from "./identity.js";
-import { generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
+import { generateRetailData, generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
 const rows = [
@@ -893,5 +893,27 @@ const leverBase = forecast(bakeoffHistory, 3);
 const leverRaised = forecast(bakeoffHistory.map((h) => ({ ...h, value: h.value * 1.05 })), 3);
 assert.equal(leverRaised.method, leverBase.method, "a uniform lever does not change which method wins");
 
+// ---- Retail sample: orders are real baskets ----
+// The generator used to mint a fresh order_id per row, so every sample order held exactly
+// one product: average basket size 1.00 by construction, and nothing to analyse.
+const retailRows = generateRetailData();
+const retailBaskets = new Map<string, string[]>();
+for (const r of retailRows) retailBaskets.set(r.order_id, [...(retailBaskets.get(r.order_id) ?? []), r.product_name]);
+const basketSizes = [...retailBaskets.values()].map((b) => b.length);
+
+assert(basketSizes.some((n) => n > 1), "sample orders contain more than one product");
+assert(
+  [...retailBaskets.values()].every((b) => new Set(b).size === b.length),
+  "no order lists the same product twice — a repeated item says nothing about what sells together",
+);
+const meanBasket = basketSizes.reduce((a, b) => a + b, 0) / basketSizes.length;
+assert(meanBasket > 1.2, `mean basket size must clear 1.2, got ${meanBasket.toFixed(2)}`);
+
+// The file promises a seeded PRNG so demos and tests are stable. Guard it directly.
+assert.equal(
+  JSON.stringify(generateRetailData()),
+  JSON.stringify(generateRetailData()),
+  "the retail generator is deterministic across calls",
+);
 
 console.log("✓ engine selfcheck passed");

@@ -53,6 +53,19 @@ const PRODUCTS: { name: string; category: string; price: number; margin: number 
 const FIRST = ["Ava", "Liam", "Noah", "Emma", "Olivia", "Ethan", "Mia", "Lucas", "Sophia", "Mason", "Isla", "Leo", "Zoe", "Kai"];
 const LAST = ["Reyes", "Kim", "Patel", "Nguyen", "Garcia", "Cohen", "Silva", "Okafor", "Brooks", "Tanaka", "Rossi", "Haddad"];
 
+// Products a real shop sees bought together. Without this, every additional line item
+// would be drawn uniformly and every product pair would sit at lift ~1 — no association
+// at all, which is not what a retail dataset looks like and demonstrates nothing.
+const AFFINITY: Record<string, string[]> = {
+  "Aero Laptop 14": ["Vista Monitor 27", "Ergo Office Chair"],
+  "Aero Laptop 16": ["Vista Monitor 27", "Ergo Office Chair"],
+  "Nimbus Phone X": ["Pulse Earbuds"],
+  "Standing Desk": ["Ergo Office Chair", "LED Desk Lamp"],
+  "Cotton T-Shirt": ["Denim Jeans"],
+  "Cast Iron Pan": ["Ceramic Mug Set"],
+};
+const AFFINITY_RATE = 0.7; // how often an extra line takes an affinity partner
+
 export function generateRetailData(): RetailRow[] {
   const rand = mulberry32(42);
   const pick = <T,>(arr: T[]) => arr[Math.floor(rand() * arr.length)];
@@ -75,30 +88,49 @@ export function generateRetailData(): RetailRow[] {
     const ordersThisMonth = Math.round((70 + rand() * 30) * trend * season * dip);
 
     for (let o = 0; o < ordersThisMonth; o++) {
+      // Order-level: chosen once and repeated on every line of the order. One basket is
+      // one customer, one day, one place — re-drawing these per line would make an order
+      // that nothing could reason about.
       const day = 1 + Math.floor(rand() * 27);
       const date = new Date(start.getFullYear(), start.getMonth() + m, day);
-      const product = pick(PRODUCTS);
       const region = pick(regionNames);
       const state = pick(REGIONS[region]);
       const customer = pick(customers);
-      const quantity = 1 + Math.floor(rand() * 4);
-      const unit_price = Math.round(product.price * (0.95 + rand() * 0.1) * 100) / 100;
-      const revenue = Math.round(unit_price * quantity * 100) / 100;
-      const cost = Math.round(revenue * (1 - product.margin) * 100) / 100;
-      const profit = Math.round((revenue - cost) * 100) / 100;
-      const inventory = Math.floor(rand() * 120);
+      const order_id = `ORD-${orderNo++}`;
+      const order_date = date.toISOString().slice(0, 10);
 
-      rows.push({
-        order_id: `ORD-${orderNo++}`,
-        order_date: date.toISOString().slice(0, 10),
-        customer_id: customer.id,
-        customer_name: customer.name,
-        product_id: `P${PRODUCTS.indexOf(product) + 100}`,
-        product_name: product.name,
-        category: product.category,
-        region, state,
-        quantity, unit_price, revenue, cost, profit, inventory,
-      });
+      // 1–4 distinct products per order. Distinct because the same product twice in one
+      // basket says nothing about what is bought with what.
+      const basket = [pick(PRODUCTS)];
+      const lines = 1 + Math.floor(rand() * 4);
+      for (let l = 1; l < lines; l++) {
+        const partners = (AFFINITY[basket[0].name] ?? []).filter((n) => !basket.some((p) => p.name === n));
+        // Draw the partner name once — calling pick() inside find()'s predicate would
+        // redraw it on every element and consume the seeded sequence unpredictably.
+        const partnerName = partners.length > 0 && rand() < AFFINITY_RATE ? pick(partners) : null;
+        const next = partnerName ? PRODUCTS.find((p) => p.name === partnerName) : pick(PRODUCTS);
+        if (next && !basket.some((p) => p.name === next.name)) basket.push(next);
+      }
+
+      for (const product of basket) {
+        const quantity = 1 + Math.floor(rand() * 4);
+        const unit_price = Math.round(product.price * (0.95 + rand() * 0.1) * 100) / 100;
+        const revenue = Math.round(unit_price * quantity * 100) / 100;
+        const cost = Math.round(revenue * (1 - product.margin) * 100) / 100;
+        const profit = Math.round((revenue - cost) * 100) / 100;
+        const inventory = Math.floor(rand() * 120);
+
+        rows.push({
+          order_id, order_date,
+          customer_id: customer.id,
+          customer_name: customer.name,
+          product_id: `P${PRODUCTS.indexOf(product) + 100}`,
+          product_name: product.name,
+          category: product.category,
+          region, state,
+          quantity, unit_price, revenue, cost, profit, inventory,
+        });
+      }
     }
   }
   return rows;
