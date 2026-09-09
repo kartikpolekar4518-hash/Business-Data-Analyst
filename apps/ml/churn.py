@@ -44,7 +44,10 @@ FEATURE_LABELS = {
 
 def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, Any]) -> dict[str, Any]:
     rows_in = len(rows)
-    refuse = lambda reason: contract.insufficient(MODEL_VERSION, reason, rows_in=rows_in)
+    warnings: list[str] = []
+    refuse = lambda reason: contract.insufficient(
+        MODEL_VERSION, reason, rows_in=rows_in, extra=warnings
+    )
 
     customer_column = data.pick(schema, "customer_id", "customer_name")
     date_column = data.pick(schema, "date")
@@ -66,9 +69,11 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
     frame["date"] = data.dates(frame["date"])
     frame["revenue"] = data.numbers(frame["revenue"])
     frame = frame.dropna(subset=["customer", "date", "revenue"])
-    if "order" not in frame.columns:
-        # No order id: one row is one purchase, which is what the frequency and
-        # gap features assume anyway.
+    has_orders, order_warnings = data.orders(frame)
+    warnings += order_warnings
+    if not has_orders:
+        # No usable order id: one row is one purchase, which is what the frequency
+        # and gap features assume anyway.
         frame["order"] = frame["customer"].astype("string") + "|" + frame["date"].astype("string")
     frame = frame.sort_values(["customer", "date"])
     if frame.empty:
@@ -154,7 +159,7 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
         },
         rows_in=rows_in,
         entities_out=len(scoring),
-        warnings=([shap_warning] if shap_warning else []) + (
+        warnings=warnings + ([shap_warning] if shap_warning else []) + (
             [f"Showing the {MAX_CUSTOMERS_RETURNED} highest-risk of {len(scoring)} customers. "
              "The counts above cover everyone."]
             if len(scoring) > MAX_CUSTOMERS_RETURNED else []

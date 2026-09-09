@@ -105,3 +105,41 @@ def test_a_schema_naming_a_column_the_rows_do_not_have_refuses(sales_rows):
 
     assert result["status"] == "insufficient_data"
     assert result["predictions"] is None
+
+
+def test_an_order_column_the_rows_do_not_have_is_not_counted_as_zero_orders(sales_rows):
+    # A stale schema map made `build` return the column all-null, so every
+    # customer had a frequency of 0 and the run still looked confident.
+    stale = segmentation.run(sales_rows, {**SCHEMA, "order_id": "sales_order_ref"}, {})
+    mapped = segmentation.run(sales_rows, SCHEMA, {})
+
+    assert stale["status"] == "ok"
+    assert any("order column is empty" in w for w in stale["warnings"])
+    assert all(c["frequency"] > 0 for c in stale["predictions"]["customers"])
+    assert stale["metrics"]["customers"] == mapped["metrics"]["customers"]
+
+
+def test_a_blank_order_id_still_counts_as_a_purchase(sales_rows):
+    blanked = [
+        {**row, "order_id": "" if i % 2 else row["order_id"]}
+        for i, row in enumerate(sales_rows)
+    ]
+    result = segmentation.run(blanked, SCHEMA, {})
+
+    assert result["status"] == "ok"
+    assert any("no order id" in w for w in result["warnings"])
+    total = sum(c["monetary"] for c in result["predictions"]["customers"])
+    assert total == pytest.approx(
+        sum(c["monetary"] for c in segmentation.run(sales_rows, SCHEMA, {})["predictions"]["customers"]),
+        abs=0.05,
+    )
+
+
+def test_separation_is_measured_on_a_sample_once_the_data_is_large(sales_rows, monkeypatch):
+    # Comparing every customer with every other one is quadratic, and the module
+    # is written for a million of them.
+    monkeypatch.setattr(segmentation, "MAX_SILHOUETTE_SAMPLE", 40)
+    result = segmentation.run(sales_rows, SCHEMA, {})
+
+    assert result["status"] == "ok"
+    assert any("sample of 40" in w for w in result["warnings"])

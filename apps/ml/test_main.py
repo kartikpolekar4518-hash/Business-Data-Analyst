@@ -12,6 +12,7 @@ import main
 @pytest.fixture()
 def client(monkeypatch):
     monkeypatch.delenv("ML_SHARED_SECRET", raising=False)
+    monkeypatch.setenv("ML_ALLOW_NO_SECRET", "1")
     return TestClient(main.app)
 
 
@@ -66,6 +67,7 @@ def test_a_malformed_body_is_rejected(client):
 
 def test_the_shared_secret_is_required_when_it_is_set(monkeypatch):
     monkeypatch.setenv("ML_SHARED_SECRET", "s3cret")
+    monkeypatch.delenv("ML_ALLOW_NO_SECRET", raising=False)
     guarded = TestClient(main.app)
     body = {"rows": baskets(orders=210, seed=13), "schema": SCHEMA, "config": {}}
 
@@ -74,3 +76,32 @@ def test_the_shared_secret_is_required_when_it_is_set(monkeypatch):
     assert guarded.post("/basket", json=body, headers={"x-ml-secret": "s3cret"}).status_code == 200
     # Health is how the caller finds out the service is up; it stays open.
     assert guarded.get("/health").status_code == 200
+
+
+def test_a_missing_secret_closes_the_door_rather_than_opening_it(monkeypatch):
+    # An unset secret used to skip the check, so a deployment that forgot the
+    # variable served anyone who reached the port.
+    monkeypatch.delenv("ML_SHARED_SECRET", raising=False)
+    monkeypatch.delenv("ML_ALLOW_NO_SECRET", raising=False)
+    unconfigured = TestClient(main.app)
+    body = {"rows": [], "schema": SCHEMA, "config": {}}
+
+    assert unconfigured.post("/basket", json=body).status_code == 503
+    assert unconfigured.post("/basket", json=body, headers={"x-ml-secret": "guess"}).status_code == 503
+    # Health stays open, so the caller can still see the service is up.
+    assert unconfigured.get("/health").status_code == 200
+
+
+def test_a_non_ascii_secret_header_is_refused_not_a_crash(monkeypatch):
+    monkeypatch.setenv("ML_SHARED_SECRET", "s3cret")
+    monkeypatch.delenv("ML_ALLOW_NO_SECRET", raising=False)
+    guarded = TestClient(main.app)
+    body = {"rows": [], "schema": SCHEMA, "config": {}}
+
+    # Headers arrive as bytes and starlette decodes them latin-1, which is how a
+    # non-ASCII secret reaches `hmac.compare_digest` at all.
+    response = guarded.post(
+        "/basket", json=body, headers={"x-ml-secret": "sécret".encode("latin-1")}
+    )
+
+    assert response.status_code == 401

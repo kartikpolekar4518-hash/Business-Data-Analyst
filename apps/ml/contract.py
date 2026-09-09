@@ -83,15 +83,20 @@ def insufficient(
     *,
     rows_in: int,
     metrics: Metrics | None = None,
+    extra: list[str] | None = None,
 ) -> dict[str, Any]:
     """A refusal is a result, not a failure.
 
     This is a successful response carrying the reason and no predictions. The UI
     renders the reason verbatim rather than showing a weak estimate.
+
+    `extra` carries anything the run had already noticed before it refused — what
+    it had to leave out or work around. That was dropped on the way out, so a
+    refusal could hide the very thing that caused it.
     """
     return _envelope(
         model_version, "insufficient_data",
-        predictions=None, metrics=metrics or {}, warnings=[reason],
+        predictions=None, metrics=metrics or {}, warnings=[reason] + list(extra or []),
         rows_in=rows_in, entities_out=0,
     )
 

@@ -29,11 +29,18 @@ K_RANGE = range(2, 7)
 # Bounds the stored result. A million customers must not become a million-row Json
 # column; the clusters and their sizes are exact either way.
 MAX_CUSTOMERS_RETURNED = 5000
+# `silhouette_score` compares every customer with every other one. At a million
+# customers that is a trillion comparisons and the route never returns, so above
+# this the separation is measured on a fixed sample of that size instead.
+MAX_SILHOUETTE_SAMPLE = 10000
 
 
 def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, Any]) -> dict[str, Any]:
     rows_in = len(rows)
-    refuse = lambda reason: contract.insufficient(MODEL_VERSION, reason, rows_in=rows_in)
+    warnings: list[str] = []
+    refuse = lambda reason: contract.insufficient(
+        MODEL_VERSION, reason, rows_in=rows_in, extra=warnings
+    )
 
     customer_column = data.pick(schema, "customer_id", "customer_name")
     date_column = data.pick(schema, "date")
@@ -58,7 +65,10 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
     if frame.empty:
         return refuse("No row had a customer, a date and a revenue figure together.")
 
-    rfm = _rfm(frame, has_orders="order" in frame.columns)
+    has_orders, order_warnings = data.orders(frame)
+    warnings += order_warnings
+
+    rfm = _rfm(frame, has_orders=has_orders)
     if len(rfm) < MIN_CUSTOMERS:
         return refuse(
             f"Only {len(rfm)} customers have usable history. "
@@ -83,7 +93,7 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
         labels = KMeans(n_clusters=k, random_state=42, n_init=10).fit_predict(features)
         if len(set(labels)) < 2:
             continue
-        score = float(silhouette_score(features, labels))
+        score = float(_separation(features, labels))
         scores[f"silhouette_k{k}"] = data.rounded(score, 4)
         if best is None or score > best[0]:
             best = (score, k, labels)
@@ -97,6 +107,12 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
             f"The customers do not fall into distinct groups "
             f"(separation {score:.2f}, and {MIN_SILHOUETTE} is the minimum worth reporting). "
             "Inventing groups here would be misleading."
+        )
+
+    if len(rfm) > MAX_SILHOUETTE_SAMPLE:
+        warnings.append(
+            f"Separation was measured on a sample of {MAX_SILHOUETTE_SAMPLE} of the "
+            f"{len(rfm)} customers. The groups and their sizes cover everyone."
         )
 
     rfm = rfm.assign(clusterId=labels)
@@ -115,12 +131,19 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
         },
         rows_in=rows_in,
         entities_out=len(rfm),
-        warnings=(
+        warnings=warnings + (
             [f"Showing {MAX_CUSTOMERS_RETURNED} of {len(rfm)} customers, highest spend first. "
              "Group sizes and shares cover everyone."]
             if len(rfm) > MAX_CUSTOMERS_RETURNED else []
         ),
     )
+
+
+def _separation(features: Any, labels: Any) -> float:
+    """How cleanly the clusters divide, on a sample once the data is large enough
+    that comparing every customer with every other one would not finish."""
+    sample = MAX_SILHOUETTE_SAMPLE if len(features) > MAX_SILHOUETTE_SAMPLE else None
+    return float(silhouette_score(features, labels, sample_size=sample, random_state=42))
 
 
 def _rfm(frame: pd.DataFrame, *, has_orders: bool) -> pd.DataFrame:
