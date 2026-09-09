@@ -23,6 +23,7 @@ import {
   Upload,
   Keyboard,
   SunMoon,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -86,6 +87,17 @@ const NAV: NavItem[] = [
       { to: "/forecasts/accuracy", label: "Track record", keywords: "accuracy track record hit rate error mape backtest how accurate were forecasts" },
       { to: "/charts", label: "Chart library", keywords: "chart graph library visual catalog plot map" },
       { to: "/builder", label: "Builder", keywords: "builder widget canvas custom dashboard layout" },
+    ],
+  },
+  {
+    to: "/signals/segments",
+    label: "What might happen",
+    icon: Sparkles,
+    keywords: "signals prediction predict estimate model churn risk segment persona group basket affinity cross-sell sells together machine learning",
+    tabs: [
+      { to: "/signals/segments", label: "Customer groups", keywords: "segment persona cluster rfm group customers recency frequency monetary" },
+      { to: "/signals/churn", label: "Who might leave", keywords: "churn risk lapse retention at risk stop buying" },
+      { to: "/signals/basket", label: "Sells together", keywords: "basket affinity cross-sell bundle pairs association lift" },
     ],
   },
   {
