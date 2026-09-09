@@ -133,3 +133,28 @@ def test_without_an_order_column_each_row_counts_as_a_purchase(sales_rows):
     assert result["status"] in ("ok", "insufficient_data")
     if result["status"] == "ok":
         assert result["metrics"]["scoredCustomers"] > 0
+
+
+def test_an_order_column_the_rows_do_not_have_is_a_refusal_or_a_result_never_a_crash(sales_rows):
+    # The all-null column emptied the (customer, order) grouping and the run came
+    # back as `error` carrying a raw pandas message.
+    result = churn.run(sales_rows, {**SCHEMA, "order_id": "sales_order_ref"}, {})
+
+    assert result["status"] == "ok"
+    assert any("order column is empty" in w for w in result["warnings"])
+    assert result["metrics"]["scoredCustomers"] > 0
+
+
+def test_a_blank_order_id_keeps_its_revenue(sales_rows):
+    # `groupby` drops rows whose key is missing, and took the revenue with them.
+    blanked = [
+        {**row, "order_id": "" if i % 2 else row["order_id"]}
+        for i, row in enumerate(sales_rows)
+    ]
+    result = churn.run(blanked, SCHEMA, {})
+
+    assert result["status"] == "ok"
+    assert any("no order id" in w for w in result["warnings"])
+    assert result["metadata"]["rowsIn"] == len(sales_rows)
+    revenue = sum(c["revenue"] for c in result["predictions"]["customers"])
+    assert revenue == pytest.approx(sum(float(row["revenue"]) for row in sales_rows), abs=0.05)

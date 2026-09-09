@@ -43,3 +43,34 @@ def test_rounded_has_no_word_for_nan_so_it_says_nothing():
 def test_span_days_of_nothing_is_zero():
     assert data.span_days(pd.Series([], dtype="datetime64[ns]")) == 0.0
     assert data.span_days(data.dates(pd.Series(["2024-01-01", "2024-01-31"]))) == 30.0
+
+
+def test_numbers_keeps_an_exponent_and_reads_brackets_as_negative():
+    # Stripping everything but digits, a dot and a minus turned "1e5" into 15 and
+    # a bracketed refund into income.
+    parsed = data.numbers(pd.Series(["1e5", "(50)", "$(1,200.50)", "1.5e-05", "-3", "-$1,200.50"]))
+
+    assert parsed.tolist() == [100000.0, -50.0, -1200.5, 0.000015, -3.0, -1200.5]
+
+
+def test_numbers_reads_an_exponent_written_among_text():
+    parsed = data.numbers(pd.Series([1.5e-05, "2.5e-05", "n/a"], dtype="object"))
+
+    assert parsed.tolist()[:2] == [1.5e-05, 2.5e-05]
+    assert parsed.isna().tolist() == [False, False, True]
+
+
+def test_dates_reads_a_day_first_column_the_same_way_throughout():
+    # Guessing value by value read the first as 2 January and the second as
+    # 13 February, which moved every gap and cutoff computed from the column.
+    parsed = data.dates(pd.Series(["01/02/2024", "13/02/2024", "28/02/2024"]))
+
+    assert [d.month for d in parsed] == [2, 2, 2]
+    assert [d.day for d in parsed] == [1, 13, 28]
+
+
+def test_dates_still_reads_a_month_first_column_as_written():
+    parsed = data.dates(pd.Series(["01/02/2024", "03/15/2024"]))
+
+    assert (parsed[0].month, parsed[0].day) == (1, 2)
+    assert (parsed[1].month, parsed[1].day) == (3, 15)

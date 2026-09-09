@@ -28,15 +28,17 @@ DEFAULT_MIN_SUPPORT = 0.01
 DEFAULT_MIN_CONFIDENCE = 0.10
 MIN_LIFT = 1.0
 MAX_RULES = 200
-# FP-Growth is exponential in the worst case. Rare products cannot clear the
-# support floor anyway, so dropping them costs no rule and bounds the run.
+# FP-Growth is exponential in the worst case, so the catalogue is bounded. Rare
+# products rarely clear the support floor, but a run that hits this cap says so:
+# with a wide enough catalogue, a real pairing can be dropped along with them.
 MAX_PRODUCTS = 500
 
 
 def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, Any]) -> dict[str, Any]:
     rows_in = len(rows)
+    warnings: list[str] = []
     refuse = lambda reason, metrics=None: contract.insufficient(
-        MODEL_VERSION, reason, rows_in=rows_in, metrics=metrics
+        MODEL_VERSION, reason, rows_in=rows_in, metrics=metrics, extra=warnings
     )
 
     order_column = data.pick(schema, "order_id")
@@ -82,14 +84,13 @@ def run(rows: list[dict[str, Any]], schema: dict[str, str], config: dict[str, An
     min_support = _fraction(config.get("minSupport"), DEFAULT_MIN_SUPPORT)
     min_confidence = _fraction(config.get("minConfidence"), DEFAULT_MIN_CONFIDENCE)
 
-    warnings: list[str] = []
     products = frame["product"].value_counts()
     if len(products) > MAX_PRODUCTS:
         keep = set(products.head(MAX_PRODUCTS).index)
         baskets = baskets.apply(lambda items: [p for p in items if p in keep])
         warnings.append(
-            f"Limited to the {MAX_PRODUCTS} best-selling products of {len(products)}; "
-            "the rest appear too rarely to form a rule."
+            f"Limited to the {MAX_PRODUCTS} best-selling products of {len(products)}. "
+            "No rule involving any of the rest is reported."
         )
 
     encoded = TransactionEncoder()

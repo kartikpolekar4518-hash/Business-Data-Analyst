@@ -6,7 +6,9 @@ here, and stores what comes back — so tenant isolation stays in the one place 
 already lives.
 
 Bound to 127.0.0.1 by the process that spawns it. The shared secret is defence in
-depth on top of that, not the boundary itself.
+depth on top of that, not the boundary itself — but it is required: without
+`ML_SHARED_SECRET` set, the model routes refuse to serve unless
+`ML_ALLOW_NO_SECRET=1` says this is a development machine.
 """
 
 from __future__ import annotations
@@ -34,11 +36,25 @@ MODELS: dict[str, Any] = {
 def _authorise(supplied: str | None) -> None:
     expected = os.environ.get("ML_SHARED_SECRET", "")
     if not expected:
-        # Unset means local development, where the loopback bind is the whole
-        # boundary. Deployments set it; `.env.example` says so.
-        return
-    if not supplied or not hmac.compare_digest(supplied, expected):
+        # Fail closed. An unset secret used to skip the check silently, so a
+        # deployment that forgot the variable served anything that reached the
+        # port. Local development says so out loud instead.
+        if os.environ.get("ML_ALLOW_NO_SECRET", "").strip().lower() in {"1", "true", "yes"}:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="ML_SHARED_SECRET is not set. Set it, or set ML_ALLOW_NO_SECRET=1 "
+                   "for local development.",
+        )
+    if not supplied or not hmac.compare_digest(_comparable(supplied), _comparable(expected)):
         raise HTTPException(status_code=401, detail="bad shared secret")
+
+
+def _comparable(value: str) -> bytes:
+    """`compare_digest` refuses a non-ASCII `str`, and this check runs outside the
+    route's own error handling, so a header with an accent in it came back as a
+    500 rather than the 401 it is."""
+    return value.encode("utf-8", errors="surrogatepass")
 
 
 @app.get("/health")

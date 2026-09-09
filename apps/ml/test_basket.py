@@ -102,3 +102,16 @@ def test_a_nonsense_config_falls_back_to_the_defaults(basket_rows):
     assert result["status"] == "ok"
     assert result["metrics"]["minSupport"] == basket.DEFAULT_MIN_SUPPORT
     assert result["metrics"]["minConfidence"] == basket.DEFAULT_MIN_CONFIDENCE
+
+
+def test_a_refusal_still_says_the_catalogue_was_cut_down():
+    # The cap changes what could be found, so a refusal that followed it has to
+    # carry the warning rather than dropping it on the way out.
+    rows = [
+        {"order_id": f"ORD-{o:05d}", "product_name": f"P{(o * 2 + i) % 600:03d}", "revenue": 10.0}
+        for o in range(300) for i in range(2)
+    ]
+    result = basket.run(rows, SCHEMA, {})
+
+    assert result["status"] == "insufficient_data"
+    assert any(str(basket.MAX_PRODUCTS) in w for w in result["warnings"])

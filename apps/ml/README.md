@@ -18,13 +18,19 @@ and stores what comes back. Tenant isolation stays in the one place it already i
 ```bash
 python -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
-uvicorn main:app --host 127.0.0.1 --port 8000
+ML_ALLOW_NO_SECRET=1 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 In a deployment Node spawns this itself; running it by hand is for development.
 Bind to `127.0.0.1` and nothing else. Set `ML_SHARED_SECRET` and send it as the
 `x-ml-secret` header — defence in depth on top of the loopback bind, not the
-boundary itself. Unset, the check is skipped, which is the local default.
+boundary itself.
+
+It is required. With no secret set the model routes answer `503` rather than
+serving anyone who reaches the port; `ML_ALLOW_NO_SECRET=1` opts a development
+machine out of that, and belongs nowhere else. Both are in `.env.example`.
+`/health` is open either way, because that is how the caller learns the service
+is up.
 
 ```bash
 curl localhost:8000/health
