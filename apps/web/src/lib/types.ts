@@ -25,6 +25,14 @@ export interface DateCrumb { key: string | null; label: string; from?: string; t
 
 export interface HierarchyLevel { semantic: string; filterKey: string; label: string }
 export interface Hierarchy { id: string; label: string; levels: HierarchyLevel[] }
+export interface DerivedDimension { key: string; column: string; label: string; cardinality: number; values: string[] }
+export interface ShapedColumnSummary { name: string; label: string; role: string; confidence: number; reasons: string[] }
+export interface ShapeSummary {
+  kind: "measure_over_time" | "measure" | "events_over_time" | "categorical" | "single_column" | "unusable";
+  rowCount: number;
+  notes: string[];
+  columns: ShapedColumnSummary[];
+}
 export interface OverviewResponse {
   datasetId: string; datasetName: string;
   industry: string; suggestedIndustry: string;
@@ -37,6 +45,11 @@ export interface OverviewResponse {
   // up. Optional throughout — an older API build simply is not date-drillable.
   trend: {
     title: string; subtitle: string; revenue: Point[]; profit: Point[];
+    // What the two series are called for this file. `secondSeriesLabel` is null when the
+    // file has no profit or cost column, and the chart then draws one series rather than
+    // a flat line of zeros with a name it has not earned.
+    seriesLabel?: string;
+    secondSeriesLabel?: string | null;
     grain?: DateGrain;
     ranges?: Record<string, DateRange>;
     path?: DateCrumb[];
@@ -45,6 +58,11 @@ export interface OverviewResponse {
   ranking: RankSection;
   secondary: RankSection;
   filterOptions: Record<string, string[]>;
+  // Every grouping the engine found in this file, keyed by its real column — not just
+  // the ones that landed in a named slot. Filtered via `col.<column>=value`.
+  dimensions?: DerivedDimension[];
+  // How the file was read, in the engine's own words. Rendered as "How we read your file".
+  shape?: ShapeSummary;
   hierarchies?: Hierarchy[];
   // Which prior window every changePct above was measured against, as the engine
   // actually resolved it — a requested comparison can come back unavailable, and a

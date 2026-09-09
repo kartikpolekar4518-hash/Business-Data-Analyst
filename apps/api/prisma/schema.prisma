@@ -140,6 +140,7 @@ model Dataset {
   columns          Json // [{ name, type, semantic, ... }]
   schemaMap        Json // { revenue: "revenue", date: "order_date", ... }
   profile          Json // per-column profiling stats
+  shape            Json? // structural read of the file (engine/shape.ts): roles, confidence, notes
   rows             Json // original parsed rows
   cleanedRows      Json? // rows after accepted cleaning suggestions
   // ─── Identity/provenance (see engine/identity.ts) ───

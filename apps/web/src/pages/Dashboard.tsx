@@ -40,6 +40,15 @@ import type { OverviewResponse, InsightsResponse, DatasetSummary, Alert } from "
 const KPI_COLS: Record<number, string> = { 3: "lg:grid-cols-3", 4: "lg:grid-cols-4", 5: "lg:grid-cols-5" };
 
 type InsightIconKey = "growth" | "risk" | "opportunity" | "target" | "default";
+// The engine's role names, said the way someone reading a dashboard would say them.
+const ROLE_WORDS: Record<string, string> = {
+  time: "date",
+  measure: "number",
+  dimension: "grouping",
+  identifier: "record key",
+  text: "free text",
+};
+
 const insightIconMap: Record<InsightIconKey, typeof Zap> = {
   growth: Zap, risk: AlertTriangle, opportunity: Lightbulb, target: Target, default: ClipboardCheck,
 };
@@ -411,6 +420,8 @@ export default function Dashboard() {
               profit={data.trend.profit}
               grain={data.trend.grain}
               format={trendFormat}
+              seriesName={data.trend.seriesLabel}
+              profitName={data.trend.secondSeriesLabel}
               height={320}
             />
           ) : (
@@ -514,6 +525,42 @@ export default function Dashboard() {
           <DriverBreakdown datasetId={data.datasetId} />
           <AnomalyPanel datasetId={data.datasetId} />
         </div>
+      )}
+
+      {/* The dashboard above is built from this file's own columns rather than from a
+          fixed template, so it has to say which columns it chose and why — otherwise the
+          reader has no way to tell a considered choice from a lucky one. Prose, so it
+          belongs in the reading column at full measure rather than in the rail. */}
+      {data?.shape && (
+        <Card>
+          <CardHeader title="How we read your file" subtitle={`${num(data.shape.rowCount)} rows across ${data.shape.columns.length} columns`} />
+          <CardBody>
+            {data.shape.notes.length ? (
+              <>
+                <ul className="space-y-2">
+                  {data.shape.notes.map((note) => (
+                    <li key={note} className="flex gap-2 text-body text-ink-soft">
+                      <span aria-hidden className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ink-faint" />
+                      <span>{note}</span>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 border-t border-rule-soft pt-3">
+                  {data.shape.columns
+                    .filter((c) => c.role !== "ignored")
+                    .map((c) => (
+                      <span key={c.name} className="text-body-sm text-ink-faint" title={c.reasons.join("; ")}>
+                        <span className="text-ink-soft">{c.label}</span>{" "}
+                        <span className="text-data">{ROLE_WORDS[c.role] ?? c.role}</span>
+                      </span>
+                    ))}
+                </div>
+              </>
+            ) : (
+              <EmptyState icon={ClipboardCheck} title="Nothing to explain yet" description="Upload a file and we will show how we read it." compact />
+            )}
+          </CardBody>
+        </Card>
       )}
 
       <Card>

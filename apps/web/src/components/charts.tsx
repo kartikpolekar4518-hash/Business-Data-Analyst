@@ -351,12 +351,22 @@ export const MultiTrendChart = memo(function MultiTrendChart({
   /** What one bucket on the x-axis is, so the window control can name itself. */
   grain,
   format,
+  /**
+   * What the two series are called for the file being charted. The engine derives these
+   * from the dataset's own columns, so a hospital file reads "Bed Days", not "Revenue".
+   * `profitName` null means the file has no second series: the chart draws one line
+   * rather than a flat run of zeros under a name the data does not support.
+   */
+  seriesName = "Revenue",
+  profitName = "Profit",
 }: {
   revenue: { label?: string; period?: string; value: number }[];
   profit: { label?: string; period?: string; value: number }[];
   height?: number;
   grain?: "year" | "quarter" | "period";
   format?: (v: number) => string;
+  seriesName?: string;
+  profitName?: string | null;
 }) {
   const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
@@ -396,12 +406,13 @@ export const MultiTrendChart = memo(function MultiTrendChart({
     return Number.isFinite(n) ? merged.slice(-n) : merged;
   }, [merged, periods]);
 
-  const showRev = view === "both" || view === "revenue";
-  const showProf = view === "both" || view === "profit";
+  const hasSecond = profitName !== null;
+  const showRev = !hasSecond || view === "both" || view === "revenue";
+  const showProf = hasSecond && (view === "both" || view === "profit");
 
   const series: CompareSeries[] = [
-    ...(showRev ? [{ key: "revenue", name: "Revenue", color: CHART.blue, format }] : []),
-    ...(showProf ? [{ key: "profit", name: "Profit", color: CHART.emerald, format }] : []),
+    ...(showRev ? [{ key: "revenue", name: seriesName, color: CHART.blue, format }] : []),
+    ...(showProf ? [{ key: "profit", name: profitName!, color: CHART.emerald, format }] : []),
   ];
 
   // A trend needs two points to be a trend. Saying so beats drawing an axis
@@ -415,11 +426,13 @@ export const MultiTrendChart = memo(function MultiTrendChart({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="flex items-center gap-1.5 text-body-sm text-ink-faint">
-            <span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />Revenue
+            <span className="h-2 w-2 rounded-full" style={{ background: CHART.blue }} />{seriesName}
           </span>
-          <span className="flex items-center gap-1.5 text-body-sm text-ink-faint">
-            <span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />Profit
-          </span>
+          {hasSecond && (
+            <span className="flex items-center gap-1.5 text-body-sm text-ink-faint">
+              <span className="h-2 w-2 rounded-full" style={{ background: CHART.emerald }} />{profitName}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {windows.length > 1 && (
@@ -432,18 +445,21 @@ export const MultiTrendChart = memo(function MultiTrendChart({
               ariaLabel="Periods shown"
             />
           )}
-          <SegmentedControl
-            options={[
-              { id: "both", label: "Both" },
-              { id: "revenue", label: "Revenue" },
-              { id: "profit", label: "Profit" },
-            ]}
-            value={view}
-            onChange={setView}
-            layoutId="trend-series"
-            size="sm"
-            ariaLabel="Series shown"
-          />
+          {/* Nothing to switch between when the file has only one series. */}
+          {hasSecond && (
+            <SegmentedControl
+              options={[
+                { id: "both", label: "Both" },
+                { id: "revenue", label: seriesName },
+                { id: "profit", label: profitName! },
+              ]}
+              value={view}
+              onChange={setView}
+              layoutId="trend-series"
+              size="sm"
+              ariaLabel="Series shown"
+            />
+          )}
         </div>
       </div>
       <ResponsiveContainer width="100%" height={height}>

@@ -8,6 +8,18 @@ export interface Filters {
   region?: string | string[]; state?: string | string[]; city?: string | string[];
   category?: string | string[]; department?: string | string[];
   product?: string | string[]; customer?: string | string[];
+  // Filters on columns the semantic slots have no name for. A derived dataset can carry
+  // any number of groupings, and truncating them to the seven slots above would silently
+  // drop most of a wide file's filters. Keyed by real column name, AND-ed with the rest.
+  columns?: Record<string, string | string[]>;
+}
+
+// A grouping, named either by semantic slot or by the column itself. The slot form is
+// what every existing call site passes; the column form is what a derived dataset uses
+// for a grouping that occupies no slot.
+export type DimensionRef = Semantic | { column: string };
+export function dimensionColumn(ref: DimensionRef, s: SchemaMap): string | undefined {
+  return typeof ref === "object" ? ref.column : s[ref];
 }
 
 export function num(v: unknown): number {
@@ -53,7 +65,14 @@ export function applyFilters(rows: Row[], s: SchemaMap, f: Filters): Row[] {
       if (!vals.length) return true; if (!s[sem]) return false;
       const cell = str(r[s[sem]!]).toLowerCase(); return vals.some((v) => cell === str(v).toLowerCase());
     };
-    return eq("region", f.region) && eq("state", f.state) && eq("city", f.city) && eq("category", f.category) && eq("department", f.department) && eq("product_name", f.product) && eq("customer_name", f.customer);
+    if (!(eq("region", f.region) && eq("state", f.state) && eq("city", f.city) && eq("category", f.category) && eq("department", f.department) && eq("product_name", f.product) && eq("customer_name", f.customer))) return false;
+    for (const [col, val] of Object.entries(f.columns ?? {})) {
+      const vals = (val == null ? [] : Array.isArray(val) ? val : [val]).filter((v) => str(v) !== "");
+      if (!vals.length) continue;
+      const cell = str(r[col]).toLowerCase();
+      if (!vals.some((v) => cell === str(v).toLowerCase())) return false;
+    }
+    return true;
   });
 }
 
@@ -124,7 +143,7 @@ export function splitPeriods(
     ({ current, previous: [], basis: "unavailable", reason, currentSource: null, currentRange: null, previousRange: null });
   if (!s.date) return none("no_date_column", applyFilters(rows, s, f));
 
-  const { dateFrom, dateTo, ...dims } = f;
+  const { dateFrom, dateTo, ...dims } = f; // `columns` rides along in dims: it removes rows, so it bounds the comparison universe
   const scope = applyFilters(rows, s, dims);      // comparison universe
   const filtered = applyFilters(scope, s, f);     // caller's current view
   const times: number[] = [];
@@ -234,8 +253,8 @@ export function timeSeries(rows: Row[], s: SchemaMap, metric: MetricRef, f: Filt
   const buckets = new Map<string, number>(); for (const r of filtered) { const d = parseDate(r[s.date!]); if (!d) continue; const key = grainKey(d, cal, grain); buckets.set(key, (buckets.get(key) || 0) + metricValue(metric, r, s)); }
   return [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([period, value]) => ({ period, value: round(value) }));
 }
-export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: MetricRef, f: Filters = {}, limit = 10) {
-  const col = s[dimension]; const filtered = applyFilters(rows, s, f); if (!col) return [];
+export function groupBy(rows: Row[], s: SchemaMap, dimension: DimensionRef, metric: MetricRef, f: Filters = {}, limit = 10) {
+  const col = dimensionColumn(dimension, s); const filtered = applyFilters(rows, s, f); if (!col) return [];
   if (typeof metric === "object") {
     const buckets = new Map<string, Row[]>(); for (const r of filtered) { const key = str(r[col]) || "Unknown"; const bucket = buckets.get(key) ?? []; bucket.push(r); buckets.set(key, bucket); }
     return [...buckets.entries()].map(([label, bucket]) => ({ label, value: round(metric.compute(bucket, s)) })).sort((a, b) => b.value - a.value).slice(0, limit);
@@ -243,7 +262,7 @@ export function groupBy(rows: Row[], s: SchemaMap, dimension: Semantic, metric: 
   const buckets = new Map<string, number>(); for (const r of filtered) { const key = str(r[col]) || "Unknown"; buckets.set(key, (buckets.get(key) || 0) + metricValue(metric, r, s)); }
   return [...buckets.entries()].map(([label, value]) => ({ label, value: round(value) })).sort((a, b) => b.value - a.value).slice(0, limit);
 }
-export function distinctValues(rows: Row[], s: SchemaMap, dimension: Semantic): string[] { const col = s[dimension]; if (!col) return []; const set = new Set<string>(); for (const r of rows) { const v = str(r[col]); if (v) set.add(v); } return [...set].sort().slice(0, 100); }
+export function distinctValues(rows: Row[], s: SchemaMap, dimension: DimensionRef): string[] { const col = dimensionColumn(dimension, s); if (!col) return []; const set = new Set<string>(); for (const r of rows) { const v = str(r[col]); if (v) set.add(v); } return [...set].sort().slice(0, 100); }
 export function round(n: number): number { return Math.round(n * 100) / 100; }
 export function fmt(n: number): string {
   const v = num(n);

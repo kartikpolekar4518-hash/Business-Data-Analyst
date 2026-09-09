@@ -8,6 +8,9 @@ import { compileKpiDef, compileMetric, validateMetricSpec, type MetricSpec } fro
 import { normalizeCalendar, type PeriodScheme } from "../engine/calendar.js";
 import { joinRows, mergeSchemas, type JoinReport } from "../engine/join.js";
 import { canonicalDatasetHash } from "../engine/identity.js";
+import { profileDataset } from "../engine/profile.js";
+import { deriveShape, type DataShape } from "../engine/shape.js";
+import { deriveModel, type DerivedModel } from "../engine/derived.js";
 
 // Parsed-row cache. Deserializing the rows JSON is the dominant cost of every
 // analytics request (the dashboard alone fires ~5 in parallel), so rows are
@@ -155,6 +158,57 @@ export async function loadJoinedDataset(organizationId: string, datasetId?: stri
 // the dashboard, and which business calendar buckets its periods. Fetched together in
 // one query because every caller wants both, and normalized here so a bad stored value
 // degrades to the default instead of throwing on an analytics read.
+/**
+ * The analytical model for one dataset: the dashboard configuration derived from the
+ * file's own structure, with the organization's custom metrics merged on top.
+ *
+ * The industry packs no longer shape a dashboard — the data does. `getPack` survives
+ * only as the carrier of the organization's calendar-independent defaults for the rare
+ * dataset whose shape is unusable, so a screen always has a pack to render against.
+ *
+ * A dataset ingested before shapes existed has no stored shape, so one is derived here
+ * from its stored profile. That keeps every historic upload working with no backfill.
+ */
+export async function loadAnalysisConfig(organizationId: string, datasetId: string, rows: Row[]) {
+  const [record, custom, org] = await Promise.all([
+    prisma.dataset.findFirst({ where: { id: datasetId, organizationId }, select: { shape: true, profile: true, name: true } }),
+    prisma.customMetric.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } }),
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { industry: true, fiscalYearStartMonth: true, periodScheme: true, weekStartDay: true },
+    }),
+  ]);
+
+  let shape = (record?.shape as unknown as DataShape | null) ?? null;
+  if (!shape) {
+    const stored = record?.profile as unknown as Profile | null;
+    const profile = stored?.columns?.length ? stored : profileDataset(rows, Object.keys(rows[0] ?? {}));
+    shape = deriveShape(profile, rows);
+  }
+  const derived: DerivedModel = deriveModel(shape, rows);
+
+  // Custom metrics merge into a COPY of the derived pack, never the shared PACKS
+  // constant — one organization's metrics must not leak into another's process-shared
+  // pack. Same rule loadOrgConfig has always applied.
+  const specs = custom
+    .map((m) => m.spec as unknown as MetricSpec)
+    .filter((spec) => validateMetricSpec(spec).length === 0);
+  const pack: IndustryPack = specs.length
+    ? { ...derived.pack, metrics: [...derived.pack.metrics, ...specs.map(compileMetric)], kpis: [...derived.pack.kpis, ...specs.map(compileKpiDef)] }
+    : derived.pack;
+
+  return {
+    pack,
+    shape,
+    derived,
+    calendar: normalizeCalendar({
+      fiscalYearStartMonth: org?.fiscalYearStartMonth,
+      scheme: org?.periodScheme as PeriodScheme | undefined,
+      weekStartDay: org?.weekStartDay,
+    }),
+  };
+}
+
 export async function loadOrgConfig(organizationId: string) {
   const [org, custom] = await Promise.all([
     prisma.organization.findUnique({
