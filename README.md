@@ -75,6 +75,45 @@ yields strings while the Excel reader yields native numbers and dates, so the sa
 business data uploaded as `.csv` and as `.xlsx` may hash differently. The hash means
 "these are the same analytical rows" — **not** "this is the same business data".
 
+## Signals — the one part that estimates
+
+Everything above is the deterministic engine. **Signals is the exception, and it is
+fenced off accordingly.**
+
+| | The engine | Signals |
+|---|---|---|
+| What it does | Computes what happened, from your rows | Estimates what may happen, from a model trained on them |
+| Can you trace a number back to rows? | Yes — the "Why this number" panel | No. A model's output is not a calculation over rows |
+| Where it appears | Dashboard, Analytics, Forecasts, Reports | Its own top-level section, and nowhere else |
+| Available | Always | Only when switched on, and only on Pro and above |
+
+Three questions the deterministic engine cannot answer, and does not pretend to:
+
+- **Customer groups** — recency, frequency and spend clustered *together*. The engine's
+  own segmentation splits on revenue quartiles, which is one axis and can only ever be one.
+- **Who might stop buying** — a lapse-risk estimate per customer, each arriving with the
+  factors that drove *that* customer's score. Nothing in the engine predicts anything.
+- **What sells together** — product pairings that occur far more often than chance explains.
+
+**How it is kept apart.** A prediction never appears on the Dashboard, in Analytics, in a
+Forecast or in a report; the pages carry a permanent, non-dismissible banner saying these
+are estimates; and the model's own accuracy is always displayed beside its output rather
+than hidden behind a toggle. When a model does not have enough data to answer well it
+**refuses and says why**, and that refusal is shown verbatim instead of a weak number.
+
+**How it fails.** The service is a separate Python process. If it is off, unreachable,
+slow, crashed or answering nonsense, the Signals pages say so and **nothing else in NoPS
+changes** — the dashboard, every analytics query, every forecast, every upload and every
+report compute exactly as they did before. That is asserted in
+`apps/api/src/signals.itest.ts`, not merely intended.
+
+**What is claimed.** Same rows + same config + same pinned dependencies + same model
+version → the same output. That is reproducibility, not permanence, and it is the same
+line the table above draws for the engine. A prediction is never "verified" or "audited".
+
+Off by default. Set `ML_ENABLED=true` and `ML_SHARED_SECRET` to switch it on; the Docker
+image ships it enabled since it ships the service.
+
 ## Why deterministic
 
 - **Auditable.** Every KPI, forecast, and recommendation has a code path you can read, step through, and unit-test. There is no model that produced the answer — the answer *is* the code path.
@@ -96,6 +135,7 @@ business data uploaded as `.csv` and as `.xlsx` may hash differently. The hash m
 - **Forecasting** — linear-regression trend with a residual-based 95% confidence band that widens with horizon.
 - **Insights & alerts** — recommendations that separate *observed data* from *possible cause* from *recommendation*; automatic alerts for revenue drops, profit decline, inventory shortage, forecast risk, and unusual performance.
 - **Executive reports** — structured report + server-side **PDF export**.
+- **Signals — predictions (optional, Pro and above)** — three questions the deterministic engine cannot answer: which groups your customers actually fall into (recency + frequency + spend together), who looks about to stop buying and what is driving each individual score, and which products sell together. Runs in a separate Python service that is **off unless you switch it on**, and every figure it produces is labelled an **estimate**. See *Signals* below.
 - **Settings** — company profile, user management, API-key vault (stored **hashed**, never returned), theme (dark/light).
 
 ## Architecture
@@ -116,8 +156,14 @@ apps/
         selfcheck.ts         runnable assert-based regression suite
       auth/                  JWT, requireAuth, requireRole
       modules/               one router per domain (uploads, datasets, analytics, ai, ...)
+      ml/                    the only code that talks to the Python service
   web/                       React + Vite + TS + Tailwind + Recharts + TanStack Query
     src/{components,pages,lib}
+  ml/                        OPTIONAL Python model service (Signals) — stateless maths only
+    main.py                  FastAPI, three POST routes, shared-secret header
+    segmentation.py          customer groups (RFM, clustered)
+    churn.py                 lapse risk + per-customer reasons
+    basket.py                products that sell together
 ```
 
 **Design choices (kept intentionally lean):**
@@ -129,6 +175,7 @@ apps/
 **Frontend:** React, TypeScript, Vite, Tailwind, Recharts, React Router, TanStack Query, lucide-react.
 **Backend:** Node, Express, TypeScript, Zod, JWT, bcrypt, multer, papaparse, xlsx, pdfkit.
 **Database:** PostgreSQL + Prisma.
+**Signals (optional):** Python 3.11, FastAPI, scikit-learn, SHAP, mlxtend, pandas — one separate process, pinned exactly, and reached only through `apps/api/src/ml/client.ts`.
 
 ## Prerequisites
 
@@ -147,6 +194,10 @@ Copy `.env.example` → `apps/api/.env`:
 | `APP_URL` | Web origin(s) for CORS (default `http://localhost:5173`) |
 | `PORT` | API port (default `4000`) |
 | `MAX_FILE_SIZE` | Max upload bytes (default 15 MB) |
+| `ML_ENABLED` | `true` switches Signals on. Unset = off, and the Signals pages say so |
+| `ML_SERVICE_URL` | Where the model service listens (default `http://127.0.0.1:8000`) |
+| `ML_SHARED_SECRET` | Required when `ML_ENABLED=true`; sent as `x-ml-secret` |
+| `ML_TIMEOUT_MS` | How long Node waits for a model (default 120000) |
 
 ## Quick start (Docker, one command)
 
@@ -207,6 +258,9 @@ Alerts     GET  /api/alerts
            PATCH /api/alerts/:id/read
 Settings   GET|PATCH /api/settings
            POST|DELETE /api/settings/api-keys[/:id]
+Signals    GET  /api/signals/status               (is it on, reachable, on your plan)
+           POST /api/signals/{segments,churn,basket}   -> 202, runs in the background
+           GET  /api/signals/{segments,churn,basket}   (latest result)
 ```
 
 > The chat endpoint (`/api/ai/chat`) interprets the question with GPT when `OPENAI_API_KEY` is set (falling back to rules + regex otherwise), then dispatches to the deterministic analytics layer. The other `/api/ai/*` routes (`insights`, `conversations`) are rule-based and invoke no model.
@@ -232,9 +286,20 @@ Cover profiling, schema detection, KPI period-over-period math, row cleaning, NL
 
 **Unit tests** (`*.test.ts`) cover the security-critical paths outside the pure engine: connector-credential encryption (AES-GCM round-trip + tamper detection), the SSRF host guard and SQL-identifier quoting, the role gate, error-handler status mapping, and the AI layer's no-key privacy fallback.
 
+**Integration tests** (`*.itest.ts`, real Express + Prisma + Postgres) run with `npm run test:integration --workspace apps/api`. `signals.itest.ts` runs the whole file against a model service that is deliberately unreachable, so the degradation path is exercised rather than described.
+
+**The Signals service** has its own suite — determinism (the same input twice, compared byte for byte), a refusal rather than a weak number when data is thin, and malformed input:
+
+```bash
+pip install -r apps/ml/requirements.txt
+pytest apps/ml
+```
+
+CI runs all four in one job, because it is one deployed image and a green build has to mean every half passes.
+
 ## Prisma / database
 
-- Models: `User`, `Organization`, `OrganizationMember`, `PasswordResetToken`, `Dataset`, `DataQualityIssue`, `Report`, `Forecast`, `Alert`, `AIConversation`, `AIMessage`, `ApiKey`, `ActivityLog` — all UUIDs, `createdAt` / `updatedAt`, org-scoped, indexed, cascading FKs.
+- Models: `User`, `Organization`, `OrganizationMember`, `PasswordResetToken`, `Dataset`, `DataQualityIssue`, `Report`, `Forecast`, `Alert`, `AIConversation`, `AIMessage`, `ApiKey`, `ActivityLog`, `Prediction` (Signals estimates, read by nothing else) — all UUIDs, `createdAt` / `updatedAt`, org-scoped, indexed, cascading FKs.
 - `AIConversation` / `AIMessage` are historical names for the chat-log tables; they store user messages and the deterministic engine's structured responses. No model outputs are stored.
 - Migrate (dev): `npm run db:migrate`
 - Migrate (prod): `npx prisma migrate deploy --schema apps/api/prisma/schema.prisma`
@@ -257,7 +322,7 @@ All analytics logic lives in `apps/api/src/engine/`. Each file is a pure TypeScr
 
 Add a new insight in `insights.ts`; add a new column semantic in `schema.ts`; add a new NL intent branch in `intent.ts`. Every change gets a regression assert in `selfcheck.ts`.
 
-Machine-learning estimates deliberately live **outside** this engine. `docs/signals-plan.md` plans "Signals" — an optional, separately-gated prediction layer (customer segmentation, churn risk, basket affinities) served by a stateless Python service that never touches the database. It is planned, not implemented, and nothing in it may alter a figure the deterministic engine produces.
+Machine-learning estimates deliberately live **outside** this engine, in Signals (see above). Nothing there can alter a figure the deterministic engine produces, and nothing here reads a prediction.
 
 ## Troubleshooting
 
