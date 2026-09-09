@@ -4,7 +4,7 @@ import { prisma } from "../prisma.js";
 import { env } from "../env.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { PLANS, getPlan, withinLimit, type PlanLimits } from "../billing/plans.js";
+import { PLANS, getPlan, hasFeature, withinLimit, type PlanFeatures, type PlanLimits } from "../billing/plans.js";
 
 export const billingRouter = Router();
 billingRouter.use(requireAuth);
@@ -37,6 +37,26 @@ export async function assertWithinLimit(organizationId: string, resource: keyof 
   if (!withinLimit(limit, count)) {
     throw new HttpError(402, `You've reached your ${plan.name} plan limit for ${RESOURCE_LABEL[resource]}. Upgrade your plan to add more.`);
   }
+}
+
+const FEATURE_LABEL: Record<keyof PlanFeatures, string> = {
+  predictions: "Signals predictions",
+};
+
+// Throws 402 if the org's plan does not include `feature` at all. The sibling of
+// assertWithinLimit: that one guards "how many", this one guards "at all".
+export async function assertPlanFeature(organizationId: string, feature: keyof PlanFeatures): Promise<void> {
+  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { plan: true } });
+  const plan = getPlan(org?.plan);
+  if (!hasFeature(plan, feature)) {
+    throw new HttpError(402, `${FEATURE_LABEL[feature]} are not included in the ${plan.name} plan. Upgrade to Pro to switch them on.`);
+  }
+}
+
+/** Does this org's plan include `feature`? For status endpoints, which report rather than refuse. */
+export async function planHasFeature(organizationId: string, feature: keyof PlanFeatures): Promise<boolean> {
+  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { plan: true } });
+  return hasFeature(getPlan(org?.plan), feature);
 }
 
 // Public plan catalogue (drives the pricing page). No secrets returned.

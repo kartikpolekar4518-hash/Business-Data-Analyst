@@ -65,6 +65,17 @@ export const env = {
   trustProxyHops: hopsEnv("TRUST_PROXY_HOPS"),
   // Scheduler tick interval (ms). Lower in tests/dev if needed; default 60s.
   schedulerIntervalMs: numberEnv("SCHEDULER_INTERVAL_MS", 60_000),
+  // Signals — the optional Python model service (apps/ml). Same opt-in convention as
+  // OPENAI_API_KEY / SMTP_URL / STRIPE_SECRET_KEY: unset = the feature is off, the
+  // Signals pages say so, and nothing else in the product is affected.
+  mlEnabled: process.env.ML_ENABLED === "true",
+  // Loopback by default. The service is spawned as a child process bound to 127.0.0.1,
+  // so pointing this at a remote host is a deliberate act, not a default.
+  mlServiceUrl: process.env.ML_SERVICE_URL ?? "http://127.0.0.1:8000",
+  mlSharedSecret: process.env.ML_SHARED_SECRET ?? "",
+  // Training is seconds of work, not milliseconds; the default is generous on purpose.
+  // It bounds a hung service, and the client returns null when it expires.
+  mlTimeoutMs: numberEnv("ML_TIMEOUT_MS", 120_000),
 };
 
 // Fail fast: never sign tokens or encrypt credentials with a secret that is
@@ -81,4 +92,15 @@ if (KNOWN_WEAK_SECRETS.has(env.jwtSecret)) {
 if (KNOWN_WEAK_SECRETS.has(env.connectorEncryptionKey) || env.connectorEncryptionKey === "dev-insecure-connector-key-change-me") {
   if (!isLocalDev) throw new Error("CONNECTOR_ENCRYPTION_KEY must be set to a real secret (connector credentials are encrypted with it). Set NODE_ENV=development for local demos.");
   console.warn("[security] CONNECTOR_ENCRYPTION_KEY is the public default — fine for local demos, never for production.");
+}
+
+// Signals is off unless the shared secret is set. Without it the Python service either
+// refuses every request (its own fail-closed check) or, on a machine that opted out of
+// that check, serves anything that reaches the port. Neither is a working feature, so
+// this is a boot-time refusal rather than a run-time surprise on the first click.
+if (env.mlEnabled && !env.mlSharedSecret && !isLocalDev) {
+  throw new Error("ML_SHARED_SECRET must be set when ML_ENABLED=true. Set NODE_ENV=development for local demos.");
+}
+if (env.mlEnabled && !env.mlSharedSecret) {
+  console.warn("[security] ML_ENABLED is on with no ML_SHARED_SECRET — fine for local demos, never for production.");
 }
