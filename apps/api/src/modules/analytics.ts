@@ -3,7 +3,7 @@ import { z } from "zod";
 import { wrap, HttpError } from "../errors.js";
 import { prisma } from "../prisma.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
-import { loadJoinedDataset, loadOrgConfig } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig, loadAnalysisConfig } from "./context.js";
 import * as A from "../engine/analytics.js";
 import type { ColumnProfile } from "../engine/profile.js";
 import { suggestIndustry, type RankSectionDef } from "../engine/industries.js";
@@ -27,6 +27,10 @@ const dim = z.union([z.string(), z.array(z.string())]).optional();
 // relative-date presets) or a full ISO datetime. `.datetime()` alone rejected
 // date-only strings, which silently dropped every date-filtered query.
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:\d{2})?)?$/).optional();
+// Groupings the semantic slots have no name for arrive as `col.<column>=value`, so a
+// derived dataset with a dozen dimensions can filter on all of them without the seven
+// fixed keys below having to grow a name for each.
+const COLUMN_FILTER_PREFIX = "col.";
 const filterSchema = z.object({
   dateFrom: isoDate,
   dateTo: isoDate,
@@ -43,9 +47,19 @@ function filtersFrom(query: any): A.Filters {
   // Fail closed: let a ZodError propagate to the central handler (400) rather than
   // silently discarding malformed filters and returning an unfiltered result set.
   const validated = filterSchema.parse(query);
-  return Object.fromEntries(
+  const base = Object.fromEntries(
     Object.entries(validated).filter(([, v]) => v !== undefined)
   ) as A.Filters;
+  const columns: Record<string, string | string[]> = {};
+  for (const [k, v] of Object.entries((query ?? {}) as Record<string, unknown>)) {
+    if (!k.startsWith(COLUMN_FILTER_PREFIX)) continue;
+    const col = k.slice(COLUMN_FILTER_PREFIX.length);
+    if (!col) continue;
+    if (typeof v === "string") columns[col] = v;
+    else if (Array.isArray(v) && v.every((x) => typeof x === "string")) columns[col] = v as string[];
+  }
+  if (Object.keys(columns).length) base.columns = columns;
+  return base;
 }
 
 // Not a filter: it removes no rows, it only names which prior window a change is
@@ -72,7 +86,10 @@ const groupByDimension = (key: "product_name" | "customer_name" | "region", limi
 analyticsRouter.get("/overview", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
   const { dataset, rows, schema, join } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
-  const { pack, calendar } = await loadOrgConfig(orgId);
+  // The dashboard configuration comes from this dataset's own structure, not from an
+  // industry template. Calculation is unchanged: every number below is still produced
+  // by the same engine functions, just pointed at the columns the data actually has.
+  const { pack, shape, derived, calendar } = await loadAnalysisConfig(orgId, dataset.id, rows);
   const f = filtersFrom(req.query);
 
   // The stored schema is kept pack-correct at write time, so it is used directly.
@@ -153,6 +170,22 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     ranking: section(pack.ranking),
     secondary: section(pack.secondary),
     hierarchies: availableHierarchies(schema),
+    // How the file was read, in the user's own words. Rendered as "How we read your
+    // file" so the dashboard can be argued with rather than merely believed.
+    shape: {
+      kind: shape.kind,
+      rowCount: shape.rowCount,
+      notes: derived.notes,
+      columns: shape.columns.map((c) => ({ name: c.name, label: c.label, role: c.role, confidence: c.confidence, reasons: c.reasons })),
+    },
+    // Every grouping the file has, each keyed by its real column. A wide file is no
+    // longer truncated to the seven named slots.
+    dimensions: derived.dimensions.map((d) => ({
+      key: d.key, column: d.column, label: d.label, cardinality: d.cardinality,
+      values: A.distinctValues(rows, schema, { column: d.column }),
+    })),
+    // Retained for the screens still keyed on the fixed slots; a derived dataset fills
+    // whichever of them its own columns landed in.
     filterOptions: {
       region: A.distinctValues(rows, schema, "region"),
       state: A.distinctValues(rows, schema, "state"),

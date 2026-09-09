@@ -8,6 +8,8 @@ import { scoreForecasts } from "../modules/forecastAccuracy.js";
 import { stripRows } from "../modules/context.js";
 import type { Row } from "./parse.js";
 import { canonicalDatasetHash } from "./identity.js";
+import { deriveShape } from "./shape.js";
+import { deriveModel } from "./derived.js";
 import { ENGINE_VERSION } from "./version.js";
 
 interface IngestInput {
@@ -41,13 +43,24 @@ export function reshapeDataset(originalRows: Row[], columns: string[], steps: Cl
   const firstRowColumns = Object.keys(cleaned[0] ?? {});
   const profile = profileDataset(cleaned, firstRowColumns.length ? firstRowColumns : columns);
   const { map, columns: annotated } = detectSchema(profile.columns, rules);
+  // The data decides. `detectSchema` still runs — its annotations label columns in the
+  // Detected Schema tab — but the schema map the analytics layer reads is derived from
+  // the file's actual structure, so a dataset whose headers match no known vocabulary
+  // gets a real dashboard rather than a wall of empty states.
+  const shape = deriveShape(profile, cleaned);
+  const derived = deriveModel(shape, cleaned);
   return {
     // With no steps cleanRows returns the very same array, and a dataset nobody cleaned
     // keeps a NULL cleanedRows — which is what every such dataset already stores.
     cleanedRows: cleaned === originalRows ? null : cleaned,
     applied,
     profile,
-    schemaMap: map,
+    shape,
+    // Semantic detection stays available for anything that wants the name-matched view,
+    // but never overrides a slot the data itself filled.
+    detectedSchemaMap: map,
+    schemaMap: { ...map, ...derived.schema },
+    derived,
     columns: annotated,
     datasetHash: canonicalDatasetHash(cleaned),
   };
@@ -95,6 +108,7 @@ export async function ingestRows(input: IngestInput) {
       columns: shaped.columns as object,
       schemaMap: shaped.schemaMap as object,
       profile: shaped.profile as object,
+      shape: shaped.shape as unknown as object,
       rows: input.rows as object,
       cleanedRows: shaped.cleanedRows ? (shaped.cleanedRows as object) : undefined,
       recipeId: recipe?.id ?? null,
