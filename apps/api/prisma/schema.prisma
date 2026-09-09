@@ -98,6 +98,7 @@ model Organization {
   datasetRelations     DatasetRelation[]
   comments             Comment[]
   forecastScores       ForecastScore[]
+  predictions          Prediction[]
 }
 
 model OrganizationMember {
@@ -165,6 +166,7 @@ model Dataset {
   forecasts        Forecast[]
   conversations    AIConversation[]
   scheduledReports ScheduledReport[]
+  predictions      Prediction[]
 
   @@index([organizationId])
   @@index([connectionId])
@@ -546,4 +548,52 @@ model AlertRule {
 
   @@index([organizationId])
   @@index([enabled, nextRunAt])
+}
+
+// ─── Signals ─────────────────────────────────────────────────────────────────
+// A stored prediction from the optional Python model service (apps/ml). Patterned on
+// Forecast, including its identification-metadata convention: the record says WHICH
+// inputs produced it, which is not the same as being able to replay it.
+//
+// Never mixed with deterministic output. Nothing on the Dashboard, in Analytics, in a
+// Forecast or in a report reads this table; the Signals pages are its only consumer, and
+// they carry a permanent estimate banner.
+enum PredictionKind {
+  SEGMENTATION
+  CHURN
+  BASKET
+}
+
+// RUNNING is written before the model call and updated after it, so a page load during
+// training shows "working on it" rather than the previous run's numbers presented as new.
+enum PredictionStatus {
+  RUNNING
+  READY
+  FAILED
+}
+
+model Prediction {
+  id              String           @id @default(uuid())
+  kind            PredictionKind
+  status          PredictionStatus @default(RUNNING)
+  // Identification metadata, as on Forecast.
+  datasetHash     String?
+  // Stored on every record so that improving a model later never leaves an old
+  // prediction ambiguous about what produced it.
+  contractVersion String?
+  modelVersion    String? // "churn:v1.0.0"
+  config          Json // the inputs that produced this result
+  result          Json? // the predictions payload; NULL while RUNNING, on a refusal, or on failure
+  metrics         Json? // AUC, silhouette, sample size — always surfaced, never buried
+  // A refusal ("insufficient_data") is a READY row carrying its reason here and no
+  // result. The reason is the answer, so it is stored rather than discarded.
+  warnings        String[]
+  error           String?
+  createdAt       DateTime         @default(now())
+  organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId  String
+  dataset         Dataset?         @relation(fields: [datasetId], references: [id], onDelete: SetNull)
+  datasetId       String?
+
+  @@index([organizationId, kind])
 }

@@ -3,9 +3,9 @@
 Working document. The plan below is the whole feature; the build order at the
 bottom says which parts of it exist.
 
-**Status: the Python service and the sample data are built. Nothing in Node, the
-database or the web app has been touched yet, so Signals is not reachable from
-the product.**
+**Status: built and shipped. All five steps below are done — the Python service,
+the sample-data fix, the database model and Node client, the three web pages, and
+the ops wiring. Signals is reachable from the product.**
 
 > NoPS explains what happened with deterministic evidence.
 > Signals estimates what may happen with reproducible models, and explains why.
@@ -332,11 +332,26 @@ generators, not retail. Retail feeds only `prisma/seed.ts` and the sample-upload
    - The routes return a `200` carrying `status: "error"` when a model throws,
      rather than a `5xx`. Node discards any non-2xx, and the reason for a failure
      is worth storing.
-2. Prisma model + migration, `ml/client.ts`, `modules/signals.ts`, plan gate
+2. ~~Prisma model + migration, `ml/client.ts`, `modules/signals.ts`, plan gate~~
+   **done.** Three things differ from the plan above and the plan is what changed:
+   - `PlanFeatures` needed a `hasFeature` reader and a non-throwing
+     `planHasFeature` as well as `assertPlanFeature`, because `GET /status`
+     reports entitlement rather than refusing on it.
+   - `ml/service.ts` was not in the plan. Something has to spawn `uvicorn`, and
+     putting it in `index.ts` inline would have started a Python process in any
+     test that imports the app.
+   - `POST` refuses a second run of the same kind while one is RUNNING (409).
+     Two concurrent runs would race to be "the latest" and the loser's numbers
+     would end up filed under the winner's timestamp.
 3. ~~Sample data fix~~ **done.**
-4. Three web pages, nav group, `EstimateBanner`
-5. Dockerfile, `docker-compose.yml`, `.env.example`, `.replit`, README and
-   changelog. CI was done early, with step 1, so that its tests actually run.
+4. ~~Three web pages, nav group, `EstimateBanner`~~ **done.** The gate component
+   turned out to be the shared piece rather than the banner: the four states are
+   identical across the three pages and only the result rendering differs.
+5. ~~Dockerfile, `docker-compose.yml`, `.env.example`, `.replit`, README and
+   changelog~~ **done.** CI was done early, with step 1, so that its tests
+   actually run. The Dockerfile needed a venv as well as the base-image change:
+   Debian marks the system Python externally managed, so a bare `pip install`
+   fails.
 
 Steps 1 and 2 are independently useful and fully testable before any UI exists.
 

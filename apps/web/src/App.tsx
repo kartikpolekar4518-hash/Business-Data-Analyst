@@ -21,6 +21,9 @@ const ChartLibrary = lazy(() => import("./pages/ChartLibrary"));
 const AiChat = lazy(() => import("./pages/AiChat"));
 const Forecasts = lazy(() => import("./pages/Forecasts"));
 const ForecastAccuracy = lazy(() => import("./pages/ForecastAccuracy"));
+const SignalsSegments = lazy(() => import("./pages/SignalsSegments"));
+const SignalsChurn = lazy(() => import("./pages/SignalsChurn"));
+const SignalsBasket = lazy(() => import("./pages/SignalsBasket"));
 const Reports = lazy(() => import("./pages/Reports"));
 const Alerts = lazy(() => import("./pages/Alerts"));
 const Activity = lazy(() => import("./pages/Activity"));
@@ -87,6 +90,9 @@ export default function App() {
             <Route path="/ai-chat" element={<Protected><AiChat /></Protected>} />
             <Route path="/forecasts" element={<Protected><Forecasts /></Protected>} />
             <Route path="/forecasts/accuracy" element={<Protected><ForecastAccuracy /></Protected>} />
+            <Route path="/signals/segments" element={<Protected><SignalsSegments /></Protected>} />
+            <Route path="/signals/churn" element={<Protected><SignalsChurn /></Protected>} />
+            <Route path="/signals/basket" element={<Protected><SignalsBasket /></Protected>} />
             <Route path="/reports" element={<Protected><Reports /></Protected>} />
             <Route path="/alerts" element={<Protected><Alerts /></Protected>} />
             <Route path="/activity" element={<Protected><Activity /></Protected>} />

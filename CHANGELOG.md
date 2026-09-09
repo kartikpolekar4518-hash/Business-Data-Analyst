@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+### Signals — three things your numbers can't tell you on their own
+
+- **Your customers, sorted into real groups.** Not "big spenders and small spenders" —
+  groups built from how recently someone bought, how often, and how much, all at once.
+  Champions, Loyal, At risk, Hibernating, New. You get each group's size, what it is
+  worth, and exactly who is in it.
+- **Who looks about to stop buying.** Every customer gets a risk estimate, and each one
+  arrives with the reasons behind *that* customer's score attached — so you can argue
+  with it instead of just trusting it. Their own usual buying gap sits next to how long
+  they have actually been quiet, because "60 days silent" means nothing until you know
+  whether they normally buy weekly or twice a year.
+- **What sells with what.** Product pairings that turn up together far more often than
+  chance explains — on the sample data, someone who buys an office chair and a desk lamp
+  takes a standing desk 3.6× more often than a customer picked at random.
+
+**These are estimates, and the product says so on every screen.** Everywhere else in
+NoPS a number is computed from your rows and can be traced back to them. These come from
+a model. They live in their own section, they carry a banner that cannot be dismissed,
+and they never appear on your dashboard, in your analytics, in a forecast or in a report.
+No figure you already rely on has moved.
+
+- **When there isn't enough data, it says so and stops.** A model that cannot answer well
+  refuses and tells you why, in plain words — "only 60 customers have usable history,
+  scoring needs at least 100" — rather than handing you a weak number that looks like all
+  the others.
+- **How good the estimate is, is always on screen.** Accuracy, sample size, how cleanly
+  the groups separate. Never behind a toggle, because a prediction whose quality is
+  hidden is indistinguishable from one that has none.
+- **Included from Pro up.** Free is unchanged.
+- **Optional, and it fails alone.** Predictions run in a separate service that is switched
+  off unless a deployment turns it on. If it is off, still starting, or broken, the
+  Signals pages say so and everything else in NoPS works exactly as it always did.
+
 ### Fixed — sample orders had only one product each
 
 - **Every order in the built-in demo data contained exactly one product.** The generator

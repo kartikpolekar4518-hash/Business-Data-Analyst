@@ -29,6 +29,15 @@ services:
       JWT_EXPIRES_IN: 7d
       APP_URL: http://localhost:5173
       PORT: 4000
+      # Signals — the optional prediction service, spawned by the API as a child
+      # process on loopback. Set ML_ENABLED=false to run without it: the Signals
+      # pages then say so and nothing else in the product changes.
+      ML_ENABLED: ${ML_ENABLED:-true}
+      # Demo default, same convention as JWT_SECRET above. The service is bound to
+      # 127.0.0.1 inside the container, so this is a second layer, not the boundary.
+      ML_SHARED_SECRET: ${ML_SHARED_SECRET:-change-me-in-production}
+      ML_SERVICE_URL: http://127.0.0.1:8000
+      ML_TIMEOUT_MS: 120000
     ports:
       - "4000:4000"
     depends_on:
