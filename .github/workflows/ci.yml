@@ -58,6 +58,13 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      # The Signals prediction service. Separate toolchain, same job: it is one
+      # deployed image, so a green build has to mean both halves pass.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: apps/ml/requirements.txt
       - run: npm ci
       # Supply-chain gate: fail the build on a known high/critical advisory.
       - run: npm audit --audit-level=high
@@ -68,3 +75,5 @@ jobs:
       # Apply the schema, then run the DB-backed integration tests.
       - run: npm run prisma:deploy --workspace apps/api
       - run: npm run test:integration --workspace apps/api
+      - run: pip install -r apps/ml/requirements.txt
+      - run: pytest apps/ml

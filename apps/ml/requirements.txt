@@ -1,0 +1,18 @@
+# Exact pins. Reproducibility is a claim this service makes, and an unpinned
+# dependency can change a prediction without anything in this repo changing.
+#
+# numpy is pinned tightly on purpose: shap fails to import against numpy 2.4,
+# so this resolution is not safe to leave open.
+numpy==2.3.5
+pandas==2.3.3
+scikit-learn==1.7.2
+shap==0.51.0
+mlxtend==0.23.4
+
+fastapi==0.141.1
+pydantic==2.13.5
+uvicorn[standard]==0.34.3
+
+# Test-only, kept in this file so CI installs one thing.
+pytest==8.3.4
+httpx2==2.12.0
