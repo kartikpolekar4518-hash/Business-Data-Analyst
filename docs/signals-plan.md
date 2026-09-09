@@ -1,8 +1,11 @@
 # Signals — a prediction layer for NoPS
 
-Working document. Plan only; nothing here is implemented yet.
+Working document. The plan below is the whole feature; the build order at the
+bottom says which parts of it exist.
 
-**Status: planned, not started.**
+**Status: the Python service and the sample data are built. Nothing in Node, the
+database or the web app has been touched yet, so Signals is not reachable from
+the product.**
 
 > NoPS explains what happened with deterministic evidence.
 > Signals estimates what may happen with reproducible models, and explains why.
@@ -322,11 +325,18 @@ generators, not retail. Retail feeds only `prisma/seed.ts` and the sample-upload
 
 ## Build order
 
-1. `apps/ml/` with pytest, runnable standalone and testable with `curl` — prove the maths first
+1. ~~`apps/ml/` with pytest, runnable standalone and testable with `curl` — prove
+   the maths first~~ **done.** 55 tests, and the pytest run is in CI. Two things
+   differ from the plan above and the plan is what changed:
+   - `numpy` is pinned as well, because `shap` cannot import against numpy 2.4.
+   - The routes return a `200` carrying `status: "error"` when a model throws,
+     rather than a `5xx`. Node discards any non-2xx, and the reason for a failure
+     is worth storing.
 2. Prisma model + migration, `ml/client.ts`, `modules/signals.ts`, plan gate
-3. Sample data fix
+3. ~~Sample data fix~~ **done.**
 4. Three web pages, nav group, `EstimateBanner`
-5. Dockerfile, CI, docs
+5. Dockerfile, `docker-compose.yml`, `.env.example`, `.replit`, README and
+   changelog. CI was done early, with step 1, so that its tests actually run.
 
 Steps 1 and 2 are independently useful and fully testable before any UI exists.
 

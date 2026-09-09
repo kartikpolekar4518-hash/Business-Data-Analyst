@@ -6,3 +6,5 @@ dist/
 uploads/
 apps/api/src/sample/retail_sales.csv
 .DS_Store
+__pycache__/
+.pytest_cache/
