@@ -146,9 +146,14 @@ function bindSchema(shape: DataShape, rows: Row[]): { schema: SchemaMap; financi
   if (d2) schema.department = d2.name;
 
   // Entity slots: the grouping with the most members is what a "top N" list is about.
-  const entities = [...shape.dimensions].sort((a, b) => (b.cardinality ?? 0) - (a.cardinality ?? 0));
-  if (entities[0]) schema.product_name = entities[0].name;
-  if (entities[1]) schema.customer_name = entities[1].name;
+  // The composition lead is excluded first, so the ranking card is not a bar chart of
+  // the donut immediately above it — a real second view, or nothing.
+  const byMembers = [...shape.dimensions].sort((a, b) => (b.cardinality ?? 0) - (a.cardinality ?? 0));
+  const entities = byMembers.filter((d) => d.name !== d0?.name);
+  const primaryEntity = entities[0] ?? byMembers[0];
+  if (primaryEntity) schema.product_name = primaryEntity.name;
+  const secondEntity = entities.find((d) => d.name !== primaryEntity?.name);
+  if (secondEntity) schema.customer_name = secondEntity.name;
 
   if (shape.identifiers[0]) schema.order_id = shape.identifiers[0].name;
   if (shape.identifiers[1]) schema.customer_id = shape.identifiers[1].name;

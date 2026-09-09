@@ -386,13 +386,16 @@ export function deriveShape(profile: Profile, rows: Row[]): DataShape {
   const leadMeasure = measures[0]?.name ?? null;
   const dimensions = byRole("dimension").map((c) => {
     const card = c.cardinality ?? 0;
-    // Cardinality sweet spot: 2–25 charts cleanly, up to 50 is usable, beyond that the
-    // chart is a hairball. Never a hard cut — a 200-value dimension is still filterable.
-    const fit = card <= 1 ? 0 : card <= 25 ? 1 : card <= 50 ? 0.7 : card <= 200 ? 0.35 : 0.1;
+    // Cardinality sweet spot. A two-valued flag is a real grouping and stays filterable,
+    // but it makes a poor lead composition — "yes 86% / no 14%" is a fact about one
+    // column, not a picture of the business — so it scores below a grouping with a few
+    // genuine members. Beyond 50 the chart is a hairball; never a hard cut, since a
+    // 200-value dimension is still worth filtering on.
+    const fit = card <= 1 ? 0 : card === 2 ? 0.55 : card <= 8 ? 1 : card <= 25 ? 0.9 : card <= 50 ? 0.7 : card <= 200 ? 0.35 : 0.1;
     const sep = separation(rows, c.name, leadMeasure);
     c.score = round3(fit * 0.45 + sep * 0.35 + c.coverage * 0.2 - (HINT_ID.test(c.name) ? 0.05 : 0));
     return c;
-  }).sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+  }).sort((a, b) => b.score - a.score || (b.cardinality ?? 0) - (a.cardinality ?? 0) || a.name.localeCompare(b.name));
 
   const identifiers = byRole("identifier").map((c) => {
     c.score = round3(c.distinctness * 0.5 + c.coverage * 0.4 + (HINT_ID.test(c.name) ? 0.002 : 0));

@@ -154,6 +154,12 @@ analyticsRouter.get("/overview", wrap(async (req, res) => {
     // written down once. `path` is the breadcrumb back up the grain.
     trend: {
       title: pack.trend.title, subtitle: pack.trend.subtitle, revenue: revenueTrend, profit: profitTrend,
+      // What the two series are actually called for THIS file, and whether the second
+      // one exists at all. A dataset with no cost or profit column has no second series
+      // to draw, and a flat line of zeros labelled "Profit" is a lie the chart should
+      // not tell — so the label is null and the client draws one series.
+      seriesLabel: shape.measures[0]?.label ?? "Records",
+      secondSeriesLabel: schema.profit || schema.cost ? "Profit" : null,
       grain,
       ranges: Object.fromEntries(
         [...new Set([...revenueTrend, ...profitTrend].map((p) => p.period))]

@@ -16,7 +16,11 @@ import { BarChart3, ChevronRight } from "lucide-react";
 import type { OverviewResponse, Hierarchy, HierarchyLevel, DateCrumb, Comparison } from "../lib/types";
 import { drillPath, drillTo, drillUp, findLevel } from "../lib/hierarchy";
 
-const FILTERS = [
+// The fallback filter set: the seven named slots, used only when the API build in front
+// of us does not send `dimensions`. A current build does, and the controls below are then
+// the groupings the engine actually found in the file — however many that is, and named
+// after the file's own columns rather than after a retail vocabulary it may not share.
+const FALLBACK_FILTERS = [
   { key: "region", label: "Region" },
   { key: "state", label: "State" },
   { key: "city", label: "City" },
@@ -25,6 +29,20 @@ const FILTERS = [
   { key: "product", label: "Product" },
   { key: "customer", label: "Customer" },
 ] as const;
+
+/** One filter control: a URL parameter, a heading, and the values to choose from. */
+interface FilterControl { param: string; label: string; values: string[] }
+
+function filterControls(data: OverviewResponse | undefined): FilterControl[] {
+  if (data?.dimensions?.length) {
+    // `col.<column>` is the engine's arbitrary-column filter, so a grouping needs no
+    // named slot to be filterable.
+    return data.dimensions.map((d) => ({ param: `col.${d.column}`, label: d.label, values: d.values }));
+  }
+  const opts = data?.filterOptions ?? {};
+  return FALLBACK_FILTERS.map((f) => ({ param: f.key, label: f.label, values: opts[f.key] ?? [] }))
+    .filter((f) => f.values.length > 0);
+}
 
 // One breadcrumb trail. Shared by the dimension drill and the date drill, which differ
 // only in what a crumb points at — the markup, and the rule that the crumb you are ON is
@@ -185,12 +203,15 @@ export default function Analytics() {
     setParams(next, { replace: true });
   };
 
+  // The filter controls this file supports — derived from its own groupings.
+  const controls = filterControls(ov.data);
+
   const chips: Chip[] = [];
   if (query.dateFrom || query.dateTo)
     chips.push({ id: "date", label: <><span className="text-ink-faint">Date:</span> {query.dateFrom || "…"} → {query.dateTo || "…"}</>, onRemove: () => setDates(undefined, undefined) });
-  FILTERS.forEach((f) =>
-    params.getAll(f.key).forEach((v) =>
-      chips.push({ id: `${f.key}:${v}`, label: <><span className="text-ink-faint">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.key, v) }),
+  controls.forEach((f) =>
+    params.getAll(f.param).forEach((v) =>
+      chips.push({ id: `${f.param}:${v}`, label: <><span className="text-ink-faint">{f.label}:</span> {v}</>, onRemove: () => removeOne(f.param, v) }),
     ),
   );
 
@@ -220,7 +241,7 @@ export default function Analytics() {
   }
 
   if (ov.isError) return <EmptyState icon={BarChart3} title="No data to analyze" description="Upload a dataset first." />;
-  const opts = ov.data?.filterOptions ?? {};
+
 
   // The drill bar is the page's one sticky element — so it must not be an
   // empty ruled strip pinned over the charts when nothing has been drilled yet.
@@ -286,14 +307,16 @@ export default function Analytics() {
             <SavedViews currentQuery={qs} onApply={(q) => setParams(new URLSearchParams(q), { replace: true })} />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-          {FILTERS.map((f) => (
-            <div key={f.key}>
-              <Label>{f.label}</Label>
-              <MultiSelect label={f.label} options={opts[f.key] ?? []} selected={params.getAll(f.key)} onChange={(vals) => setMulti(f.key, vals)} placeholder="All" />
-            </div>
-          ))}
-        </div>
+        {controls.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {controls.map((f) => (
+              <div key={f.param}>
+                <Label>{f.label}</Label>
+                <MultiSelect label={f.label} options={f.values} selected={params.getAll(f.param)} onChange={(vals) => setMulti(f.param, vals)} placeholder="All" />
+              </div>
+            ))}
+          </div>
+        )}
         <FilterChips chips={chips} onClearAll={clear} />
       </CardBody></Card>
 
