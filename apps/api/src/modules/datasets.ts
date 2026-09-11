@@ -89,8 +89,11 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
   const steps = recipe?.steps ?? buildSteps(acceptedTypes ?? [], issues, columnsList);
 
   // Detection here deliberately runs without the industry pack's extra rules, as it
-  // always has on this route — see reshapeDataset.
-  const shaped = reshapeDataset(originalRows, columns, steps);
+  // always has on this route — see reshapeDataset. The timezone is not optional in the
+  // same way: it decides which calendar day a timestamped row belongs to, so re-cleaning
+  // under a different zone from the one the upload used would move rows between periods.
+  const { timezone } = await prisma.organization.findUniqueOrThrow({ where: { id: orgId }, select: { timezone: true } });
+  const shaped = reshapeDataset(originalRows, columns, steps, [], timezone);
   const cleaned = shaped.cleanedRows ?? originalRows;
 
   // Cleaning provenance: what the steps actually changed in these rows, counted as they

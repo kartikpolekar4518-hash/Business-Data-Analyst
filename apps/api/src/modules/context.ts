@@ -1,4 +1,5 @@
 import { prisma } from "../prisma.js";
+import { DEFAULT_CURRENCY, DEFAULT_TIMEZONE } from "../engine/currency.js";
 import { HttpError } from "../errors.js";
 import type { Row } from "../engine/parse.js";
 import { detectSchema, type SchemaMap } from "../engine/schema.js";
@@ -175,7 +176,7 @@ export async function loadAnalysisConfig(organizationId: string, datasetId: stri
     prisma.customMetric.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } }),
     prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { industry: true, fiscalYearStartMonth: true, periodScheme: true, weekStartDay: true },
+      select: { industry: true, fiscalYearStartMonth: true, periodScheme: true, weekStartDay: true, currency: true, timezone: true },
     }),
   ]);
 
@@ -206,6 +207,11 @@ export async function loadAnalysisConfig(organizationId: string, datasetId: stri
       scheme: org?.periodScheme as PeriodScheme | undefined,
       weekStartDay: org?.weekStartDay,
     }),
+    // How this business writes money and when its day starts. Read here with the
+    // calendar because they answer the same kind of question — under whose conventions
+    // is this number being reported — and every caller that needs one needs the others.
+    currency: org?.currency ?? DEFAULT_CURRENCY,
+    timezone: org?.timezone ?? DEFAULT_TIMEZONE,
   };
 }
 
@@ -213,7 +219,7 @@ export async function loadOrgConfig(organizationId: string) {
   const [org, custom] = await Promise.all([
     prisma.organization.findUnique({
       where: { id: organizationId },
-      select: { industry: true, fiscalYearStartMonth: true, periodScheme: true, weekStartDay: true },
+      select: { industry: true, fiscalYearStartMonth: true, periodScheme: true, weekStartDay: true, currency: true, timezone: true },
     }),
     prisma.customMetric.findMany({ where: { organizationId }, orderBy: { createdAt: "asc" } }),
   ]);
@@ -236,6 +242,11 @@ export async function loadOrgConfig(organizationId: string) {
       scheme: org?.periodScheme as PeriodScheme | undefined,
       weekStartDay: org?.weekStartDay,
     }),
+    // How this business writes money and when its day starts. Read here with the
+    // calendar because they answer the same kind of question — under whose conventions
+    // is this number being reported — and every caller that needs one needs the others.
+    currency: org?.currency ?? DEFAULT_CURRENCY,
+    timezone: org?.timezone ?? DEFAULT_TIMEZONE,
   };
 }
 

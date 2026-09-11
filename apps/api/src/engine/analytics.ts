@@ -2,6 +2,7 @@ import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import type { IndustryPack, PackMetric } from "./industries.js";
 import { parseNumber } from "./locale.js";
+import { DEFAULT_CURRENCY, formatMoney } from "./currency.js";
 import { DEFAULT_CALENDAR, grainKey, isCalendarMonths, type CalendarConfig, type Grain } from "./calendar.js";
 
 export interface Filters {
@@ -280,4 +281,8 @@ export function fmt(n: number): string {
   const v = num(n);
   return Math.abs(v) >= 1000 ? v.toLocaleString(undefined, { maximumFractionDigits: 0 }) : String(round(v));
 }
-export function fmtMoney(n: unknown): string { return "$" + Math.round(num(n)).toLocaleString("en-US"); }
+// Money, in the organization's currency. The code is a parameter rather than a module
+// setting because this engine is shared by every organization in the process: a mutable
+// "current currency" would print one customer's symbol on another's dashboard. Callers
+// that have no org in hand (samples, fixtures) get the documented default.
+export function fmtMoney(n: unknown, code: string = DEFAULT_CURRENCY): string { return formatMoney(num(n), code); }

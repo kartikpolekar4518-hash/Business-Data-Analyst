@@ -3,6 +3,7 @@ import { profileDataset } from "./profile.js";
 import { detectSchema, type SemanticRule } from "./schema.js";
 import { cleanRows, validateSteps, type CleaningStep } from "./cleaning.js";
 import { normalizeRows } from "./locale.js";
+import { DEFAULT_TIMEZONE } from "./currency.js";
 import { getPack, suggestIndustry } from "./industries.js";
 import { refreshAlerts } from "../modules/alerts.js";
 import { scoreForecasts } from "../modules/forecastAccuracy.js";
@@ -39,7 +40,7 @@ interface IngestInput {
 // while re-cleaning an existing dataset detects without it. That asymmetry predates
 // recipes; it is preserved here rather than quietly fixed, because changing it would
 // move numbers on datasets nobody touched.
-export function reshapeDataset(originalRows: Row[], columns: string[], steps: CleaningStep[], rules: SemanticRule[] = []) {
+export function reshapeDataset(originalRows: Row[], columns: string[], steps: CleaningStep[], rules: SemanticRule[] = [], timezone: string = DEFAULT_TIMEZONE) {
   const { rows: stepped, applied } = cleanRows(originalRows, steps);
   const firstRowColumns = Object.keys(stepped[0] ?? {});
   const analysedColumns = firstRowColumns.length ? firstRowColumns : columns;
@@ -49,7 +50,7 @@ export function reshapeDataset(originalRows: Row[], columns: string[], steps: Cl
   // below is computed from the corrected values rather than from a silent misreading of
   // "1.234" or "01/02/2026". A file that was already being read correctly comes back as
   // the identical array, so its stored datasetHash does not move.
-  const { rows: cleaned, notes: formats } = normalizeRows(stepped, analysedColumns);
+  const { rows: cleaned, notes: formats } = normalizeRows(stepped, analysedColumns, timezone);
   // Carried on the profile so every path that persists a profile — upload, re-clean,
   // combine — stores the decisions too, without each one having to remember to.
   const profile = { ...profileDataset(cleaned, analysedColumns), formats };
@@ -98,9 +99,9 @@ export async function autoApplyRecipe(organizationId: string) {
 // what this function wrote before recipes existed.
 export async function ingestRows(input: IngestInput) {
   const { organizationId, actorId } = input;
-  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
+  const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true, timezone: true } });
   const recipe = await autoApplyRecipe(organizationId);
-  const shaped = reshapeDataset(input.rows, input.columns, recipe?.steps ?? [], getPack(org?.industry).rules);
+  const shaped = reshapeDataset(input.rows, input.columns, recipe?.steps ?? [], getPack(org?.industry).rules, org?.timezone ?? DEFAULT_TIMEZONE);
   const suggestedIndustry = suggestIndustry(shaped.profile.columns);
 
   const dataset = await prisma.dataset.create({

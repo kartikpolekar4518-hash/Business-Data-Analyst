@@ -29,6 +29,7 @@
 // left alone and the decision is recorded as ambiguous for the UI to surface.
 
 import type { Row } from "./parse.js";
+import { DEFAULT_TIMEZONE, zonedDay } from "./currency.js";
 
 /** Decimal separator and thousands separator a numeric column is written with. */
 export interface NumberFormat {
@@ -176,6 +177,10 @@ export function parseNumber(v: unknown, fmt: NumberFormat = DEFAULT_NUMBER_FORMA
 
 const ISO_RE = /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:[T ].*)?$/;
 const PARTS_RE = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})(?:[T ].*)?$/;
+// A timestamp that names an instant rather than a day: it carries a clock time, and
+// often a UTC offset. Which calendar day it belongs to is a question only a timezone
+// can answer, so these are the values `normalizeRows` resolves against the org's zone.
+const INSTANT_RE = /\d[T ]\d{1,2}:\d{2}/;
 
 /**
  * Decide whether a column writes day-first or month-first, from values that settle it.
@@ -220,11 +225,21 @@ export function detectDateOrder(samples: string[]): DateFormat {
   return { order: "unknown", ambiguous: false, confidence: 0, reason: "no date-shaped values" };
 }
 
-/** Canonical `YYYY-MM-DD` for a value under a known order, or null if it is not a date. */
-export function toIsoDate(v: unknown, order: DateOrder): string | null {
-  if (v instanceof Date) return isNaN(v.getTime()) ? null : v.toISOString().slice(0, 10);
+/**
+ * Canonical `YYYY-MM-DD` for a value under a known order, or null if it is not a date.
+ *
+ * A value that names an INSTANT — a clock time, usually with a UTC offset — is resolved
+ * in `tz`, the organization's zone. That is the difference between reporting a
+ * 2026-01-01T00:30+05:30 sale on 1 January and reporting it on 31 December.
+ */
+export function toIsoDate(v: unknown, order: DateOrder, tz: string = DEFAULT_TIMEZONE): string | null {
+  if (v instanceof Date) return zonedDay(v, tz);
   if (typeof v !== "string") return null;
   const s = v.trim();
+  if (INSTANT_RE.test(s)) {
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) return zonedDay(parsed, tz);
+  }
   const isoM = ISO_RE.exec(s);
   if (isoM) return pad(Number(isoM[1]), Number(isoM[2]), Number(isoM[3]));
   const m = PARTS_RE.exec(s);
@@ -261,7 +276,7 @@ const SAMPLE_LIMIT = 2000;
  * Returns the very same array when nothing needed changing, so an already well-formed
  * dataset flows through the pipeline — and into its `datasetHash` — untouched.
  */
-export function normalizeRows(rows: Row[], columns: string[]): { rows: Row[]; notes: FormatNote[] } {
+export function normalizeRows(rows: Row[], columns: string[], tz: string = DEFAULT_TIMEZONE): { rows: Row[]; notes: FormatNote[] } {
   const notes: FormatNote[] = [];
   const plan: { column: string; numberFormat?: NumberFormat; dateOrder?: DateOrder }[] = [];
 
@@ -274,12 +289,16 @@ export function normalizeRows(rows: Row[], columns: string[]): { rows: Row[]; no
     }
     if (!samples.length) continue;
 
-    const dateish = samples.filter((s) => ISO_RE.test(s.trim()) || PARTS_RE.test(s.trim())).length;
+    const dateish = samples.filter((s) => ISO_RE.test(s.trim()) || PARTS_RE.test(s.trim()) || INSTANT_RE.test(s.trim())).length;
     if (dateish / samples.length >= 0.8) {
       const df = detectDateOrder(samples);
-      // Only day-first needs rewriting: ISO and month-first are already what the old
-      // reader produced, and an ambiguous or mixed column is left exactly as written.
-      if (df.order === "dmy") plan.push({ column, dateOrder: "dmy" });
+      // Two reasons to rewrite a date column, and only these two. Day-first values are
+      // read backwards by everything downstream. Instants belong to whichever calendar
+      // day the business's own zone says they do, which is not necessarily the server's.
+      // ISO days and month-first values are already read correctly and are left alone,
+      // as is an ambiguous or internally inconsistent column.
+      const hasInstants = samples.some((x) => INSTANT_RE.test(x.trim()));
+      if (df.order === "dmy" || hasInstants) plan.push({ column, dateOrder: df.order === "dmy" ? "dmy" : "mdy" });
       notes.push({ column, kind: "date", decision: df.order === "unknown" ? (df.ambiguous ? "ambiguous" : "not a date column") : df.order, confidence: df.confidence, reason: df.reason, rewritten: 0 });
       continue;
     }
@@ -302,7 +321,7 @@ export function normalizeRows(rows: Row[], columns: string[]): { rows: Row[]; no
       if (typeof v !== "string" || !v.trim()) continue;
       let next: string | number | null = null;
       if (p.dateOrder) {
-        const iso = toIsoDate(v, p.dateOrder);
+        const iso = toIsoDate(v, p.dateOrder, tz);
         if (iso && iso !== v.trim()) next = iso;
       } else if (p.numberFormat) {
         const correct = parseNumber(v, p.numberFormat);

@@ -10,6 +10,7 @@
 // Value tiers give an equivalent split that a business user — and an auditor — can read
 // off directly, so we deliberately keep the rule-based method for this metric.
 
+import { DEFAULT_CURRENCY } from "./currency.js";
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import * as A from "./analytics.js";
@@ -46,7 +47,7 @@ function pickEntity(s: SchemaMap, override?: SegmentEntity): SegmentEntity | nul
   return null;
 }
 
-export function segmentEntities(rows: Row[], s: SchemaMap, entity?: SegmentEntity): SegmentResult {
+export function segmentEntities(rows: Row[], s: SchemaMap, entity?: SegmentEntity, currency = DEFAULT_CURRENCY): SegmentResult {
   const ent = pickEntity(s, entity);
   const method = "value_tiers_quantile";
   if (!ent) return { entity: null, metric: "revenue", method, totalMembers: 0, segments: [] };
@@ -67,9 +68,9 @@ export function segmentEntities(rows: Row[], s: SchemaMap, entity?: SegmentEntit
 
   const label: Record<Segment["key"], string> = { high: "High value", mid: "Mid value", low: "Low value" };
   const rule: Record<Segment["key"], string> = {
-    high: `Top quartile by revenue (≥ ${A.fmtMoney(q3)}).`,
-    mid: `Above the median, below the top quartile (${A.fmtMoney(median)}–${A.fmtMoney(q3)}).`,
-    low: `Below the median revenue (< ${A.fmtMoney(median)}).`,
+    high: `Top quartile by revenue (≥ ${A.fmtMoney(q3, currency)}).`,
+    mid: `Above the median, below the top quartile (${A.fmtMoney(median)}–${A.fmtMoney(q3, currency)}).`,
+    low: `Below the median revenue (< ${A.fmtMoney(median, currency)}).`,
   };
 
   const segments = (["high", "mid", "low"] as Segment["key"][]).map((key) => {

@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { api, setToken, getToken } from "./api";
+import { setDisplayCurrency } from "./currency";
 
 export type Role = "ADMIN" | "MANAGER" | "VIEWER";
 export interface User { id: string; name: string; email: string; }
-export interface Organization { id: string; name: string; }
+export interface Organization { id: string; name: string; currency?: string; timezone?: string; }
 
 interface AuthState {
   user: User | null;
@@ -23,13 +24,20 @@ interface Session { token: string; user: User; organization: Organization; role:
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [organization, setOrg] = useState<Organization | null>(null);
+
+  // The organization is the only source of the currency every money figure prints, so
+  // the two move together: nothing can render an amount against a stale symbol.
+  const applyOrg = (org: Organization | null) => {
+    setOrg(org);
+    setDisplayCurrency(org?.currency);
+  };
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!getToken()) { setLoading(false); return; }
     api.get<{ user: User; organization: Organization; role: Role }>("/auth/me")
-      .then((d) => { setUser(d.user); setOrg(d.organization); setRole(d.role); })
+      .then((d) => { setUser(d.user); applyOrg(d.organization); setRole(d.role); })
       .catch(() => setToken(null))
       .finally(() => setLoading(false));
   }, []);
@@ -37,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function apply(s: Session) {
     setToken(s.token);
     setUser(s.user);
-    setOrg(s.organization);
+    applyOrg(s.organization);
     setRole(s.role);
   }
 
@@ -46,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-    setOrg(null);
+    applyOrg(null);
     setRole(null);
     location.href = "/login";
   };

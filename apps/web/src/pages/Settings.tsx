@@ -7,6 +7,7 @@ import { useAuth, type Role } from "../lib/auth";
 import { useTheme } from "../lib/theme";
 import { useIndustries } from "../lib/industries";
 import { timeAgo } from "../lib/utils";
+import { CURRENCIES, DEFAULT_CURRENCY, setDisplayCurrency } from "../lib/currency";
 import { Card, CardHeader, CardBody, Button, Input, Label, Select, Badge, Tabs, Modal, Skeleton, EmptyState, useToast, ErrorState } from "../components/ui";
 import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 import { CustomMetricsSection } from "../components/metrics";
@@ -147,7 +148,15 @@ const SCHEMES = [
   { id: "544", label: "Retail 5-4-4", hint: "Each quarter runs 5, then 4, then 4 weeks." },
 ];
 
-interface OrgCalendar { name: string; fiscalYearStartMonth: number; periodScheme: string; weekStartDay: number }
+interface OrgCalendar { name: string; fiscalYearStartMonth: number; periodScheme: string; weekStartDay: number; currency: string; timezone: string }
+
+// Every zone the browser knows, so the list stays right as zones are added or renamed.
+// Older browsers without supportedValuesOf get a short list rather than an empty select.
+const TIMEZONES: string[] = (() => {
+  const supported = (Intl as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf;
+  const all = supported ? supported("timeZone") : [];
+  return all.length ? all : ["UTC", "Asia/Kolkata", "Europe/London", "America/New_York", "America/Los_Angeles", "Asia/Singapore", "Asia/Dubai", "Australia/Sydney"];
+})();
 
 // The business calendar decides which rows land in which period on every trend,
 // forecast and comparison. Defaults are calendar months starting in January, which
@@ -161,7 +170,11 @@ function CalendarTab() {
   const [month, setMonth] = useState<number | null>(null);
   const [scheme, setScheme] = useState<string | null>(null);
   const [weekStart, setWeekStart] = useState<number | null>(null);
+  const [currency, setCurrency] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState<string | null>(null);
 
+  const activeCurrency = currency ?? org?.currency ?? DEFAULT_CURRENCY;
+  const activeTimezone = timezone ?? org?.timezone ?? "UTC";
   const activeScheme = scheme ?? org?.periodScheme ?? "calendar";
   const activeMonth = month ?? org?.fiscalYearStartMonth ?? 1;
   const activeWeekStart = weekStart ?? org?.weekStartDay ?? 1;
@@ -173,16 +186,44 @@ function CalendarTab() {
         fiscalYearStartMonth: activeMonth,
         periodScheme: activeScheme,
         weekStartDay: activeWeekStart,
+        currency: activeCurrency,
+        timezone: activeTimezone,
       });
+      // The currency is read by every money formatter in the interface, so it is applied
+      // here rather than waiting for the next page load to pick it up.
+      setDisplayCurrency(activeCurrency);
       await qc.invalidateQueries({ queryKey: ["org"] });
       await qc.invalidateQueries({ queryKey: ["overview"] });
       await qc.invalidateQueries({ queryKey: ["analytics"] });
-      toast("Calendar saved — trends and forecasts now use it", "success");
+      toast("Saved — trends, forecasts and every money figure now use these", "success");
     } catch { toast("Failed", "error"); }
   };
 
   return (
-    <Card><CardHeader title="Business calendar" subtitle="How your year is divided up for trends, forecasts and comparisons." /><CardBody className="max-w-xl space-y-4">
+    <Card><CardHeader title="Reporting conventions" subtitle="The currency your figures are in, the clock your day runs on, and how your year is divided up." /><CardBody className="max-w-xl space-y-4">
+      <div>
+        <Label>Currency</Label>
+        <Select value={activeCurrency} onChange={(e) => setCurrency(e.target.value)} disabled={!can("ADMIN")}>
+          {CURRENCIES.map((c) => <option key={c.code} value={c.code}>{c.symbol} — {c.name} ({c.code})</option>)}
+        </Select>
+        <p className="mt-1 text-body-sm text-ink-faint">
+          The symbol every figure is shown with. It changes how amounts are displayed, not what was uploaded —
+          NoPS does not convert between currencies, so a file should be in one.
+        </p>
+      </div>
+
+      <div>
+        <Label>Time zone</Label>
+        <Select value={activeTimezone} onChange={(e) => setTimezone(e.target.value)} disabled={!can("ADMIN")}>
+          {TIMEZONES.map((t) => <option key={t} value={t}>{t}</option>)}
+        </Select>
+        <p className="mt-1 text-body-sm text-ink-faint">
+          Which day a timestamped row belongs to. A sale stamped 00:30 on 1 January in Delhi is still
+          31 December in London — this decides which month it is reported in. Applies to data uploaded
+          from now on; figures already analysed are left where they are.
+        </p>
+      </div>
+
       <div>
         <Label>Financial year starts in</Label>
         <Select value={String(activeMonth)} onChange={(e) => setMonth(Number(e.target.value))} disabled={!can("ADMIN")}>

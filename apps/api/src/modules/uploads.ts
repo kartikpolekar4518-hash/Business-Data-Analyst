@@ -129,8 +129,8 @@ uploadsRouter.post("/:id/append", uploadLimiter, requireRole("ADMIN", "MANAGER")
   const recipe = dataset.recipeId ? await prisma.cleaningRecipe.findFirst({ where: { id: dataset.recipeId, organizationId: auth.organizationId } }) : null;
   const stored = (recipe?.steps as unknown as CleaningStep[]) ?? [];
   const steps = recipe && Array.isArray(stored) && validateSteps(stored).length === 0 ? stored : [];
-  const org = await prisma.organization.findUnique({ where: { id: auth.organizationId }, select: { industry: true } });
-  const shaped = reshapeDataset(combined, existing, steps, getPack(org?.industry).rules);
+  const org = await prisma.organization.findUnique({ where: { id: auth.organizationId }, select: { industry: true, timezone: true } });
+  const shaped = reshapeDataset(combined, existing, steps, getPack(org?.industry).rules, org?.timezone ?? undefined);
 
   const [updated] = await prisma.$transaction([
     prisma.dataset.update({
