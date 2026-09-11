@@ -21,6 +21,17 @@ function hopsEnv(name: string): number {
   return n;
 }
 
+// APP_URL is a comma-separated allow-list: the CORS origins, and the base of every
+// share link. Read as a list once, here, and trimmed — a bare .split(",") turned
+// "a.com, b.com" into " https://b.com", a leading space that no browser Origin header
+// can ever match, so that origin silently failed CORS while looking configured, and the
+// same space landed inside every share URL built from it. Never empty: a blank value
+// falls back to the default rather than an allow-list that blocks everything.
+function urlListEnv(name: string, fallback: string): string[] {
+  const list = (process.env[name] ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length ? list : [fallback];
+}
+
 if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL environment variable is required");
 }
@@ -31,7 +42,7 @@ export const env = {
   port: numberEnv("PORT", 4000),
   jwtSecret: process.env.JWT_SECRET ?? "dev-insecure-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
-  appUrl: process.env.APP_URL ?? "http://localhost:5173",
+  appUrls: urlListEnv("APP_URL", "http://localhost:5173"),
   maxFileSize: numberEnv("MAX_FILE_SIZE", 15 * 1024 * 1024),
   // Billing: set STRIPE_SECRET_KEY to enable real checkout. When unset, plan
   // changes fall back to a dev-only mock (never allowed in production).

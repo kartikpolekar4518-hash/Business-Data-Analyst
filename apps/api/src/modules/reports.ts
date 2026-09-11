@@ -110,7 +110,7 @@ reportsRouter.get("/:id", wrap(async (req, res) => {
 // its PDF) without logging in. Creation/listing/revocation are ADMIN/MANAGER and
 // org-scoped; the public read side lives in modules/share.ts.
 
-const shareUrl = (token: string) => `${env.appUrl.split(",")[0]}/share/${token}`;
+const shareUrl = (token: string) => `${env.appUrls[0]}/share/${token}`;
 const shareView = (s: { id: string; token: string; expiresAt: Date | null; revokedAt: Date | null; createdAt: Date }) =>
   ({ id: s.id, token: s.token, url: shareUrl(s.token), expiresAt: s.expiresAt, revokedAt: s.revokedAt, createdAt: s.createdAt });
 

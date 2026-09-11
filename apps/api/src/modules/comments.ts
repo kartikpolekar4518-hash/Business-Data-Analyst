@@ -133,7 +133,7 @@ async function notifyMentions(
     await sendMail({
       to: recipients,
       subject: `${author} mentioned you on a ${where}`,
-      text: `${author} mentioned you in a comment on a ${where}:\n\n${body}\n\nOpen ${env.appUrl.split(",")[0]} to reply.`,
+      text: `${author} mentioned you in a comment on a ${where}:\n\n${body}\n\nOpen ${env.appUrls[0]} to reply.`,
     });
   } catch (e) {
     // A comment that saved must not fail because SMTP did.
