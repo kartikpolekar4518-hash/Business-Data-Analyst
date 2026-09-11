@@ -43,7 +43,12 @@ datasetsRouter.get("/:id/quality", wrap(async (req, res) => {
 
 datasetsRouter.get("/:id/schema", wrap(async (req, res) => {
   const d = await getOwned(req.auth!.organizationId, req.params.id);
-  res.json({ schemaMap: d.schemaMap, columns: d.columns });
+  // How each column's numbers and dates were read, with the reason and confidence behind
+  // the call. Recorded at ingest (engine/locale.ts). Absent on datasets uploaded before
+  // format detection existed, which the UI renders as "not recorded" rather than as a
+  // claim that nothing needed deciding.
+  const formats = (d.profile as { formats?: unknown } | null)?.formats ?? null;
+  res.json({ schemaMap: d.schemaMap, columns: d.columns, formats });
 }));
 
 // Cleaning is now a recipe: either build one from the accepted suggestions (what the
