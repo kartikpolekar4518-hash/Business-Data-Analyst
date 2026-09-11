@@ -2,6 +2,7 @@ import { prisma } from "../prisma.js";
 import { profileDataset } from "./profile.js";
 import { detectSchema, type SemanticRule } from "./schema.js";
 import { cleanRows, validateSteps, type CleaningStep } from "./cleaning.js";
+import { normalizeRows } from "./locale.js";
 import { getPack, suggestIndustry } from "./industries.js";
 import { refreshAlerts } from "../modules/alerts.js";
 import { scoreForecasts } from "../modules/forecastAccuracy.js";
@@ -39,9 +40,19 @@ interface IngestInput {
 // recipes; it is preserved here rather than quietly fixed, because changing it would
 // move numbers on datasets nobody touched.
 export function reshapeDataset(originalRows: Row[], columns: string[], steps: CleaningStep[], rules: SemanticRule[] = []) {
-  const { rows: cleaned, applied } = cleanRows(originalRows, steps);
-  const firstRowColumns = Object.keys(cleaned[0] ?? {});
-  const profile = profileDataset(cleaned, firstRowColumns.length ? firstRowColumns : columns);
+  const { rows: stepped, applied } = cleanRows(originalRows, steps);
+  const firstRowColumns = Object.keys(stepped[0] ?? {});
+  const analysedColumns = firstRowColumns.length ? firstRowColumns : columns;
+  // How this file writes its numbers and dates is decided here, once, from the values —
+  // before anything downstream reads one. Running after the recipe means the steps still
+  // see the file as the user wrote it, and running before profiling means every number
+  // below is computed from the corrected values rather than from a silent misreading of
+  // "1.234" or "01/02/2026". A file that was already being read correctly comes back as
+  // the identical array, so its stored datasetHash does not move.
+  const { rows: cleaned, notes: formats } = normalizeRows(stepped, analysedColumns);
+  // Carried on the profile so every path that persists a profile — upload, re-clean,
+  // combine — stores the decisions too, without each one having to remember to.
+  const profile = { ...profileDataset(cleaned, analysedColumns), formats };
   const { map, columns: annotated } = detectSchema(profile.columns, rules);
   // The data decides. `detectSchema` still runs — its annotations label columns in the
   // Detected Schema tab — but the schema map the analytics layer reads is derived from

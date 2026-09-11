@@ -20,6 +20,7 @@ import { analyzeJoin, createsCycle, joinRows, mergeSchemas, suggestRelations } f
 import { analyzeDrivers } from "./drivers.js";
 import { canonicalJson } from "./identity.js";
 import { generateRetailData, generateSaasData, generatePharmacyData, generateServicesData } from "./sampleData.js";
+import { normalizeRows } from "./locale.js";
 
 const columns = ["order_id", "order_date", "customer_name", "product_name", "region", "revenue", "cost"];
 const rows = [
@@ -915,5 +916,63 @@ assert.equal(
   JSON.stringify(generateRetailData()),
   "the retail generator is deterministic across calls",
 );
+
+// ---- Locale: the same business, written four ways, totals the same ----
+// Before locale.ts each of these files produced a confident, wrong total: the German
+// file read 1.234,00 as 1.23456-ish change, the UK file booked February in January, and
+// the accounting file turned a refund into extra revenue. The point of this block is
+// that the ANSWER no longer depends on how the file spells its numbers.
+const localeSchema = { date: "date", revenue: "revenue" };
+const totalRevenue = (rs: Row[]) => rs.reduce((t, r) => t + A.rowRevenue(r, localeSchema), 0);
+const localeCases: { label: string; rows: Row[]; expected: number }[] = [
+  {
+    label: "ISO dates, en-US numbers (the shape the engine always read correctly)",
+    rows: [{ date: "2026-02-01", revenue: "1,234.00" }, { date: "2026-02-14", revenue: "980.50" }, { date: "2026-02-20", revenue: "285.50" }],
+    expected: 2500,
+  },
+  {
+    label: "German: dot groups, comma decimals",
+    rows: [{ date: "2026-02-01", revenue: "1.234,00" }, { date: "2026-02-14", revenue: "980,50" }, { date: "2026-02-20", revenue: "285,50" }],
+    expected: 2500,
+  },
+  {
+    label: "UK/Indian: day-first dates",
+    rows: [{ date: "01/02/2026", revenue: "1,234.00" }, { date: "14/02/2026", revenue: "980.50" }, { date: "20/02/2026", revenue: "285.50" }],
+    expected: 2500,
+  },
+  {
+    label: "French/Nordic: space-grouped thousands",
+    rows: [{ date: "2026-02-01", revenue: "1 234.00" }, { date: "2026-02-14", revenue: "980.50" }, { date: "2026-02-20", revenue: "285.50" }],
+    expected: 2500,
+  },
+];
+for (const c of localeCases) {
+  const { rows: normalized } = normalizeRows(c.rows, ["date", "revenue"]);
+  const total = totalRevenue(normalized);
+  assert.equal(total, c.expected, `${c.label}: expected ${c.expected}, got ${total}`);
+  // And every row must land in the month it was written in, not one month over.
+  const months = new Set(normalized.map((r) => A.monthKey(A.parseDate(r.date)!)));
+  assert.deepEqual([...months], ["2026-02"], `${c.label}: all three rows are February`);
+}
+
+// A refund written the way accountants write it is money leaving, not money arriving.
+const refundRows = [{ date: "2026-02-01", revenue: "1,000.00" }, { date: "2026-02-02", revenue: "(250.00)" }];
+const { rows: refundNormalized } = normalizeRows(refundRows, ["date", "revenue"]);
+assert.equal(
+  totalRevenue(refundNormalized), 750,
+  "(250.00) is minus 250 — the old reader added it and reported 1250",
+);
+
+// Where the file itself cannot settle the question, nothing is rewritten and nothing is
+// claimed. Guessing here is how a January board pack quietly becomes a February one.
+const ambiguous = [{ date: "01/02/2026" }, { date: "03/04/2026" }];
+const ambiguousOut = normalizeRows(ambiguous, ["date"]);
+assert.equal(ambiguousOut.rows, ambiguous, "an unprovable date column is left exactly as written");
+assert.equal(ambiguousOut.notes[0].decision, "ambiguous", "and is reported as ambiguous rather than decided");
+
+// A file already in the engine's canonical shape must pass through untouched, or every
+// stored datasetHash in the product moves and no saved report reconciles again.
+const canonical = [{ date: "2026-02-01", revenue: "1,234.00" }];
+assert.equal(normalizeRows(canonical, ["date", "revenue"]).rows, canonical, "canonical rows are returned by reference");
 
 console.log("✓ engine selfcheck passed");

@@ -1,6 +1,7 @@
 import type { Row } from "./parse.js";
 import type { SchemaMap, Semantic } from "./schema.js";
 import type { IndustryPack, PackMetric } from "./industries.js";
+import { parseNumber } from "./locale.js";
 import { DEFAULT_CALENDAR, grainKey, isCalendarMonths, type CalendarConfig, type Grain } from "./calendar.js";
 
 export interface Filters {
@@ -22,10 +23,21 @@ export function dimensionColumn(ref: DimensionRef, s: SchemaMap): string | undef
   return typeof ref === "object" ? ref.column : s[ref];
 }
 
+/**
+ * Read a cell as a number for aggregation.
+ *
+ * Ingest has already rewritten the values a per-column format decision corrects (see
+ * locale.ts), so this reads the engine's canonical shape: dot decimal, comma grouping.
+ * It delegates rather than re-implementing, which is what fixes the two readings that
+ * used to be confidently wrong here — "(5,000)" was +5000 instead of -5000, and space-
+ * grouped "1 234" collapsed to 0.
+ *
+ * Still returns 0 for anything unreadable, because every caller sums the result and a
+ * null would have to be handled at ~200 call sites. `parseNumber` returns null for the
+ * same input, and that is what callers needing "missing" distinct from "zero" use.
+ */
 export function num(v: unknown): number {
-  if (typeof v === "number") return isFinite(v) ? v : 0;
-  if (typeof v === "string") { const n = Number(v.replace(/[$€£₹,()]/g, "").trim()); return isFinite(n) ? n : 0; }
-  return 0;
+  return parseNumber(v) ?? 0;
 }
 export function str(v: unknown): string { return v == null ? "" : String(v).trim(); }
 export function parseDate(v: unknown): Date | null { const d = new Date(str(v)); return isNaN(d.getTime()) ? null : d; }

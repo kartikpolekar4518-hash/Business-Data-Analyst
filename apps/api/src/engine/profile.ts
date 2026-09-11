@@ -1,5 +1,6 @@
 import type { Row } from "./parse.js";
 import { quartiles } from "./quantiles.js";
+import type { FormatNote } from "./locale.js";
 
 export type ColumnType = "number" | "date" | "currency" | "boolean" | "category" | "text" | "empty";
 
@@ -29,6 +30,12 @@ export interface QualityIssue {
 }
 
 export interface Profile {
+  /**
+   * How each column's numbers and dates were read, with the reason and confidence.
+   * Filled in by `reshapeDataset`, which decides the formats and then profiles the
+   * corrected values; `profileDataset` on its own does not populate it.
+   */
+  formats?: FormatNote[];
   rowCount: number;
   columnCount: number;
   columns: ColumnProfile[];
