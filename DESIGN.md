@@ -113,6 +113,13 @@ Four techniques, taken from how the reference dashboards actually build depth:
    accent while its siblings stay quiet. This is the single strongest "designed"
    signal, and it only works because the others *are* quiet — do not spread it.
 
+Two component hooks carry the rest, both inert without a skin so the default
+look never sees them: `.kpi-icon` puts the tile's icon on a tinted chip, and
+`.kpi-delta` puts the change figure on a tinted pill in the semantic colour it
+already carries. An icon loose in a corner is chrome; the same icon on a chip
+is a component, and that difference is most of what separates these from a
+recoloured table.
+
 The hero tile is tinted, never filled at full accent strength. A bright fill
 would need its own text colour, and no one text colour stays legible across a
 gradient running from saturated to dark in 28 different hues. Its delta gets

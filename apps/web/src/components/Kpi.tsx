@@ -72,7 +72,11 @@ export function KpiCard({
         {explain && metricKey && <ExplainMetric metricKey={metricKey} label={label} query={explainQuery} />}
         {/* In the strip the icon is chrome competing with the figure; the label
             already says which number this is. */}
-        {!strip && <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />}
+        {!strip && (
+          <span className="kpi-icon">
+            <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />
+          </span>
+        )}
         </div>
       </div>
 
@@ -93,7 +97,7 @@ export function KpiCard({
         {changePct != null ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1 font-mono text-body-sm font-medium tabular-nums",
+              "kpi-delta inline-flex items-center gap-1 font-mono text-body-sm font-medium tabular-nums",
               up && "text-pos",
               down && "text-neg",
               !up && !down && "text-ink-faint",
