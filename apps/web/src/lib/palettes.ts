@@ -219,7 +219,33 @@ export function buildTheme(hue: Hue, ground: Ground): Tokens {
   // Glow is the Midnight signature and nothing else's — DESIGN.md's "no glow"
   // rule still holds for the default look and for every other ground.
   t.glow = t.accent;
-  t["glow-strength"] = ground === "midnight" ? "0.20" : "0";
+  t["glow-strength"] = ground === "midnight" ? "0.16" : ground === "dusk" ? "0.06" : "0";
+
+  /* ── Shape and depth ──
+     Colour alone was not enough. The default look is deliberately austere —
+     6px corners, one flat shadow, no fills — and a preset that changed only
+     hue inherited that austerity and read as a recoloured spreadsheet. So a
+     preset carries its own shape and depth too. index.css reads these to
+     build a card; the default look sets none of them and is untouched. */
+
+  // Generous corners are most of the difference between "panel" and "card".
+  t["radius-card"] = light ? "12px" : "16px";
+
+  // The 1px lighter line along a card's top edge — the whole of the glass
+  // "lift", and invisible on a light ground, which gets ground separation
+  // instead.
+  t["edge"] = light ? "0 0 0 / 0" : "255 255 255 / 0.07";
+
+  // A card's own fill: a barely-there lift so it is not one flat slab.
+  t["card-wash"] = light ? "0.025" : "0.018";
+
+  // The shadow a card casts, in the accent rather than in black. That is what
+  // makes light look like it comes off the card instead of sitting behind it.
+  t["card-glow"] = light ? "0.07" : ground === "midnight" ? "0.30" : "0.18";
+
+  // Chart area fills. At the inherited 0.22 they read as a grey smudge under
+  // a bright line rather than as part of the chart.
+  t["chart-fill"] = light ? "0.20" : "0.38";
 
   return t;
 }

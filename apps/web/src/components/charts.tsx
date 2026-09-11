@@ -72,6 +72,21 @@ export function useSeries(): string[] {
   return useMemo(() => SERIES.map((fallback, i) => tokenOr(`series-${i + 1}`, fallback)), [theme, preset]);
 }
 
+/**
+ * How strongly an area chart fills under its line. The inherited 0.22 reads as
+ * a grey smudge on a vivid dark ground, where the reference dashboards carry a
+ * saturated fall-off that is half the chart's presence.
+ */
+export function useChartFill(): number {
+  const { theme, preset } = useTheme();
+  return useMemo(() => {
+    if (typeof window === "undefined") return 0.22;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--chart-fill").trim();
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? n : 0.22;
+  }, [theme, preset]);
+}
+
 /** The named accents (revenue = blue, profit = emerald), same contract. */
 export function useChartColors(): typeof CHART {
   const { theme, preset } = useTheme();
@@ -349,6 +364,7 @@ export const TrendChart = memo(function TrendChart({
 }) {
   const themed = useChartColors();
   const stroke = color ?? themed.blue;
+  const fill = useChartFill();
   const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
   const gradientId = useId();
@@ -370,7 +386,7 @@ export const TrendChart = memo(function TrendChart({
         style={onSelect ? { cursor: "pointer" } : undefined}
         onClick={onSelect ? (state: { activeLabel?: string }) => { const l = String(state?.activeLabel ?? "").trim(); if (l) onSelect(l); } : undefined}
       >
-        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={stroke} stopOpacity={0.22} /><stop offset="100%" stopColor={stroke} stopOpacity={0} /></linearGradient></defs>
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={stroke} stopOpacity={fill} /><stop offset="100%" stopColor={stroke} stopOpacity={0} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
@@ -406,6 +422,7 @@ export const MultiTrendChart = memo(function MultiTrendChart({
   profitName?: string | null;
 }) {
   const CHART = useChartColors();
+  const fill = useChartFill();
   const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
   const rId = useId();
@@ -503,8 +520,8 @@ export const MultiTrendChart = memo(function MultiTrendChart({
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={shown} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id={rId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.22} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0} /></linearGradient>
-            <linearGradient id={pId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.emerald} stopOpacity={0.18} /><stop offset="100%" stopColor={CHART.emerald} stopOpacity={0} /></linearGradient>
+            <linearGradient id={rId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={fill} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0} /></linearGradient>
+            <linearGradient id={pId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.emerald} stopOpacity={fill * 0.82} /><stop offset="100%" stopColor={CHART.emerald} stopOpacity={0} /></linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
           <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />

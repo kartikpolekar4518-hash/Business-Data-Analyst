@@ -57,6 +57,7 @@ const TOKEN_KEYS = [
   "accent", "accent-fg", "accent-soft",
   "pos", "neg", "warn", "pos-soft", "neg-soft", "warn-soft",
   "shadow", "glow", "glow-strength",
+  "radius-card", "edge", "card-wash", "card-glow", "chart-fill",
   "series-1", "series-2", "series-3", "series-4", "series-5", "series-6",
   "chart-blue", "chart-violet", "chart-teal", "chart-emerald", "chart-amber", "chart-rose",
 ];
@@ -92,6 +93,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applied.current = signature;
     document.documentElement.classList.toggle("dark", dark);
     applyTokens(chosen ? buildTheme(chosen.hue, chosen.ground) : null);
+    // The skin gates shape and depth. Absent on the default look, so not one
+    // of those rules in index.css can match it — which is what keeps "Audit
+    // Ledger" an exact return rather than a close one.
+    if (chosen) document.documentElement.dataset.skin = chosen.dark ? "vivid" : "soft";
+    else delete document.documentElement.dataset.skin;
   }
 
   useEffect(() => {

@@ -52,10 +52,28 @@ test("the validator actually rejects an unreadable theme", () => {
   assert.ok(failures.some((f) => f.fg === "ink" && f.bg === "canvas"));
 });
 
-test("only Midnight glows", () => {
+test("glow is a dark-ground signature, strongest on Midnight", () => {
   for (const p of PRESETS) {
     const t = buildTheme(p.hue, p.ground);
-    assert.equal(t["glow-strength"] !== "0", p.ground === "midnight", `${p.id} glow`);
+    const glow = Number(t["glow-strength"]);
+    // A light ground never glows — DESIGN.md's rule still holds there.
+    if (!p.dark) assert.equal(glow, 0, `${p.id} should not glow`);
+    else assert.ok(glow > 0, `${p.id} should glow`);
+    // And Midnight always out-glows Dusk of the same hue.
+    if (p.ground === "midnight") {
+      const dusk = Number(buildTheme(p.hue, "dusk")["glow-strength"]);
+      assert.ok(glow > dusk, `${p.id} should out-glow its Dusk`);
+    }
+  }
+});
+
+test("a preset carries shape and depth, and the light grounds stay restrained", () => {
+  for (const p of PRESETS) {
+    const t = buildTheme(p.hue, p.ground);
+    assert.match(t["radius-card"], /^\d+px$/, `${p.id} radius`);
+    // Charts fill harder on a dark ground, where a faint wash disappears.
+    assert.ok(Number(t["chart-fill"]) > (p.dark ? 0.3 : 0.1), `${p.id} chart fill`);
+    assert.ok(Number(t["card-glow"]) > 0, `${p.id} card glow`);
   }
 });
 
