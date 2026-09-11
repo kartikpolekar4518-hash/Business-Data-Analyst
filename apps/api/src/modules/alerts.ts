@@ -2,7 +2,7 @@ import { Router } from "express";
 import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth } from "../auth/middleware.js";
-import { loadJoinedDataset } from "./context.js";
+import { loadJoinedDataset, loadOrgConfig } from "./context.js";
 import { deriveInsights } from "../engine/insights.js";
 
 export const alertsRouter = Router();
@@ -14,7 +14,8 @@ alertsRouter.use(requireAuth);
 export async function refreshAlerts(organizationId: string) {
   try {
     const { rows, schema } = await loadJoinedDataset(organizationId);
-    const { alerts } = deriveInsights(rows, schema);
+    const { currency } = await loadOrgConfig(organizationId);
+    const { alerts } = deriveInsights(rows, schema, undefined, currency);
     const existing = await prisma.alert.findMany({ where: { organizationId } });
     const seen = new Set(existing.map((a) => `${a.type}:${a.metric}`));
     const fresh = alerts.filter((a) => !seen.has(`${a.type}:${a.metric}`));

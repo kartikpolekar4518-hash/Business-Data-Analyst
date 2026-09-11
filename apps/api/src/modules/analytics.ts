@@ -248,8 +248,8 @@ analyticsRouter.get("/drivers", wrap(async (req, res) => {
   const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const metric: DriverMetric = req.query.metric === "profit" ? "profit" : "revenue";
   const dimension = typeof req.query.dimension === "string" ? (req.query.dimension as Semantic) : undefined;
-  const { calendar } = await loadOrgConfig(req.auth!.organizationId);
-  res.json(analyzeDrivers(rows, schema, metric, dimension, filtersFrom(req.query), 10, comparisonFrom(req.query), calendar));
+  const { calendar, currency } = await loadOrgConfig(req.auth!.organizationId);
+  res.json(analyzeDrivers(rows, schema, metric, dimension, filtersFrom(req.query), 10, comparisonFrom(req.query), calendar, currency));
 }));
 
 // Anomalies in a metric's time series (deterministic, robust to single outliers).
@@ -266,7 +266,8 @@ analyticsRouter.get("/anomalies", wrap(async (req, res) => {
 analyticsRouter.get("/segments", wrap(async (req, res) => {
   const { rows, schema } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
   const entity = (["customer_name", "product_name"] as const).find((e) => e === req.query.entity) as SegmentEntity | undefined;
-  res.json(segmentEntities(A.applyFilters(rows, schema, filtersFrom(req.query)), schema, entity));
+  const { currency } = await loadOrgConfig(req.auth!.organizationId);
+  res.json(segmentEntities(A.applyFilters(rows, schema, filtersFrom(req.query)), schema, entity, currency));
 }));
 
 // Correlations across the dataset's numeric columns (association only, never causal).

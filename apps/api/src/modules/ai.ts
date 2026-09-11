@@ -17,9 +17,9 @@ aiRouter.use(requireAuth);
 aiRouter.get("/insights", wrap(async (req, res) => {
   const orgId = req.auth!.organizationId;
   const { dataset, rows, schema } = await loadJoinedDataset(orgId, req.query.datasetId as string | undefined);
-  const { pack } = await loadOrgConfig(orgId);
-  const { recommendations } = deriveInsights(rows, schema);
-  const headline = buildHeadline(rows, schema, pack.id, dataset.name);
+  const { pack, currency } = await loadOrgConfig(orgId);
+  const { recommendations } = deriveInsights(rows, schema, undefined, currency);
+  const headline = buildHeadline(rows, schema, pack.id, dataset.name, currency);
   res.json({ headline, recommendations, datasetName: dataset.name });
 }));
 

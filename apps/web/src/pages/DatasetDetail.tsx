@@ -13,7 +13,26 @@ import { num } from "../lib/utils";
 interface Issue { id: string; type: string; column: string | null; affectedRows: number; severity: "LOW" | "MEDIUM" | "HIGH"; recommendation: string; autoFixable: boolean; }
 interface Quality { qualityScore: number; rowCount: number; columnCount: number; issues: Issue[]; }
 interface Preview { columns: string[]; rows: Record<string, unknown>[]; total: number; cleaned: boolean; }
-interface Schema { schemaMap: Record<string, string>; columns: { name: string; type: string; semantic: string }[]; }
+interface Schema {
+  schemaMap: Record<string, string>;
+  columns: { name: string; type: string; semantic: string }[];
+  formats: FormatNote[] | null;
+}
+
+/** How a column's numbers or dates were read, and the evidence behind that call. */
+// Plain words for what the engine decided, so the panel reads as an explanation rather
+// than as engine vocabulary. An unknown key falls through to the raw decision.
+const DECISION_LABELS: Record<string, string> = {
+  dmy: "Day first (01/02 = 1 February)",
+  mdy: "Month first (01/02 = 2 January)",
+  ymd: "Year first (2026-02-01)",
+  "1,234.56": "1,234.56 — comma groups, dot decimal",
+  "1.234,56": "1.234,56 — dot groups, comma decimal",
+  "1 234.56": "1 234.56 — space groups, dot decimal",
+  "not a date column": "Not dates",
+};
+
+interface FormatNote { column: string; kind: "number" | "date"; decision: string; confidence: number; reason: string; rewritten: number }
 interface DatasetMeta { id: string; name: string; fileName: string; rowCount: number; columnCount: number; qualityScore: number; status: string; recipeId: string | null; }
 
 export default function DatasetDetail() {
@@ -197,6 +216,43 @@ export default function DatasetDetail() {
           </CardBody>
         </Card>
       )}
+
+      {tab === "schema" && schema.data?.formats?.length ? (
+        <Card className="mb-4">
+          <CardHeader title="How your figures were read" subtitle="The format of each column, decided from its own values — and what that decision was based on" />
+          <CardBody className="overflow-x-auto p-0">
+            <table className="w-full text-body">
+              <thead className="border-b border-rule bg-sunken text-left"><tr>
+                <th className="px-4 py-2 font-medium">Column</th>
+                <th className="px-4 py-2 font-medium">Read as</th>
+                <th className="px-4 py-2 font-medium">Why</th>
+                <th className="px-4 py-2 font-medium">Values corrected</th>
+              </tr></thead>
+              <tbody className="divide-y divide-rule-soft">
+                {schema.data.formats.map((f) => (
+                  <tr key={`${f.kind}:${f.column}`}>
+                    <td className="px-4 py-2 font-medium">{f.column}</td>
+                    <td className="px-4 py-2">
+                      {f.decision === "ambiguous"
+                        ? <Badge tone="amber">Could not tell</Badge>
+                        : <Badge tone="blue">{DECISION_LABELS[f.decision] ?? f.decision}</Badge>}
+                    </td>
+                    <td className="px-4 py-2 text-ink-soft">{f.reason}</td>
+                    <td className="px-4 py-2 text-ink-soft">{f.rewritten || <span className="text-ink-faint">none needed</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {schema.data.formats.some((f) => f.decision === "ambiguous") && (
+              <div className="border-t border-rule bg-sunken px-4 py-3 text-body-sm text-ink-soft">
+                A date like 01/02/2026 can mean 1 February or 2 January, and nothing in that column
+                settles which. Rather than guess, NoPS left those values exactly as written. If they are
+                day-first, re-export the file with full dates (2026-02-01) and upload it again.
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      ) : null}
 
       {tab === "schema" && (
         <Card><CardHeader title="Detected Schema" subtitle="Business meaning inferred from column names and types" />

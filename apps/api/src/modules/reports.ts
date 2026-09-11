@@ -20,8 +20,8 @@ reportsRouter.use(requireAuth);
 export async function buildReport(organizationId: string, datasetId?: string) {
   const { dataset, rows, schema } = await loadJoinedDataset(organizationId, datasetId);
   const org = await prisma.organization.findUnique({ where: { id: organizationId }, select: { industry: true } });
-  const { pack, calendar } = await loadOrgConfig(organizationId);
-  const content = composeReport(pack, rows, schema, calendar);
+  const { pack, calendar, currency } = await loadOrgConfig(organizationId);
+  const content = composeReport(pack, rows, schema, calendar, currency);
   // Identification metadata for the computational context (not a replay capability).
   const provenance = {
     datasetHash: dataset.datasetHash, engineVersion: dataset.engineVersion,

@@ -1,3 +1,4 @@
+import { DEFAULT_CURRENCY } from "./currency.js";
 import type { Row } from "./parse.js";
 import type { SchemaMap } from "./schema.js";
 import * as A from "./analytics.js";
@@ -42,8 +43,8 @@ const FLAT_EPSILON = 0.05;
 
 const DAY = 86_400_000;
 
-function formatValue(metric: PackMetric, value: number): string {
-  if (metric.format === "money") return A.fmtMoney(value);
+function formatValue(metric: PackMetric, value: number, currency: string): string {
+  if (metric.format === "money") return A.fmtMoney(value, currency);
   if (metric.format === "percent") return `${A.round(value)}%`;
   return A.fmt(value);
 }
@@ -69,7 +70,7 @@ function primaryMetric(pack: IndustryPack): PackMetric | undefined {
   return packMetric(pack, pack.keyMetrics[0] ?? "revenue") ?? packMetric(pack, "revenue") ?? pack.metrics[0];
 }
 
-export function buildHeadline(rows: Row[], s: SchemaMap, packId?: string, datasetName = ""): Headline | null {
+export function buildHeadline(rows: Row[], s: SchemaMap, packId?: string, datasetName = "", currency = DEFAULT_CURRENCY): Headline | null {
   const pack = packId ? getPack(packId) : detectPack(s, [], datasetName);
   const metric = primaryMetric(pack);
   if (!metric) return null;
@@ -92,7 +93,7 @@ export function buildHeadline(rows: Row[], s: SchemaMap, packId?: string, datase
   const done = (segments: HeadlineSegment[], rest: Omit<Headline, keyof typeof base | "segments" | "text">): Headline =>
     ({ ...base, ...rest, segments, text: segments.map((x) => x.t).join("") });
 
-  const total = formatValue(metric, inv.currentTotal);
+  const total = formatValue(metric, inv.currentTotal, currency);
 
   // No comparable prior window: state the total and say plainly why there is no
   // comparison, rather than implying one exists.
@@ -123,14 +124,14 @@ export function buildHeadline(rows: Row[], s: SchemaMap, packId?: string, datase
   // One decimal, matching the KPI tiles: a headline that says 20.34% claims a
   // precision the reader cannot check and the tiles below will contradict.
   const change = inv.changePct === null
-    ? formatValue(metric, Math.abs(inv.totalDelta))
+    ? formatValue(metric, Math.abs(inv.totalDelta), currency)
     : `${Math.round(Math.abs(inv.changePct) * 10) / 10}%`;
 
   const segments: HeadlineSegment[] = [
     { t: `${metric.label} ` },
     { t: `${up ? "rose" : "fell"} ${change}`, em },
     { t: ` against ${window}, from ` },
-    { t: formatValue(metric, inv.previousTotal), em: "num" },
+    { t: formatValue(metric, inv.previousTotal, currency), em: "num" },
     { t: " to " },
     { t: total, em: "num" },
   ];

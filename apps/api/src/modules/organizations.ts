@@ -4,6 +4,7 @@ import { prisma } from "../prisma.js";
 import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { PACKS } from "../engine/industries.js";
+import { CURRENCY_CODES, isValidTimezone } from "../engine/currency.js";
 import { reapplyIndustrySchema } from "./context.js";
 
 export const organizationsRouter = Router();
@@ -49,6 +50,12 @@ const patchSchema = z.object({
   fiscalYearStartMonth: z.number().int().min(1).max(12).optional(),
   periodScheme: z.enum(["calendar", "445", "454", "544"]).optional(),
   weekStartDay: z.number().int().min(0).max(6).optional(),
+  // Money and time. Validated at the edge for the same reason the calendar is: a bad
+  // currency prints the wrong symbol on every figure, and a bad zone silently re-buckets
+  // every timestamped row. The timezone is checked against the runtime's own zone data
+  // rather than a hardcoded list, so it stays correct as zones are added or renamed.
+  currency: z.enum(CURRENCY_CODES as [string, ...string[]]).optional(),
+  timezone: z.string().min(1).refine(isValidTimezone, "Not a recognised IANA time zone").optional(),
 });
 
 organizationsRouter.patch("/current", requireRole("ADMIN"), wrap(async (req, res) => {
@@ -58,7 +65,13 @@ organizationsRouter.patch("/current", requireRole("ADMIN"), wrap(async (req, res
   // On a real industry change, re-tailor the stored schema for every dataset so
   // all features (not just the dashboard) speak the new business's language.
   if (data.industry && data.industry !== before?.industry) await reapplyIndustrySchema(org.id, data.industry);
-  // A calendar change needs no equivalent recompute: it stores nothing on datasets and
-  // is read fresh by loadOrgConfig on every analytics request, so it applies at once.
+  // A calendar or currency change needs no equivalent recompute: neither stores anything
+  // on a dataset, and both are read fresh by loadOrgConfig on every analytics request.
+  //
+  // A TIMEZONE change is different, and deliberately not retroactive. The zone decides
+  // which calendar day a timestamped row was normalised onto at ingest, so applying a new
+  // one would move already-analysed rows between periods and silently change every saved
+  // report's figures. It takes effect for data ingested or re-cleaned after the change,
+  // which is the same rule recipes follow.
   res.json({ organization: org });
 }));

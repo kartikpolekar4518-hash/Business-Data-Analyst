@@ -1,13 +1,32 @@
 import clsx, { type ClassValue } from "clsx";
+import { displayCurrency } from "./currency.js";
 
 export const cn = (...inputs: ClassValue[]) => clsx(inputs);
 
+/**
+ * A money figure in the organization's currency, abbreviated for tiles and axis labels.
+ *
+ * The symbol and the digit grouping both come from the organization's setting, so an
+ * Indian business reads ₹1,20,000 rather than the $120,000 this used to print for every
+ * customer regardless of what they uploaded. `setDisplayCurrency` decides which; see
+ * lib/currency.ts for why that is a module value rather than a prop.
+ */
 export function money(n: number | null | undefined): string {
   if (n == null) return "—";
+  const { symbol } = displayCurrency();
   const abs = Math.abs(n);
-  if (abs >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `$${(n / 1_000).toFixed(1)}K`;
-  return `$${n.toFixed(0)}`;
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}${symbol}${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `${sign}${symbol}${(abs / 1_000).toFixed(1)}K`;
+  return `${sign}${symbol}${abs.toFixed(0)}`;
+}
+
+/** The same figure in full, grouped the way the currency is normally written. */
+export function moneyExact(n: number | null | undefined): string {
+  if (n == null) return "—";
+  const { symbol, locale } = displayCurrency();
+  const sign = n < 0 ? "-" : "";
+  return `${sign}${symbol}${Math.abs(Math.round(n)).toLocaleString(locale)}`;
 }
 
 export function num(n: number | null | undefined): string {

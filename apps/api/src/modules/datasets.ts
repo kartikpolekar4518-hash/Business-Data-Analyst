@@ -43,7 +43,12 @@ datasetsRouter.get("/:id/quality", wrap(async (req, res) => {
 
 datasetsRouter.get("/:id/schema", wrap(async (req, res) => {
   const d = await getOwned(req.auth!.organizationId, req.params.id);
-  res.json({ schemaMap: d.schemaMap, columns: d.columns });
+  // How each column's numbers and dates were read, with the reason and confidence behind
+  // the call. Recorded at ingest (engine/locale.ts). Absent on datasets uploaded before
+  // format detection existed, which the UI renders as "not recorded" rather than as a
+  // claim that nothing needed deciding.
+  const formats = (d.profile as { formats?: unknown } | null)?.formats ?? null;
+  res.json({ schemaMap: d.schemaMap, columns: d.columns, formats });
 }));
 
 // Cleaning is now a recipe: either build one from the accepted suggestions (what the
@@ -89,8 +94,11 @@ datasetsRouter.post("/:id/clean", requireRole("ADMIN", "MANAGER"), wrap(async (r
   const steps = recipe?.steps ?? buildSteps(acceptedTypes ?? [], issues, columnsList);
 
   // Detection here deliberately runs without the industry pack's extra rules, as it
-  // always has on this route — see reshapeDataset.
-  const shaped = reshapeDataset(originalRows, columns, steps);
+  // always has on this route — see reshapeDataset. The timezone is not optional in the
+  // same way: it decides which calendar day a timestamped row belongs to, so re-cleaning
+  // under a different zone from the one the upload used would move rows between periods.
+  const { timezone } = await prisma.organization.findUniqueOrThrow({ where: { id: orgId }, select: { timezone: true } });
+  const shaped = reshapeDataset(originalRows, columns, steps, [], timezone);
   const cleaned = shaped.cleanedRows ?? originalRows;
 
   // Cleaning provenance: what the steps actually changed in these rows, counted as they
