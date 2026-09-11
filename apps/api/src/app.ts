@@ -63,7 +63,7 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: env.appUrl.split(",") }));
+app.use(cors({ origin: env.appUrls }));
 app.use(express.json({ limit: "2mb" }));
 
 // Request timeout: 30s for AI queries, 10s default

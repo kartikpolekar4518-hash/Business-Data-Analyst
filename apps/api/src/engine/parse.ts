@@ -25,6 +25,23 @@ export interface ParsedSheet extends ParsedFile {
   name: string;
 }
 
+/**
+ * Split an upload's file name into the part that names the dataset and its extension.
+ *
+ * Replaces `slice(0, lastIndexOf(".") || length)`, which was wrong for a name carrying
+ * no extension: `lastIndexOf` returns -1 there, -1 is truthy, so the slice ran to -1 and
+ * dropped the last character ("mydata" -> "mydat"). Nothing reached it today, because
+ * parseWorkbook routes on the extension and rejects such a name first — but that made it
+ * a trap rather than a bug, armed for whoever widens the parser. A leading dot is part of
+ * the name, not an extension (".csv" is a file called ".csv"), and a trailing dot yields
+ * an empty extension so the caller still rejects it by name rather than defaulting it away.
+ */
+export function splitFileName(name: string): { base: string; ext: string | null } {
+  const dot = name.lastIndexOf(".");
+  if (dot <= 0) return { base: name, ext: null };
+  return { base: name.slice(0, dot), ext: name.slice(dot + 1).toLowerCase() };
+}
+
 // Parse an uploaded CSV/XLSX/XLS buffer into rows of plain objects.
 export function parseFile({ buffer, fileName }: { buffer: Buffer; fileName: string; }): ParsedFile {
   const MAX_BUFFER = 50 * 1024 * 1024; // 50MB hard limit

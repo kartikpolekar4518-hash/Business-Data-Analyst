@@ -79,8 +79,20 @@ export function isPrivateIp(ip: string): boolean {
   return false;
 }
 
-async function assertHostAllowed(host: string): Promise<void> {
-  if (env.allowPrivateConnectorHosts) return;
+// Resolve the host once, reject it if ANY address it answers with is private, and return
+// the single address the connection is then pinned to.
+//
+// Returning the address is the whole point. Checking a NAME and then handing that same
+// name to the driver leaves the driver to resolve it a second time, and the two answers
+// need not match: a DNS zone the caller controls can answer with a public address for
+// the check and 169.254.169.254 (or any internal host) milliseconds later for the
+// connect. That is DNS rebinding, and a name-only guard cannot see it. Pinning the
+// approved address closes the window, because there is no second lookup.
+//
+// null means "do not pin" — the escape hatch is on, so there is nothing to enforce and
+// the driver resolves as it always did (local demos reach `localhost` this way).
+async function resolveAllowedHost(host: string): Promise<string | null> {
+  if (env.allowPrivateConnectorHosts) return null;
   const lower = host.toLowerCase();
   if (lower === "localhost" || lower.endsWith(".localhost")) {
     throw new Error("Connecting to localhost is disabled. Set ALLOW_PRIVATE_CONNECTOR_HOSTS=true for local databases.");
@@ -93,6 +105,59 @@ async function assertHostAllowed(host: string): Promise<void> {
       throw new Error(`Host "${host}" resolves to a private/loopback address, which is blocked. Set ALLOW_PRIVATE_CONNECTOR_HOSTS=true to allow it.`);
     }
   }
+  // Every address passed, so any of them is safe to use; the first is the one the
+  // resolver preferred. Failover to the rest is given up deliberately — a connector
+  // that silently retried against an address nobody re-checked would reopen the hole.
+  const pinned = addrs[0]?.address;
+  if (!pinned) throw new Error(`Could not resolve host "${host}".`);
+  return pinned;
+}
+
+// Sockets aimed at the approved address instead of the name.
+//
+// Each driver below still receives the original HOSTNAME in its own config, and each
+// derives its TLS servername from that hostname — so certificate verification is
+// completely unchanged by this and still proves the server is who the name claims.
+// Only the TCP destination is pinned.
+
+/** pg calls `stream.connect(port, host)` itself, so the host it passes must be ignored. */
+export function pgPinnedStream(address: string | null) {
+  if (!address) return undefined;
+  return () => {
+    const socket = new net.Socket();
+    const connect = socket.connect.bind(socket);
+    socket.connect = ((port: number) => connect({ host: address, port })) as typeof socket.connect;
+    return socket;
+  };
+}
+
+/** mysql2 expects a socket that is already connecting. */
+export function mysqlPinnedStream(address: string | null, port: number) {
+  if (!address) return undefined;
+  return () => {
+    const socket = net.connect({ host: address, port });
+    socket.setNoDelay(true);
+    return socket;
+  };
+}
+
+/**
+ * tedious expects a promise of a connected socket.
+ *
+ * It hands the connector the host it wants, including one it was REDIRECTED to (Azure
+ * SQL's redirect connection policy). That argument is ignored on purpose: a redirect
+ * target is chosen by the server, not checked by the guard, so following it would hand
+ * back the SSRF the pin just closed. An Azure instance set to Redirect rather than Proxy
+ * therefore needs ALLOW_PRIVATE_CONNECTOR_HOSTS, the same escape hatch as a local DB.
+ */
+export function mssqlPinnedConnector(address: string | null, port: number) {
+  if (!address) return undefined;
+  return () => new Promise<net.Socket>((resolve, reject) => {
+    const socket = net.connect({ host: address, port });
+    socket.setNoDelay(true);
+    socket.once("connect", () => resolve(socket));
+    socket.once("error", reject);
+  });
 }
 
 function cap(rows: Row[]): Row[] {
@@ -104,11 +169,12 @@ function columnsOf(rows: Row[]): string[] {
 }
 
 async function fetchPostgres(cfg: DbConfig, password: string): Promise<ParsedFile> {
-  await assertHostAllowed(cfg.host);
+  const pinned = await resolveAllowedHost(cfg.host);
   const { default: pg } = await import("pg");
   const client = new pg.Client({
     host: cfg.host, port: cfg.port ?? 5432, database: cfg.database, user: cfg.user, password,
     ssl: cfg.ssl ? { rejectUnauthorized: !insecureTlsAllowed(cfg) } : undefined,
+    stream: pgPinnedStream(pinned),
     connectionTimeoutMillis: QUERY_TIMEOUT_MS, statement_timeout: QUERY_TIMEOUT_MS,
   });
   await client.connect();
@@ -119,11 +185,13 @@ async function fetchPostgres(cfg: DbConfig, password: string): Promise<ParsedFil
 }
 
 async function fetchMysql(cfg: DbConfig, password: string): Promise<ParsedFile> {
-  await assertHostAllowed(cfg.host);
+  const port = cfg.port ?? 3306;
+  const pinned = await resolveAllowedHost(cfg.host);
   const mysql = await import("mysql2/promise");
   const conn = await mysql.createConnection({
-    host: cfg.host, port: cfg.port ?? 3306, database: cfg.database, user: cfg.user, password,
+    host: cfg.host, port, database: cfg.database, user: cfg.user, password,
     ssl: cfg.ssl ? { rejectUnauthorized: !insecureTlsAllowed(cfg) } : undefined,
+    stream: mysqlPinnedStream(pinned, port),
     connectTimeout: QUERY_TIMEOUT_MS,
   });
   try {
@@ -134,11 +202,15 @@ async function fetchMysql(cfg: DbConfig, password: string): Promise<ParsedFile> 
 }
 
 async function fetchSqlServer(cfg: DbConfig, password: string): Promise<ParsedFile> {
-  await assertHostAllowed(cfg.host);
+  const port = cfg.port ?? 1433;
+  const pinned = await resolveAllowedHost(cfg.host);
   const { default: sql } = await import("mssql");
   const pool = await sql.connect({
-    server: cfg.host, port: cfg.port ?? 1433, database: cfg.database, user: cfg.user, password,
-    options: { encrypt: cfg.ssl !== false, trustServerCertificate: insecureTlsAllowed(cfg) },
+    server: cfg.host, port, database: cfg.database, user: cfg.user, password,
+    options: {
+      encrypt: cfg.ssl !== false, trustServerCertificate: insecureTlsAllowed(cfg),
+      connector: mssqlPinnedConnector(pinned, port),
+    },
     connectionTimeout: QUERY_TIMEOUT_MS, requestTimeout: QUERY_TIMEOUT_MS,
   });
   try {

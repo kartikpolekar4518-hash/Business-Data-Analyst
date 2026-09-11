@@ -66,8 +66,11 @@ jobs:
           cache: pip
           cache-dependency-path: apps/ml/requirements.txt
       - run: npm ci
-      # Supply-chain gate: fail the build on a known high/critical advisory.
-      - run: npm audit --audit-level=high
+      # Supply-chain gate: fail the build on a known advisory of moderate severity or
+      # worse. It sat at `high` and let three moderate qs advisories (a request-parsing
+      # DoS reachable from any endpoint) ride along unnoticed, which is exactly the
+      # class of thing this gate exists to catch.
+      - run: npm audit --audit-level=moderate
       # Generate the Prisma client so @prisma/client resolves during typecheck + tests.
       - run: npm run prisma:generate --workspace apps/api
       - run: npm run typecheck

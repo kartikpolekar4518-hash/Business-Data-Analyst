@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as XLSX from "@e965/xlsx";
-import { parseFile, parseWorkbook } from "./parse.js";
+import { parseFile, parseWorkbook, splitFileName } from "./parse.js";
 
 const csv = (s: string) => Buffer.from(s, "utf8");
 
@@ -122,4 +122,26 @@ test("parseWorkbook treats a CSV as a workbook of one sheet", () => {
   assert.equal(sheets.length, 1);
   assert.deepEqual(sheets[0].rows, [{ a: "1", b: "2" }]);
   assert.deepEqual(parseWorkbook({ buffer: csv("a,b\n"), fileName: "d.csv" }), [], "a header with no rows is no table");
+});
+
+// The dataset name shown in the UI comes from splitFileName. `lastIndexOf(".")` is -1
+// for an extensionless name and -1 is truthy, so the previous expression sliced to -1
+// and ate the last character. The upload route rejects such a name earlier, so these
+// pin the behaviour down before something else starts calling it.
+test("splitFileName: keeps the whole name when there is no extension", () => {
+  assert.deepEqual(splitFileName("mydata"), { base: "mydata", ext: null });
+  assert.deepEqual(splitFileName("q3-report"), { base: "q3-report", ext: null });
+});
+
+test("splitFileName: splits on the last dot and lowercases the extension", () => {
+  assert.deepEqual(splitFileName("sales.csv"), { base: "sales", ext: "csv" });
+  assert.deepEqual(splitFileName("my.data.XLSX"), { base: "my.data", ext: "xlsx" });
+});
+
+test("splitFileName: a leading dot is a name, not an extension", () => {
+  assert.deepEqual(splitFileName(".csv"), { base: ".csv", ext: null });
+});
+
+test("splitFileName: a trailing dot yields an empty extension the caller can reject", () => {
+  assert.deepEqual(splitFileName("data."), { base: "data", ext: "" });
 });

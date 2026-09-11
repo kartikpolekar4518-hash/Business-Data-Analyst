@@ -4,7 +4,16 @@ dist/
 .env.local
 *.log
 uploads/
-apps/api/src/sample/retail_sales.csv
 .DS_Store
 __pycache__/
 .pytest_cache/
+
+# This is an npm workspace: the root package-lock.json is the only lockfile, and it is
+# what `npm ci` (locally and in CI) installs from. A per-app lockfile is never read, so
+# it only drifts and misleads whoever opens it.
+apps/*/package-lock.json
+
+# Sample data is generated at runtime by engine/sampleData.ts; the seed script writes
+# its CSV here. None of it belongs in git.
+apps/api/src/sample/*.csv
+
