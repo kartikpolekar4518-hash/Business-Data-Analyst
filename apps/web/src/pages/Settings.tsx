@@ -4,7 +4,6 @@ import { useQuery, useQueryClient, useInfiniteQuery } from "@tanstack/react-quer
 import { Trash2, Plus, KeyRound, ShieldAlert, History, Upload, Sparkles, UserCog, Plug, CreditCard, Building2, Activity as ActivityIcon } from "lucide-react";
 import { api, ApiError } from "../lib/api";
 import { useAuth, type Role } from "../lib/auth";
-import { useTheme } from "../lib/theme";
 import { useIndustries } from "../lib/industries";
 import { timeAgo } from "../lib/utils";
 import { CURRENCIES, DEFAULT_CURRENCY, setDisplayCurrency } from "../lib/currency";
@@ -13,6 +12,7 @@ import { PlanCards, UsageMeter, type Plan } from "../components/Pricing";
 import { CustomMetricsSection } from "../components/metrics";
 import { CleaningRecipesSection } from "../components/recipes";
 import { RelationshipsSection } from "../components/relations";
+import { ThemeGallery } from "../components/themes";
 
 export default function SettingsPage() {
   const { tab = "organization" } = useParams();
@@ -456,10 +456,5 @@ function ActivityTab() {
 }
 
 function PreferencesTab() {
-  const { theme, toggle } = useTheme();
-  return (
-    <Card><CardHeader title="Preferences" /><CardBody className="max-w-md space-y-4">
-      <div className="flex items-center justify-between"><div><div className="font-medium">Theme</div><div className="text-body text-ink-faint">Current: {theme}</div></div><Button variant="outline" onClick={toggle}>Switch to {theme === "dark" ? "light" : "dark"}</Button></div>
-    </CardBody></Card>
-  );
+  return <ThemeGallery />;
 }

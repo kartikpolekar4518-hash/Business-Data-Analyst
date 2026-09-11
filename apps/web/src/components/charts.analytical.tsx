@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ChevronRight, ChevronDown, TrendingUp, TrendingDown, Network } from "lucide-react";
 import { cn } from "../lib/utils";
 import { formatKpiValue, type KpiFormat } from "../lib/kpi";
-import { SERIES } from "./charts";
+import { useSeries } from "./charts";
 import { TOTAL_COLUMN, type PivotNode, type PivotResult } from "../lib/visuals.data";
 
 // JSON, not a join: any separator character can legitimately appear in a label, and a
@@ -236,6 +236,7 @@ export function DecompositionTree({
   format?: KpiFormat;
   maxChildren?: number;
 }) {
+  const palette = useSeries();
   const [steps, setSteps] = useState<Step[]>([]);
   const [showAll, setShowAll] = useState<Set<number>>(new Set());
 
@@ -409,7 +410,7 @@ export function DecompositionTree({
                         <span className="shrink-0 font-semibold tabular-nums text-ink">{formatKpiValue(g.value, format)}</span>
                       </span>
                       <span className="mt-1 block h-1 w-full overflow-hidden rounded-full bg-sunken">
-                        <span className="block h-full rounded-full" style={{ width: `${(Math.abs(g.value) / max) * 100}%`, background: SERIES[i % SERIES.length] }} />
+                        <span className="block h-full rounded-full" style={{ width: `${(Math.abs(g.value) / max) * 100}%`, background: palette[i % palette.length] }} />
                       </span>
                     </button>
                   );

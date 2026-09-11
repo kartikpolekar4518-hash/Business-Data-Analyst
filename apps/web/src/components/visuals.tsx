@@ -5,7 +5,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { Search, TrendingDown, TrendingUp, Minus, ImageOff } from "lucide-react";
 import { cn } from "../lib/utils";
 import { formatKpiValue, type KpiFormat } from "../lib/kpi";
-import { Sparkline, CHART, clamp } from "./charts";
+import { Sparkline, useChartColors, clamp } from "./charts";
 import { Checkbox, Input } from "./ui.form";
 
 /* ───────── Card — one number, said plainly ─────────
@@ -47,6 +47,7 @@ export function KpiVisual({
   // good outcome, so the comparison flips.
   goalIsCeiling?: boolean;
 }) {
+  const CHART = useChartColors();
   const ratio = target ? value / target : 0;
   const ahead = goalIsCeiling ? value <= target : value >= target;
   const gapPct = target ? Math.round((value / target - 1) * 1000) / 10 : 0;

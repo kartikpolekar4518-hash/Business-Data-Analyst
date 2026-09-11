@@ -2,7 +2,7 @@ import { TrendingUp, TrendingDown, Minus, type LucideIcon } from "lucide-react";
 import { cn } from "../lib/utils";
 import { AnimatedNumber } from "../lib/motion";
 import type { KpiFormat } from "../lib/kpi";
-import { Sparkline, CHART } from "./charts";
+import { Sparkline, useChartColors } from "./charts";
 import { ExplainMetric } from "./explain";
 
 export function KpiCard({
@@ -14,7 +14,7 @@ export function KpiCard({
   tooltip,
   accent = false,
   spark,
-  accentColor = CHART.blue,
+  accentColor,
   explain = false,
   metricKey,
   explainQuery,
@@ -44,6 +44,8 @@ export function KpiCard({
    */
   reason?: string;
 }) {
+  const themed = useChartColors();
+  const sparkColor = accentColor ?? themed.blue;
   const up = (changePct ?? 0) > 0;
   const down = (changePct ?? 0) < 0;
   const Trend = up ? TrendingUp : down ? TrendingDown : Minus;
@@ -70,7 +72,11 @@ export function KpiCard({
         {explain && metricKey && <ExplainMetric metricKey={metricKey} label={label} query={explainQuery} />}
         {/* In the strip the icon is chrome competing with the figure; the label
             already says which number this is. */}
-        {!strip && <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />}
+        {!strip && (
+          <span className="kpi-icon">
+            <Icon className={cn("h-4 w-4", accent ? "text-accent" : "text-ink-faint")} />
+          </span>
+        )}
         </div>
       </div>
 
@@ -91,7 +97,7 @@ export function KpiCard({
         {changePct != null ? (
           <span
             className={cn(
-              "inline-flex items-center gap-1 font-mono text-body-sm font-medium tabular-nums",
+              "kpi-delta inline-flex items-center gap-1 font-mono text-body-sm font-medium tabular-nums",
               up && "text-pos",
               down && "text-neg",
               !up && !down && "text-ink-faint",
@@ -108,7 +114,7 @@ export function KpiCard({
           <div className={strip ? "opacity-60" : "opacity-90"}>
             {/* Supporting figures get one muted trace: a rotating palette here
                 would be colour as decoration, which the numbers do not need. */}
-            <Sparkline data={spark} color={strip ? "currentColor" : accentColor} />
+            <Sparkline data={spark} color={strip ? "currentColor" : sparkColor} />
           </div>
         )}
       </div>

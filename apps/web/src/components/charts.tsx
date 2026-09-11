@@ -35,8 +35,10 @@ export const CHART = {
 // Categorical multi-series palette — Okabe–Ito, ordered so adjacent series stay
 // distinguishable under protanopia/deuteranopia. The old blue/violet and
 // teal/emerald neighbours collapsed into one hue for colourblind viewers.
+// This stays the palette of the default Audit Ledger look, and the fallback
+// everywhere else; a preset overrides it through --series-* (see useSeries).
 export const SERIES = ["#56b4e9", "#e69f00", "#009e73", "#d55e00", "#cc79a7", "#f0e442"];
-const BRAND = CHART.blue;
+const CHART_NAMES = ["blue", "violet", "teal", "emerald", "amber", "rose"] as const;
 
 /**
  * Recharts writes most of its colours into SVG presentation attributes, which
@@ -49,6 +51,50 @@ function readToken(name: string, alpha = 1): string {
   const triple = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
   if (!triple) return "rgb(0 0 0 / 0)";
   return alpha === 1 ? `rgb(${triple})` : `rgb(${triple} / ${alpha})`;
+}
+
+/** The token's value, or `fallback` when a preset has not set it. */
+function tokenOr(name: string, fallback: string): string {
+  if (typeof window === "undefined") return fallback;
+  const triple = getComputedStyle(document.documentElement).getPropertyValue(`--${name}`).trim();
+  return triple ? `rgb(${triple})` : fallback;
+}
+
+/**
+ * Recharts writes colours into SVG attributes, so a chart cannot simply name a
+ * token — it has to be handed a resolved colour. Resolving in a hook keyed on
+ * both the theme and the chosen preset is what makes a theme change repaint
+ * every chart immediately, with no reload: pick Emerald Midnight on the
+ * dashboard and the charts go green on the same frame the page does.
+ */
+export function useSeries(): string[] {
+  const { theme, preset } = useTheme();
+  return useMemo(() => SERIES.map((fallback, i) => tokenOr(`series-${i + 1}`, fallback)), [theme, preset]);
+}
+
+/**
+ * How strongly an area chart fills under its line. The inherited 0.22 reads as
+ * a grey smudge on a vivid dark ground, where the reference dashboards carry a
+ * saturated fall-off that is half the chart's presence.
+ */
+export function useChartFill(): number {
+  const { theme, preset } = useTheme();
+  return useMemo(() => {
+    if (typeof window === "undefined") return 0.22;
+    const raw = getComputedStyle(document.documentElement).getPropertyValue("--chart-fill").trim();
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) ? n : 0.22;
+  }, [theme, preset]);
+}
+
+/** The named accents (revenue = blue, profit = emerald), same contract. */
+export function useChartColors(): typeof CHART {
+  const { theme, preset } = useTheme();
+  return useMemo(() => {
+    const out = { ...CHART };
+    for (const name of CHART_NAMES) out[name] = tokenOr(`chart-${name}`, CHART[name]);
+    return out;
+  }, [theme, preset]);
 }
 
 export function useAxis() {
@@ -194,7 +240,7 @@ export function CompareTooltip({
  */
 export function MetricLegend({
   data,
-  colors = SERIES,
+  colors,
   format = (v: number) => v.toLocaleString(),
   onSelect,
 }: {
@@ -203,6 +249,8 @@ export function MetricLegend({
   format?: (v: number) => string;
   onSelect?: (label: string) => void;
 }) {
+  const themed = useSeries();
+  const palette = colors ?? themed;
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <ul className="divide-y divide-rule-soft">
@@ -211,7 +259,7 @@ export function MetricLegend({
         const Row = (
           <>
             <span className="flex min-w-0 items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: colors[i % colors.length] }} />
+              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: palette[i % palette.length] }} />
               <span className="truncate text-body text-ink-soft">{d.label}</span>
             </span>
             <span className="flex shrink-0 items-baseline gap-2">
@@ -240,9 +288,11 @@ export function MetricLegend({
 }
 
 /* ───────── Sparkline — dependency-free inline SVG (for KPI tiles) ───────── */
-export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { data: number[]; color?: string; width?: number; height?: number }) {
+export function Sparkline({ data, color, width = 108, height = 34 }: { data: number[]; color?: string; width?: number; height?: number }) {
   const id = useId();
   const reduced = useReducedMotion();
+  const themed = useChartColors();
+  const tone = color ?? themed.blue;
   if (!data || data.length < 2) return null;
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -256,8 +306,8 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible" preserveAspectRatio="none" aria-hidden="true">
       <defs>
         <linearGradient id={`s-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity={0.28} />
-          <stop offset="100%" stopColor={color} stopOpacity={0} />
+          <stop offset="0%" stopColor={tone} stopOpacity={0.28} />
+          <stop offset="100%" stopColor={tone} stopOpacity={0} />
         </linearGradient>
       </defs>
       {/* The line draws itself, the fill follows it in. */}
@@ -271,7 +321,7 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
       <motion.path
         d={line}
         fill="none"
-        stroke={color}
+        stroke={tone}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -283,7 +333,7 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
         cx={(data.length - 1) * stepX}
         cy={y(data[data.length - 1])}
         r={2.5}
-        fill={color}
+        fill={tone}
         initial={reduced ? false : { scale: 0, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ duration: DUR.fast, ease: EASE, delay: DUR.slow }}
@@ -299,7 +349,7 @@ export function Sparkline({ data, color = BRAND, width = 108, height = 34 }: { d
 // already resolves to the nearest x category, which is the bucket the user aimed at.
 export const TrendChart = memo(function TrendChart({
   data,
-  color = BRAND,
+  color,
   height = 260,
   onSelect,
   name = "Value",
@@ -312,6 +362,9 @@ export const TrendChart = memo(function TrendChart({
   name?: string;
   format?: (v: number) => string;
 }) {
+  const themed = useChartColors();
+  const stroke = color ?? themed.blue;
+  const fill = useChartFill();
   const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
   const gradientId = useId();
@@ -333,12 +386,12 @@ export const TrendChart = memo(function TrendChart({
         style={onSelect ? { cursor: "pointer" } : undefined}
         onClick={onSelect ? (state: { activeLabel?: string }) => { const l = String(state?.activeLabel ?? "").trim(); if (l) onSelect(l); } : undefined}
       >
-        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.22} /><stop offset="100%" stopColor={color} stopOpacity={0} /></linearGradient></defs>
+        <defs><linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={stroke} stopOpacity={fill} /><stop offset="100%" stopColor={stroke} stopOpacity={0} /></linearGradient></defs>
         <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
         <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
         <YAxis tick={tick} axisLine={false} tickLine={false} width={48} tickFormatter={fmtK} />
-        <Tooltip cursor={cursor} content={<CompareTooltip series={[{ key: "value", name, color, format }]} compareLabel="Previous period" />} />
-        <Area type="monotone" dataKey="value" stroke={color} strokeWidth={2} fill={`url(#${gradientId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />
+        <Tooltip cursor={cursor} content={<CompareTooltip series={[{ key: "value", name, color: stroke, format }]} compareLabel="Previous period" />} />
+        <Area type="monotone" dataKey="value" stroke={stroke} strokeWidth={2} fill={`url(#${gradientId})`} activeDot={{ r: 4, strokeWidth: 0 }} {...anim} />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -368,6 +421,8 @@ export const MultiTrendChart = memo(function MultiTrendChart({
   seriesName?: string;
   profitName?: string | null;
 }) {
+  const CHART = useChartColors();
+  const fill = useChartFill();
   const { grid, tick, cursor } = useAxis();
   const anim = useSeriesAnimation();
   const rId = useId();
@@ -465,8 +520,8 @@ export const MultiTrendChart = memo(function MultiTrendChart({
       <ResponsiveContainer width="100%" height={height}>
         <AreaChart data={shown} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id={rId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={0.22} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0} /></linearGradient>
-            <linearGradient id={pId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.emerald} stopOpacity={0.18} /><stop offset="100%" stopColor={CHART.emerald} stopOpacity={0} /></linearGradient>
+            <linearGradient id={rId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.blue} stopOpacity={fill} /><stop offset="100%" stopColor={CHART.blue} stopOpacity={0} /></linearGradient>
+            <linearGradient id={pId} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={CHART.emerald} stopOpacity={fill * 0.82} /><stop offset="100%" stopColor={CHART.emerald} stopOpacity={0} /></linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke={grid} vertical={false} />
           <XAxis dataKey="label" tick={tick} axisLine={false} tickLine={false} />
@@ -487,6 +542,7 @@ export const MultiTrendChart = memo(function MultiTrendChart({
 // rather than drawn on top of a slice.
 export const DonutChart = memo(function DonutChart({ data, centerLabel, height = 190, variant = "donut", onSelect, legend = true, formatTotal = fmtK }: { data: { label: string; value: number }[]; centerLabel?: string; height?: number; variant?: "donut" | "pie"; onSelect?: (label: string) => void; /** Off when the caller pairs the arc with a MetricLegend — two legends is one too many. */ legend?: boolean; /** A money composition should read as money in the hole, not as "1925k". */ formatTotal?: (v: number) => string }) {
   const anim = useSeriesAnimation();
+  const palette = useSeries();
   const top = data.slice(0, 6);
   const total = top.reduce((s, d) => s + d.value, 0);
   return (
@@ -495,7 +551,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie data={top} dataKey="value" nameKey="label" innerRadius={variant === "pie" ? 0 : "62%"} outerRadius="92%" paddingAngle={variant === "pie" ? 1 : 2} stroke="none" cornerRadius={variant === "pie" ? 0 : 4} {...anim} {...clickProps(onSelect)}>
-              {top.map((_, i) => <Cell key={i} fill={SERIES[i % SERIES.length]} />)}
+              {top.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
             </Pie>
             <Tooltip content={<ShareTooltip total={total} />} />
           </PieChart>
@@ -512,7 +568,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
         {top.map((d, i) => {
           const row = (
             <>
-              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: SERIES[i % SERIES.length] }} />
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: palette[i % palette.length] }} />
               <span className="min-w-0 flex-1 truncate text-ink-soft">{d.label}</span>
               <span className="w-9 shrink-0 text-right font-mono text-ink">{total ? Math.round((d.value / total) * 100) : 0}%</span>
             </>
@@ -545,6 +601,7 @@ export const DonutChart = memo(function DonutChart({ data, centerLabel, height =
 // the charts reach every one of these dimensions by keyboard and remain the accessible
 // path. DonutChart's legend rows are real buttons for the same reason.
 export const BarRankChart = memo(function BarRankChart({ data, horizontal = true, onSelect }: { data: { label: string; value: number }[]; horizontal?: boolean; onSelect?: (label: string) => void }) {
+  const CHART = useChartColors();
   const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
   const total = data.reduce((s, d) => s + d.value, 0);
@@ -571,6 +628,7 @@ export const BarRankChart = memo(function BarRankChart({ data, horizontal = true
 });
 
 export const ForecastChart = memo(function ForecastChart({ history, points, format }: { history: { period: string; value: number }[]; points: { period: string; value: number; lower: number; upper: number }[]; format?: (v: number) => string }) {
+  const CHART = useChartColors();
   const { grid, tick, tooltipStyle, cursor } = useAxis();
   const fmt = format ?? ((v: number) => v.toLocaleString());
   const anim = useSeriesAnimation();
@@ -608,6 +666,7 @@ export const clamp = (n: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, n)
 
 /* ───────── Waterfall — running total of signed deltas ───────── */
 export const WaterfallChart = memo(function WaterfallChart({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
+  const CHART = useChartColors();
   const { grid, tick, tooltipStyle } = useAxis();
   const anim = useSeriesAnimation();
   const rows = useMemo(() => {
@@ -640,6 +699,7 @@ export const WaterfallChart = memo(function WaterfallChart({ data, height = 300 
 export const FunnelStages = memo(function FunnelStages({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
   const { tick, tooltipStyle } = useAxis();
   const anim = useSeriesAnimation();
+  const palette = useSeries();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <FunnelChart>
@@ -647,7 +707,7 @@ export const FunnelStages = memo(function FunnelStages({ data, height = 300 }: {
         <Funnel dataKey="value" data={data} isAnimationActive={anim.isAnimationActive} animationDuration={anim.animationDuration}>
           <LabelList position="right" dataKey="label" stroke="none" fill={tick.fill} fontSize={12} />
           <LabelList position="inside" dataKey="value" stroke="none" fill="#fff" fontSize={12} formatter={(v: number) => fmtK(v)} />
-          {data.map((_, i) => <Cell key={i} fill={SERIES[i % SERIES.length]} />)}
+          {data.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
         </Funnel>
       </FunnelChart>
     </ResponsiveContainer>
@@ -656,6 +716,7 @@ export const FunnelStages = memo(function FunnelStages({ data, height = 300 }: {
 
 /* ───────── Scatter / bubble — correlation (z drives bubble size) ───────── */
 export const ScatterBubbleChart = memo(function ScatterBubbleChart({ data, xName = "x", yName = "y", height = 300 }: { data: { x: number; y: number; z?: number; label?: string }[]; xName?: string; yName?: string; height?: number }) {
+  const CHART = useChartColors();
   const { grid, tick, tooltipStyle } = useAxis();
   const anim = useSeriesAnimation();
   const hasZ = data.some((d) => d.z != null);
@@ -677,6 +738,7 @@ export const ScatterBubbleChart = memo(function ScatterBubbleChart({ data, xName
 export const RadarProfile = memo(function RadarProfile({ data, series, height = 300 }: { data: Record<string, number | string>[]; series: string[]; height?: number }) {
   const { grid, tick, tooltipStyle } = useAxis();
   const anim = useSeriesAnimation();
+  const palette = useSeries();
   return (
     <ResponsiveContainer width="100%" height={height}>
       <RadarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 8 }}>
@@ -684,23 +746,25 @@ export const RadarProfile = memo(function RadarProfile({ data, series, height = 
         <PolarAngleAxis dataKey="label" tick={tick} />
         <PolarRadiusAxis tick={tick} axisLine={false} tickFormatter={fmtK} />
         <Tooltip contentStyle={tooltipStyle} />
-        {series.map((s, i) => <Radar key={s} name={s} dataKey={s} stroke={SERIES[i % SERIES.length]} fill={SERIES[i % SERIES.length]} fillOpacity={0.22} strokeWidth={2} {...anim} />)}
+        {series.map((s, i) => <Radar key={s} name={s} dataKey={s} stroke={palette[i % palette.length]} fill={palette[i % palette.length]} fillOpacity={0.22} strokeWidth={2} {...anim} />)}
       </RadarChart>
     </ResponsiveContainer>
   );
 });
 
 /* ───────── Gauge — single value against a max (half dial) ───────── */
-export const GaugeChart = memo(function GaugeChart({ value, max = 100, label, unit = "", color = CHART.blue, height = 180 }: { value: number; max?: number; label?: string; unit?: string; color?: string; height?: number }) {
+export const GaugeChart = memo(function GaugeChart({ value, max = 100, label, unit = "", color, height = 180 }: { value: number; max?: number; label?: string; unit?: string; color?: string; height?: number }) {
   const { dark } = useAxis();
   const anim = useSeriesAnimation();
+  const themed = useChartColors();
+  const fill = color ?? themed.blue;
   const pct = clamp(value / (max || 1)) * 100;
   return (
     <div className="relative" style={{ height }}>
       <ResponsiveContainer width="100%" height="100%">
         <RadialBarChart data={[{ value: pct }]} startAngle={180} endAngle={0} innerRadius="72%" outerRadius="100%" cy="88%">
           <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
-          <RadialBar dataKey="value" cornerRadius={12} fill={color} background={{ fill: dark ? "rgba(148,163,184,0.14)" : "#eef2f7" }} {...anim} />
+          <RadialBar dataKey="value" cornerRadius={12} fill={fill} background={{ fill: dark ? "rgba(148,163,184,0.14)" : "#eef2f7" }} {...anim} />
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="pointer-events-none absolute inset-x-0 bottom-2 flex flex-col items-center">
@@ -712,9 +776,11 @@ export const GaugeChart = memo(function GaugeChart({ value, max = 100, label, un
 });
 
 /* ───────── Treemap — part-to-whole by area ───────── */
-type TreemapCellProps = { x?: number; y?: number; width?: number; height?: number; index?: number; name?: string; value?: number };
-const TreemapCell = ({ x = 0, y = 0, width = 0, height = 0, index = 0, name, value }: TreemapCellProps) => {
-  const fill = SERIES[index % SERIES.length];
+// Recharts calls this as a render prop, so it is not a component React owns
+// and cannot hold a hook — the resolved palette is handed down instead.
+type TreemapCellProps = { x?: number; y?: number; width?: number; height?: number; index?: number; name?: string; value?: number; palette?: string[] };
+const TreemapCell = ({ x = 0, y = 0, width = 0, height = 0, index = 0, name, value, palette = SERIES }: TreemapCellProps) => {
+  const fill = palette[index % palette.length];
   const room = width > 60 && height > 28;
   return (
     <g>
@@ -731,10 +797,11 @@ const TreemapCell = ({ x = 0, y = 0, width = 0, height = 0, index = 0, name, val
 export const TreemapChart = memo(function TreemapChart({ data, height = 300 }: { data: { label: string; value: number }[]; height?: number }) {
   const { tooltipStyle } = useAxis();
   const anim = useSeriesAnimation();
+  const palette = useSeries();
   const nodes = data.map((d) => ({ name: d.label, size: d.value }));
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <Treemap data={nodes} dataKey="size" stroke="#fff" content={<TreemapCell />} isAnimationActive={anim.isAnimationActive} animationDuration={anim.animationDuration}>
+      <Treemap data={nodes} dataKey="size" stroke="#fff" content={<TreemapCell palette={palette} />} isAnimationActive={anim.isAnimationActive} animationDuration={anim.animationDuration}>
         <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => fmtK(v)} />
       </Treemap>
     </ResponsiveContainer>
