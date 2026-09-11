@@ -41,6 +41,29 @@
   --warn-soft:   247 238 220;
 
   --shadow:      22 24 28;
+
+  /* Charts read their colours through the token layer too, so a preset
+     recolours them with everything else. These defaults are the Okabe-Ito
+     SERIES and the named accents the charts have always used — the default
+     look is unchanged. See DESIGN.md, "Themes". */
+  --series-1: 86 180 233;
+  --series-2: 230 159 0;
+  --series-3: 0 158 115;
+  --series-4: 213 94 0;
+  --series-5: 204 121 167;
+  --series-6: 240 228 66;
+
+  --chart-blue:    91 140 255;
+  --chart-violet:  167 139 250;
+  --chart-teal:    34 211 238;
+  --chart-emerald: 52 211 153;
+  --chart-amber:   251 191 36;
+  --chart-rose:    251 113 133;
+
+  /* Glow belongs to the Midnight presets and nothing else. At strength 0 the
+     wash below paints nothing, so the default themes are untouched. */
+  --glow:          0 0 0;
+  --glow-strength: 0;
 }
 
 /* `.dark` is the theme; `.on-dark` is a region that is dark in BOTH themes —
@@ -85,6 +108,23 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* The Midnight presets' signature: a single fixed wash of the theme's accent
+   behind the whole page. It is one pseudo-element driven by --glow-strength,
+   so no component knows it exists and every other theme gets nothing. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: var(--glow-strength, 0);
+  background:
+    radial-gradient(60% 50% at 12% 0%, rgb(var(--glow) / 0.85), transparent 70%),
+    radial-gradient(55% 45% at 90% 8%, rgb(var(--glow) / 0.45), transparent 72%);
+}
+
+#root { position: relative; z-index: 1; }
 
 /* Figures line up in columns wherever they appear. */
 .tabular, table, .font-mono { font-variant-numeric: tabular-nums; }

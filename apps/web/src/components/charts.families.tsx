@@ -8,7 +8,7 @@ import { memo, useId, useMemo } from "react";
 import {
   ResponsiveContainer, ComposedChart, Bar, Line, Area, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from "recharts";
-import { CHART, SERIES, useAxis, useSeriesAnimation, fmtK, clickProps } from "./charts";
+import { useAxis, useChartColors, useSeries, useSeriesAnimation, fmtK, clickProps } from "./charts";
 import { toPercentRows, rankByPeriod, type Row, type PercentRow, type RibbonPeriod } from "../lib/visuals.data";
 
 export type CategoryMode = "clustered" | "stacked" | "stacked100";
@@ -56,7 +56,7 @@ const cornerFor = (mode: CategoryMode, isLast: boolean, orientation: "column" | 
    Covers six Power BI visuals: stacked bar, stacked column, clustered bar, clustered
    column, 100% stacked bar, 100% stacked column. */
 export const CategoryChart = memo(function CategoryChart({
-  data, series, orientation = "column", mode = "clustered", height = 300, colors = SERIES, legend = true, onSelect,
+  data, series, orientation = "column", mode = "clustered", height = 300, colors: colorsProp, legend = true, onSelect,
 }: {
   data: Row[];
   series: string[];
@@ -67,6 +67,8 @@ export const CategoryChart = memo(function CategoryChart({
   legend?: boolean;
   onSelect?: (label: string) => void;
 }) {
+  const themedColors = useSeries();
+  const colors = colorsProp ?? themedColors;
   const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
   const percent = mode === "stacked100";
@@ -115,7 +117,7 @@ export const CategoryChart = memo(function CategoryChart({
    Covers four Power BI visuals. Plain "area" overlaps its series translucently rather
    than stacking, which is the distinction Power BI draws between area and stacked area. */
 export const SeriesChart = memo(function SeriesChart({
-  data, series, mode = "line", height = 300, colors = SERIES, legend = true,
+  data, series, mode = "line", height = 300, colors: colorsProp, legend = true,
 }: {
   data: Row[];
   series: string[];
@@ -124,6 +126,8 @@ export const SeriesChart = memo(function SeriesChart({
   colors?: string[];
   legend?: boolean;
 }) {
+  const themedColors = useSeries();
+  const colors = colorsProp ?? themedColors;
   const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
   const gid = useId();
@@ -182,13 +186,15 @@ export const SeriesChart = memo(function SeriesChart({
 const VB_W = 800;
 
 export const RibbonChart = memo(function RibbonChart({
-  periods, series, height = 300, colors = SERIES,
+  periods, series, height = 300, colors: colorsProp,
 }: {
   periods: RibbonPeriod[];
   series: string[];
   height?: number;
   colors?: string[];
 }) {
+  const themedColors = useSeries();
+  const colors = colorsProp ?? themedColors;
   const { tick, grid } = useAxis();
   const bands = useMemo(() => rankByPeriod(periods, series), [periods, series]);
   const color = useMemo(
@@ -256,7 +262,7 @@ export const RibbonChart = memo(function RibbonChart({
 /* ───────── ComboChart — bars + lines on a secondary axis ─────────
    Covers "Line and stacked column chart" and "Line and clustered column chart". */
 export const ComboChart = memo(function ComboChart({
-  data, bars, lines, mode = "clustered", lineFormat = (v: number) => `${v}%`, height = 300, colors = SERIES,
+  data, bars, lines, mode = "clustered", lineFormat = (v: number) => `${v}%`, height = 300, colors: colorsProp,
 }: {
   data: Row[];
   bars: string[];
@@ -266,11 +272,14 @@ export const ComboChart = memo(function ComboChart({
   height?: number;
   colors?: string[];
 }) {
+  const themedColors = useSeries();
+  const colors = colorsProp ?? themedColors;
   const { grid, tick } = useAxis();
   const anim = useSeriesAnimation();
   // Lines carry a different unit from the bars, so they take their own palette slot
   // rather than continuing the bar sequence and reading as another bar series.
-  const lineColors = [CHART.violet, CHART.rose, CHART.amber];
+  const named = useChartColors();
+  const lineColors = [named.violet, named.rose, named.amber];
 
   return (
     <ResponsiveContainer width="100%" height={height}>

@@ -10,7 +10,7 @@ import { feature } from "topojson-client";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import type { Topology, GeometryCollection } from "topojson-specification";
 import worldTopo from "world-atlas/countries-110m.json";
-import { CHART, useAxis, fmtK } from "./charts";
+import { useAxis, useChartColors, fmtK } from "./charts";
 import { formatKpiValue, type KpiFormat } from "../lib/kpi";
 import { matchRegions, quantize } from "../lib/visuals.data";
 
@@ -45,6 +45,7 @@ export function GeoMap({
   format?: KpiFormat;
   buckets?: number;
 }) {
+  const CHART = useChartColors();
   const { dark, tick } = useAxis();
   const collection = geo ?? WORLD;
 

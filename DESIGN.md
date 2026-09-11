@@ -51,8 +51,43 @@ substitutes for it.
 
 ## Charts
 
-The Okabe–Ito `SERIES` palette stays as-is — it is colourblind-safe and was a
-deliberate choice. Chart text and grid lines read from the theme tokens.
+The Okabe–Ito `SERIES` palette stays as-is for the default look — it is
+colourblind-safe and was a deliberate choice. Chart text, grid lines and series
+colours all read from the theme tokens, so a chart follows whatever theme is on.
+
+## Themes
+
+The default look is the Audit Ledger light/dark pair above. It is the only look
+a new account sees, and every rule in this file governs it. That is unchanged
+and not up for negotiation by a theme.
+
+Alongside it the product ships **56 opt-in presets** — 14 hues × 4 grounds
+(`paper`, `tint`, `dusk`, `midnight`) — chosen from Settings → Preferences.
+They exist because the look of a dashboard is part of what people are buying.
+
+Rules for presets, all of them enforced in code:
+
+- A preset is **only an overlay of the tokens in this file**, written as inline
+  custom properties on `<html>` (`lib/theme.tsx`). No component knows a theme
+  exists, and clearing the preset removes the properties so the stylesheet takes
+  back over — an exact return to the default, not an approximation of it.
+- They are **generated**, not hand-written, from `HUES` and `GROUNDS` in
+  `lib/palettes.ts`. Lightness is solved against a target contrast ratio rather
+  than picked by eye.
+- **Every preset is held to a contrast floor** by `validateTheme`, and
+  `palettes.test.ts` fails the build if any of the 56 drops below it. Body text
+  ≥ 7:1, secondary ≥ 4.5:1, labels and UI marks ≥ 3:1.
+- **`pos` / `neg` / `warn` never follow the theme's hue.** Up is green and down
+  is red in all 56; only their lightness tracks the ground. Colour is meaning,
+  and a theme must not be able to change what a number means.
+- **Glow belongs to the `midnight` ground alone**, as one ambient wash driven by
+  `--glow-strength`. This is a deliberate, scoped exception to "no glow" above:
+  it is zero in the default look and on every other ground, and no component
+  participates in it.
+- Charts follow the preset through `--series-1..6` and `--chart-*`, resolved by
+  the `useSeries` / `useChartColors` hooks. Themed series are tuned for
+  separation, not for colourblind safety — that guarantee belongs to the
+  default look's Okabe–Ito palette, and is stated here so the trade is explicit.
 
 ## Type
 
