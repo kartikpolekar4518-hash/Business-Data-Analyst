@@ -7,6 +7,7 @@ import { wrap, HttpError } from "../errors.js";
 import { requireAuth, requireRole } from "../auth/middleware.js";
 import { env } from "../env.js";
 import { parseFile, parseWorkbook, splitFileName } from "../engine/parse.js";
+import { profileDataset } from "../engine/profile.js";
 import { ingestRows, reshapeDataset } from "../engine/ingest.js";
 import { validateSteps, type CleaningStep } from "../engine/cleaning.js";
 import { getPack } from "../engine/industries.js";
@@ -107,12 +108,28 @@ uploadsRouter.post("/:id/append", uploadLimiter, requireRole("ADMIN", "MANAGER")
   const incoming = parsed.columns.length ? parsed.columns : headerOf(parsed.rows);
   const missing = existing.filter((c) => !incoming.includes(c));
   const unexpected = incoming.filter((c) => !existing.includes(c));
-  if (missing.length || unexpected.length) {
+  const typeMismatches: string[] = [];
+
+  const existingProfile = profileDataset(originalRows, existing);
+  const incomingProfile = profileDataset(parsed.rows, incoming);
+
+  for (const c of existing) {
+    if (missing.includes(c)) continue;
+    const eType = existingProfile.columns.find(x => x.name === c)?.type;
+    const iType = incomingProfile.columns.find(x => x.name === c)?.type;
+    if (eType && iType && eType !== iType) {
+      if ((eType === "number" || eType === "currency") && (iType === "number" || iType === "currency")) continue;
+      if (eType === "empty" || iType === "empty") continue; 
+      typeMismatches.push(`${c}: ${eType} vs ${iType}`);
+    }
+  }
+
+  if (missing.length || unexpected.length || typeMismatches.length) {
     throw new HttpError(400,
-      `Those columns don't match "${dataset.name}". ` +
-      (missing.length ? `Missing: ${missing.join(", ")}. ` : "") +
-      (unexpected.length ? `Unexpected: ${unexpected.join(", ")}. ` : "") +
-      "Combine only files with the same columns.");
+      `Cannot combine these files. Compatibility issues found: ` +
+      (missing.length ? `Missing columns: ${missing.join(", ")}. ` : "") +
+      (unexpected.length ? `Extra columns: ${unexpected.join(", ")}. ` : "") +
+      (typeMismatches.length ? `Type mismatches: ${typeMismatches.join(", ")}.` : ""));
   }
 
   const combined = [...originalRows, ...parsed.rows];

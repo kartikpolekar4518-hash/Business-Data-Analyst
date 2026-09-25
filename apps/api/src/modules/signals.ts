@@ -161,10 +161,10 @@ async function finish(
     // null is every way the service can let us down at once — off, unreachable, timed
     // out, non-2xx, or an answer that did not match the contract. The client cannot tell
     // them apart on purpose, and none of them is a reason to store a number.
-    if (!result) {
+    if (!result || "_error" in result) {
       await prisma.prediction.update({
         where: { id },
-        data: { status: PredictionStatus.FAILED, error: "The prediction service did not return a usable result. It may be switched off, still starting, or the run may have taken too long." },
+        data: { status: PredictionStatus.FAILED, error: result && "_error" in result ? result._error : "The prediction service did not return a usable result. It may be switched off, still starting, or the run may have taken too long." },
       });
       return;
     }

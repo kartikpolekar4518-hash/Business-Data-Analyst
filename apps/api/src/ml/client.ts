@@ -63,8 +63,8 @@ export async function runModel(
   rows: Row[],
   schema: SchemaMap,
   config: Record<string, unknown> = {},
-): Promise<MlResponse | null> {
-  if (!env.mlEnabled) return null;
+): Promise<MlResponse | { _error: string }> {
+  if (!env.mlEnabled) return { _error: "Signals temporarily unavailable. The advanced ML analysis service is disabled. Your core deterministic analytics are still available." };
   try {
     const res = await fetch(`${env.mlServiceUrl}/${kind}`, {
       method: "POST",
@@ -76,11 +76,13 @@ export async function runModel(
       body: JSON.stringify({ rows, schema, config }),
       signal: AbortSignal.timeout(env.mlTimeoutMs),
     });
-    if (!res.ok) return null;
+    if (!res.ok) return { _error: "The advanced ML analysis service could not be reached. Your core deterministic analytics are still available." };
     // Validated before anything is persisted: a service that answers with the wrong
     // shape is treated exactly like one that did not answer.
     return mlResponse.parse(await res.json());
-  } catch {
-    return null;
+  } catch (e: any) {
+    if (e?.name === "TimeoutError") return { _error: "The advanced ML analysis service timed out. Your core deterministic analytics are still available." };
+    if (e?.name === "ZodError") return { _error: "The advanced ML analysis service returned an invalid response. Your core deterministic analytics are still available." };
+    return { _error: "The advanced ML analysis service could not be reached. Your core deterministic analytics are still available." };
   }
 }

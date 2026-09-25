@@ -228,16 +228,21 @@ export default function Analytics() {
     return `"${safe.replace(/"/g, '""')}"`;
   }
 
-  function exportCsv() {
-    if (!table.data) return;
-    const { columns, rows } = table.data;
-    const csv = [columns, ...rows.map((r) => columns.map((c) => r[c]))]
-      .map((line) => line.map(csvCell).join(","))
-      .join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const a = document.createElement("a"); a.href = url; a.download = "analytics-export.csv"; a.click();
-    // Deferred: revoking in the same tick can cancel the download the click just began.
-    setTimeout(() => URL.revokeObjectURL(url), 0);
+  async function exportCsv() {
+    if (!ov.data) return;
+    try {
+      const urlParams = new URLSearchParams(params);
+      urlParams.set("datasetId", ov.data.datasetId);
+      const url = await api.blob(`/analytics/export?${urlParams.toString()}`);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${ov.data.datasetName}-export.csv`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (err) {
+      // Assuming a global toast or error reporting mechanism exists in the component
+      console.error("Export failed", err);
+    }
   }
 
   if (ov.isError) return <EmptyState icon={BarChart3} title="No data to analyze" description="Upload a dataset first." />;
@@ -283,7 +288,7 @@ export default function Analytics() {
           <h1 className="page-title">Analytics</h1>
           <p className="page-subtitle">Filter and explore. Filters are saved in the URL — copy the link to share this exact view.</p>
         </div>
-        <Button variant="outline" onClick={exportCsv} disabled={!table.data}><Download className="h-4 w-4" />Export CSV</Button>
+        <Button variant="outline" onClick={exportCsv} disabled={!ov.data}><Download className="h-4 w-4" />Export CSV</Button>
       </div>
 
       {/* ─── Filters ───
@@ -420,7 +425,7 @@ export default function Analytics() {
       {/* ══ THE ROWS BEHIND IT ══ */}
       <DataTable
         title="Filtered rows"
-        subtitle={table.data ? `${num(table.data.rows.length)} loaded of ${num(table.data.total)} rows — sort, search and page through them here; CSV export includes up to 500` : undefined}
+        subtitle={table.data ? `${num(table.data.rows.length)} loaded of ${num(table.data.total)} rows — sort, search and page through them here` : undefined}
         columns={tableColumns}
         rows={table.data?.rows ?? []}
         rowKey={(_r, i) => i}

@@ -300,6 +300,37 @@ analyticsRouter.get("/table", wrap(async (req, res) => {
   });
 }));
 
+// Full CSV export of the filtered analytics dataset.
+import Papa from "papaparse";
+analyticsRouter.get("/export", wrap(async (req, res) => {
+  const { rows, schema, dataset } = await loadJoinedDataset(req.auth!.organizationId, req.query.datasetId as string | undefined);
+  const filtered = A.applyFilters(rows, schema, filtersFrom(req.query));
+  
+  if (!filtered.length) {
+    throw new HttpError(404, "No data matching filters to export");
+  }
+
+  // Prevent formula injection if any string starts with =, +, -, @
+  // Also stringify handles quotes, commas, etc via papaparse.
+  const sanitizedRows = filtered.map(row => {
+    const safeRow: Record<string, any> = {};
+    for (const [k, v] of Object.entries(row as Record<string, unknown>)) {
+      if (typeof v === "string" && /^[=\+\-@]/.test(v)) {
+        safeRow[k] = "'" + v;
+      } else {
+        safeRow[k] = v;
+      }
+    }
+    return safeRow;
+  });
+
+  const csv = Papa.unparse(sanitizedRows, { header: true });
+  
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${dataset.name}-export.csv"`);
+  res.status(200).send(csv);
+}));
+
 // ─── Saved views (named filter queries, shared across the organization) ───
 // A view stores the Analytics page's URL query string. It is validated against the
 // same filterSchema the analytics routes use, so a view that could not be applied
