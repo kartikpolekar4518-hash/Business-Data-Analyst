@@ -1,110 +1,91 @@
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ─────────────────────────────────────────────────────────────
-   Token layer — see DESIGN.md. Every colour in the app resolves
-   through one of these. Components name a role, never a palette
-   colour and never a theme.
-   Values are RGB channel triples so Tailwind's /alpha modifiers
-   keep working (bg-surface/60, border-rule/40).
-   ───────────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
 
-  --canvas:      250 250 247;
+  /* Modern refined light theme */
+  --canvas:      249 250 251;
   --surface:     255 255 255;
-  --sunken:      241 241 236;
+  --sunken:      243 244 246;
 
-  --ink:         22 24 28;
-  --ink-soft:    74 78 87;
-  --ink-faint:   131 135 143;
+  --ink:         17 24 39;
+  --ink-soft:    75 85 99;
+  --ink-faint:   156 163 175;
 
-  --rule:        222 222 214;
-  --rule-soft:   233 233 226;
-  --rule-strong: 201 201 190;
+  --rule:        229 231 235;
+  --rule-soft:   243 244 246;
+  --rule-strong: 209 213 219;
 
-  --accent:      31 58 95;
+  --accent:      15 23 42;
   --accent-fg:   255 255 255;
-  --accent-soft: 226 233 241;
+  --accent-soft: 241 245 249;
 
-  --pos:         47 107 63;
-  --neg:         163 38 28;
-  --warn:        160 107 4;
+  --pos:         21 128 61;
+  --neg:         185 28 28;
+  --warn:        180 83 9;
 
-  /* Soft tints of the semantic trio — the only fill allowed behind an
-     up/down/flagged message. Never used decoratively. */
-  --pos-soft:    228 238 230;
-  --neg-soft:    247 229 227;
-  --warn-soft:   247 238 220;
+  --pos-soft:    220 252 231;
+  --neg-soft:    254 226 226;
+  --warn-soft:   254 243 199;
 
-  --shadow:      22 24 28;
+  --shadow:      0 0 0;
 
-  /* Charts read their colours through the token layer too, so a preset
-     recolours them with everything else. These defaults are the Okabe-Ito
-     SERIES and the named accents the charts have always used — the default
-     look is unchanged. See DESIGN.md, "Themes". */
-  --series-1: 86 180 233;
-  --series-2: 230 159 0;
-  --series-3: 0 158 115;
-  --series-4: 213 94 0;
-  --series-5: 204 121 167;
-  --series-6: 240 228 66;
+  --series-1: 59 130 246;
+  --series-2: 245 158 11;
+  --series-3: 16 185 129;
+  --series-4: 239 68 68;
+  --series-5: 168 85 247;
+  --series-6: 234 179 8;
 
-  --chart-blue:    91 140 255;
-  --chart-violet:  167 139 250;
-  --chart-teal:    34 211 238;
-  --chart-emerald: 52 211 153;
-  --chart-amber:   251 191 36;
-  --chart-rose:    251 113 133;
+  --chart-blue:    59 130 246;
+  --chart-violet:  139 92 246;
+  --chart-teal:    20 184 166;
+  --chart-emerald: 16 185 129;
+  --chart-amber:   245 158 11;
+  --chart-rose:    244 63 94;
 
-  /* Glow belongs to the Midnight presets and nothing else. At strength 0 the
-     wash below paints nothing, so the default themes are untouched. */
   --glow:          0 0 0;
   --glow-strength: 0;
 
-  /* Shape and depth. Only a preset overrides these; the values here are the
-     default look's own, so a rule that reads them changes nothing. */
-  --radius-card:   6px;
+  --radius-card:   12px;
   --edge:          0 0 0 / 0;
   --card-wash:     0;
   --card-glow:     0;
   --chart-fill:    0.22;
 }
 
-/* `.dark` is the theme; `.on-dark` is a region that is dark in BOTH themes —
-   the marketing hero, and anything else deliberately inverted. Same token
-   values, so a component inside it still names roles (text-ink, bg-surface)
-   rather than reaching for a palette colour. See DESIGN.md. */
 .dark,
 .on-dark {
   color-scheme: dark;
 
-  --canvas:      20 21 26;
-  --surface:     27 29 35;
-  --sunken:      16 18 22;
+  /* Polished modern dark theme */
+  --canvas:      9 9 11;
+  --surface:     18 18 20;
+  --sunken:      24 24 27;
 
-  --ink:         236 237 234;
-  --ink-soft:    169 173 181;
-  --ink-faint:   118 123 132;
+  --ink:         250 250 250;
+  --ink-soft:    161 161 170;
+  --ink-faint:   113 113 122;
 
-  --rule:        44 47 54;
-  --rule-soft:   35 38 44;
-  --rule-strong: 61 65 74;
+  --rule:        39 39 42;
+  --rule-soft:   24 24 27;
+  --rule-strong: 63 63 70;
 
-  --accent:      143 179 220;
-  --accent-fg:   20 21 26;
-  --accent-soft: 34 50 71;
+  --accent:      250 250 250;
+  --accent-fg:   9 9 11;
+  --accent-soft: 39 39 42;
 
-  --pos:         121 190 141;
-  --neg:         228 121 108;
-  --warn:        220 169 74;
+  --pos:         74 222 128;
+  --neg:         248 113 113;
+  --warn:        250 204 21;
 
-  --pos-soft:    28 46 34;
-  --neg-soft:    56 30 27;
-  --warn-soft:   54 43 20;
+  --pos-soft:    20 83 45;
+  --neg-soft:    127 29 29;
+  --warn-soft:   113 63 18;
 
   --shadow:      0 0 0;
 }
@@ -117,9 +98,6 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* The Midnight presets' signature: a single fixed wash of the theme's accent
-   behind the whole page. It is one pseudo-element driven by --glow-strength,
-   so no component knows it exists and every other theme gets nothing. */
 body::before {
   content: "";
   position: fixed;
@@ -135,7 +113,6 @@ body::before {
 
 #root { position: relative; z-index: 1; }
 
-/* Figures line up in columns wherever they appear. */
 .tabular, table, .font-mono { font-variant-numeric: tabular-nums; }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -151,7 +128,7 @@ body::before {
 
 @layer components {
   .skeleton {
-    @apply relative overflow-hidden rounded-sm bg-sunken;
+    @apply relative overflow-hidden rounded-lg bg-sunken;
     background-image: linear-gradient(
       90deg,
       rgb(var(--sunken)) 25%,
@@ -197,22 +174,12 @@ body::before {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   Skins — shape and depth for the opt-in presets.
-
-   Everything below is gated on [data-skin], which only a preset sets. The
-   default Audit Ledger look never has the attribute, so none of these rules
-   can match it and DESIGN.md's "no gradients, no glow, no glass" still holds
-   where it was written to hold.
-
-   The techniques are the ones the reference dashboards actually use: generous
-   corners, a 1px lighter line along the top edge, a coloured shadow rather
-   than a black one, and — the thing that reads as "designed" more than any
-   other — one card in the KPI row carrying a saturated fill while its
-   siblings stay quiet.
+   Premium styling — default for all cards and interactive elements
+   Generous corners, subtle shadow gradients, and highlighted primary cards.
    ───────────────────────────────────────────────────────────── */
 
-[data-skin] .card,
-[data-skin] .kpi-grid > div {
+.card,
+.kpi-grid > div {
   border-radius: var(--radius-card);
   background-image: linear-gradient(
     180deg,
@@ -221,75 +188,67 @@ body::before {
   );
   box-shadow:
     inset 0 1px 0 rgb(var(--edge)),
-    0 1px 2px rgb(var(--shadow) / 0.20),
-    0 10px 30px -12px rgb(var(--accent) / var(--card-glow));
+    0 1px 2px rgb(var(--shadow) / 0.1),
+    0 4px 12px -4px rgb(var(--shadow) / 0.05);
 }
 
-/* The asymmetry. A row of four identical tiles is a table; one tile carrying
-   the colour is a dashboard. It falls on the first tile because that is where
-   the headline figure goes. */
-[data-skin="vivid"] .kpi-grid > div:first-child {
-  /* A deep tint of the accent over the card's own ground, not the accent at
-     full strength. The references do the same thing, and it is the only way
-     this holds across 28 dark themes: a bright fill would need its own text
-     colour, and no single text colour stays legible over a gradient that runs
-     from saturated to dark. Tint it instead and ordinary ink still reads. */
+/* The asymmetry for the primary KPI card */
+.kpi-grid > div:first-child {
   background-image:
-    radial-gradient(135% 155% at 6% 108%, rgb(var(--accent) / 0.62) 0%, rgb(var(--accent) / 0.34) 40%, rgb(var(--accent) / 0.12) 74%, transparent 100%),
-    linear-gradient(180deg, rgb(var(--accent) / 0.10) 0%, transparent 70%);
-  border-color: rgb(var(--accent) / 0.45);
+    radial-gradient(135% 155% at 6% 108%, rgb(var(--accent) / 0.1) 0%, rgb(var(--accent) / 0.05) 40%, transparent 100%),
+    linear-gradient(180deg, rgb(var(--accent) / 0.02) 0%, transparent 70%);
+  border-color: rgb(var(--accent) / 0.15);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.14),
-    0 10px 34px -12px rgb(var(--accent) / 0.50);
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 4px 12px -4px rgb(var(--accent) / 0.1);
 }
 
-/* Up stays green and down stays red on the tinted tile too, but a semantic
-   colour over a colour is hard to read, so the delta gets the page's own
-   ground back underneath it as a pill. Meaning is unchanged; only the backing
-   is. This is what the reference dashboards do with their deltas. */
-[data-skin="vivid"] .kpi-grid > div:first-child .text-pos,
-[data-skin="vivid"] .kpi-grid > div:first-child .text-neg {
-  background: rgb(var(--canvas) / 0.72);
+.dark .kpi-grid > div:first-child,
+.on-dark .kpi-grid > div:first-child {
+  background-image:
+    radial-gradient(135% 155% at 6% 108%, rgb(var(--accent) / 0.2) 0%, rgb(var(--accent) / 0.1) 40%, transparent 100%),
+    linear-gradient(180deg, rgb(var(--accent) / 0.05) 0%, transparent 70%);
+  border-color: rgb(var(--accent) / 0.25);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 4px 12px -4px rgb(var(--accent) / 0.15);
+}
+
+/* Deltas on the primary card */
+.kpi-grid > div:first-child .text-pos,
+.kpi-grid > div:first-child .text-neg {
+  background: rgb(var(--canvas) / 0.8);
   padding: 0.125rem 0.4rem;
   border-radius: 999px;
 }
 
-/* An icon sitting loose in a corner is chrome; the same icon on a tinted chip
-   is a component. Every reference dashboard does this, and it costs one span.
-   Carries no styles without a skin, so the default look never sees it. */
-[data-skin] .kpi-icon {
+/* Chrome icons in corners */
+.kpi-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 1.75rem;
-  width: 1.75rem;
-  border-radius: calc(var(--radius-card) - 7px);
-  background: rgb(var(--accent) / 0.14);
-  box-shadow: inset 0 0 0 1px rgb(var(--accent) / 0.20);
+  height: 2rem;
+  width: 2rem;
+  border-radius: calc(var(--radius-card) - 6px);
+  background: rgb(var(--accent) / 0.08);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent) / 0.1);
 }
 
-/* A bare "+32%" is a number; the same figure on a tinted pill is a verdict.
-   The tint is the semantic colour it already carries, so meaning is unchanged. */
-[data-skin] .kpi-delta {
+/* Verdict pills for deltas */
+.kpi-delta {
   padding: 0.1875rem 0.5rem;
   border-radius: 999px;
   background: currentColor;
   box-shadow: inset 0 0 0 999px rgb(var(--surface) / 0.84);
 }
 
-[data-skin] .nav-item-active {
+.nav-item-active {
   border-radius: calc(var(--radius-card) - 6px);
 }
 
-/* Inputs and buttons follow the cards rather than staying square inside them. */
-[data-skin] .rounded-lg,
-[data-skin] .rounded-xl {
-  border-radius: calc(var(--radius-card) - 5px);
-}
-
-[data-skin] .kpi-grid,
-[data-skin] .chart-grid {
-  gap: 0.875rem;
+.kpi-grid,
+.chart-grid {
+  gap: 1rem;
 }
 
 @keyframes shimmer {

@@ -21,27 +21,27 @@ export const EmptyState = ({
 }) => (
   <div
     className={cn(
-      "flex flex-col items-center justify-center rounded-xl border border-dashed border-rule text-center",
-      compact ? "px-4 py-8" : "py-14",
+      "flex flex-col items-center justify-center rounded-2xl border border-dashed border-rule/60 bg-sunken/30 text-center",
+      compact ? "px-4 py-8" : "py-16",
     )}
   >
     <div
       className={cn(
-        "flex items-center justify-center rounded-xl bg-sunken",
-        compact ? "h-9 w-9" : "h-12 w-12",
+        "flex items-center justify-center rounded-full bg-surface shadow-sm ring-1 ring-rule/50",
+        compact ? "h-10 w-10" : "h-14 w-14",
       )}
     >
-      <Icon className={cn("text-ink-faint", compact ? "h-4 w-4" : "h-6 w-6")} />
+      <Icon className={cn("text-ink-soft", compact ? "h-4 w-4" : "h-6 w-6")} />
     </div>
-    <h3 className={cn("font-semibold text-ink", compact ? "mt-3 text-body" : "mt-4 text-heading-3")}>
+    <h3 className={cn("font-semibold text-ink tracking-tight", compact ? "mt-3 text-body" : "mt-5 text-heading-3")}>
       {title}
     </h3>
     {description && (
-      <p className="mt-1 max-w-sm text-body-sm text-ink-faint">
+      <p className="mt-1.5 max-w-sm text-body-sm text-ink-faint">
         {description}
       </p>
     )}
-    {action && <div className={compact ? "mt-3" : "mt-5"}>{action}</div>}
+    {action && <div className={compact ? "mt-4" : "mt-6"}>{action}</div>}
   </div>
 );
 
@@ -102,13 +102,13 @@ export const ErrorState = ({
   message: string;
   retry?: () => void;
 }) => (
-  <div className="flex items-center gap-3 rounded-lg border border-neg/30 bg-neg-soft px-4 py-3 text-body text-neg">
+  <div className="flex items-center gap-3 rounded-xl border border-neg/30 bg-neg-soft px-4 py-3 text-body text-neg shadow-sm">
     <AlertCircle className="h-4 w-4 shrink-0" />
     <span className="flex-1">{message}</span>
     {retry && (
       <button
         onClick={retry}
-        className="shrink-0 text-body-sm font-medium text-neg underline-offset-2 hover:underline"
+        className="shrink-0 text-body-sm font-semibold text-neg underline-offset-2 hover:underline"
       >
         Retry
       </button>
@@ -195,14 +195,14 @@ export const Modal = ({
             // inside the panel; without the cap it grows past both screen edges and
             // the overlay has nothing to scroll, so the title and the input go
             // permanently out of reach.
-            className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-rule bg-surface p-5 shadow-modal"
+            className="max-h-[calc(100vh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-rule bg-surface p-6 shadow-modal"
             onClick={(e: React.MouseEvent) => e.stopPropagation()}
             initial={{ opacity: 0, scale: 0.96, y: 4 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 4 }}
             transition={{ duration: DUR.base, ease: EASE }}
           >
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-5 flex items-center justify-between">
               <h3 className="text-heading-3 text-ink">
                 {title}
               </h3>

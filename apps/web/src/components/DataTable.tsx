@@ -206,7 +206,7 @@ export function DataTable<T>({
   const hasToolbar = true; // density control always renders, so the toolbar is always present
 
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-rule bg-surface", className)}>
+    <div className={cn("overflow-hidden rounded-xl border border-rule bg-surface shadow-sm", className)}>
       {hasToolbar && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-rule px-4 py-3">
           <div className="min-w-0">
