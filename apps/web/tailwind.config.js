@@ -55,40 +55,36 @@ export default {
       },
 
       fontFamily: {
-        sans: ["Archivo", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
         mono: ["IBM Plex Mono", "SF Mono", "ui-monospace", "monospace"],
       },
 
-      // One scale. Hand-written sizes (text-[13px]) are not allowed in new code.
       fontSize: {
-        "display": ["2rem", { lineHeight: "1.15", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "display": ["2.25rem", { lineHeight: "1.1", letterSpacing: "-0.025em", fontWeight: "700" }],
         "heading-1": ["1.5rem", { lineHeight: "1.2", letterSpacing: "-0.015em", fontWeight: "700" }],
-        "heading-2": ["1.1875rem", { lineHeight: "1.25", letterSpacing: "-0.01em", fontWeight: "600" }],
-        "heading-3": ["1rem", { lineHeight: "1.3", fontWeight: "600" }],
-        "body": ["0.875rem", { lineHeight: "1.55", fontWeight: "400" }],
+        "heading-2": ["1.25rem", { lineHeight: "1.25", letterSpacing: "-0.01em", fontWeight: "600" }],
+        "heading-3": ["1.125rem", { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" }],
+        "body": ["0.875rem", { lineHeight: "1.5", fontWeight: "400" }],
         "body-sm": ["0.8125rem", { lineHeight: "1.5", fontWeight: "400" }],
-        "label": ["0.6875rem", { lineHeight: "1.3", letterSpacing: "0.07em", fontWeight: "600" }],
+        "label": ["0.75rem", { lineHeight: "1.3", letterSpacing: "0.05em", fontWeight: "600" }],
         "data": ["0.875rem", { lineHeight: "1.35", fontWeight: "500" }],
-        "data-lg": ["1.625rem", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
+        "data-lg": ["1.75rem", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "700" }],
       },
 
-      // Tight, ledger-like. rounded-full stays for pills and dots only.
       borderRadius: {
-        "sm": "2px",
-        "md": "3px",
-        "lg": "4px",
-        "xl": "6px",
-        "2xl": "8px",
+        "sm": "4px",
+        "md": "6px",
+        "lg": "8px",
+        "xl": "12px",
+        "2xl": "16px",
       },
 
-      // One card shadow plus two overlay shadows. Nothing else casts one, and
-      // nothing glows — see DESIGN.md.
       boxShadow: {
-        "card": "0 1px 2px rgb(var(--shadow) / 0.06)",
-        "card-hover": "0 2px 6px rgb(var(--shadow) / 0.08)",
-        "dropdown": "0 4px 14px rgb(var(--shadow) / 0.10), 0 1px 3px rgb(var(--shadow) / 0.06)",
-        "modal": "0 16px 48px rgb(var(--shadow) / 0.18), 0 4px 12px rgb(var(--shadow) / 0.08)",
-        "panel": "0 20px 60px rgb(var(--shadow) / 0.22)",
+        "card": "0 1px 3px 0 rgb(var(--shadow) / 0.1), 0 1px 2px -1px rgb(var(--shadow) / 0.1)",
+        "card-hover": "0 4px 6px -1px rgb(var(--shadow) / 0.1), 0 2px 4px -2px rgb(var(--shadow) / 0.1)",
+        "dropdown": "0 10px 15px -3px rgb(var(--shadow) / 0.1), 0 4px 6px -4px rgb(var(--shadow) / 0.1)",
+        "modal": "0 20px 25px -5px rgb(var(--shadow) / 0.1), 0 8px 10px -6px rgb(var(--shadow) / 0.1)",
+        "panel": "0 25px 50px -12px rgb(var(--shadow) / 0.25)",
       },
 
       spacing: {

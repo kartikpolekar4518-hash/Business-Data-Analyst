@@ -60,8 +60,8 @@ export function KpiCard({
         // number it is supposed to be showing.
         "group relative transition-colors duration-100",
         strip && "px-4 py-3 text-ink-faint first:pl-0 last:pr-0",
-        hero && "rounded-xl border border-rule bg-surface p-5",
-        !strip && !hero && "rounded-xl border border-rule bg-surface p-4",
+        hero && "rounded-xl border border-rule bg-surface p-5 shadow-sm",
+        !strip && !hero && "rounded-xl border border-rule bg-surface p-4 shadow-sm",
         !strip && accent && "border-l-2 border-l-accent",
       )}
     >

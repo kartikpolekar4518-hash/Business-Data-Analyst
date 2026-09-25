@@ -11,19 +11,17 @@ type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
 
 const variantStyles: Record<Variant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent/90 active:bg-accent/80",
-  secondary: "bg-ink text-canvas hover:bg-ink/90 active:bg-ink/80",
-  // No ground of its own — an outline button has to sit on whatever surface it
-  // is placed on, including the dark hero.
-  outline: "border border-rule text-ink hover:bg-sunken hover:border-rule-strong",
+  primary: "bg-accent text-accent-fg shadow-sm hover:bg-accent/90 hover:shadow active:bg-accent/80 active:shadow-sm",
+  secondary: "bg-ink text-canvas shadow-sm hover:bg-ink/90 hover:shadow active:bg-ink/80 active:shadow-sm",
+  outline: "border border-rule text-ink shadow-sm hover:bg-sunken hover:border-rule-strong active:shadow-none",
   ghost: "text-ink-soft hover:bg-sunken hover:text-ink",
-  danger: "bg-neg text-canvas hover:bg-neg/90 active:bg-neg/80",
+  danger: "bg-neg text-canvas shadow-sm hover:bg-neg/90 hover:shadow active:bg-neg/80 active:shadow-sm",
 };
 
 const sizeStyles: Record<Size, string> = {
-  sm: "h-7 px-2.5 text-body-sm rounded-md gap-1.5",
-  md: "h-9 px-3.5 text-body rounded-md gap-2",
-  lg: "h-11 px-5 text-heading-3 rounded-lg gap-2",
+  sm: "h-8 px-3 text-body-sm rounded-lg gap-1.5",
+  md: "h-10 px-4 text-body rounded-xl gap-2",
+  lg: "h-12 px-6 text-heading-3 rounded-xl gap-2",
 };
 
 // framer's own drag/animation handlers collide with the DOM ones, so they're
@@ -83,7 +81,7 @@ export const Card = ({
 }) => (
   <div
     className={cn(
-      "rounded-xl border border-rule bg-surface transition-colors duration-100",
+      "rounded-xl border border-rule bg-surface shadow-sm transition-colors duration-100",
       // A hoverable card signals with its border, not by lifting off the page.
       hoverable && "cursor-pointer hover:border-rule-strong hover:bg-sunken/40",
       className,
