@@ -441,7 +441,7 @@ su postgres -c "/usr/lib/postgresql/16/bin/pg_ctl -D $PGDATA -o '-p 5432' -l $PG
 psql -h 127.0.0.1 -U test -d postgres -c "CREATE DATABASE test;"
 
 cd apps/api
-export DATABASE_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
+export DATABASE_URL="postgres://test@127.0.0.1:5432/test" DIRECT_URL="postgres://test@127.0.0.1:5432/test" NODE_ENV=test JWT_SECRET=test-secret
 npx prisma migrate deploy
 npx tsx --test "src/**/*.itest.ts"   # 78 tests
 ```

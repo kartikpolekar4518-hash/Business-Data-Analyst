@@ -82,7 +82,7 @@ test("a column named revenue holding categories is NOT a measure", () => {
 
 test("a column named amount holding free text is not charted as a grouping", () => {
   const rows: Row[] = Array.from({ length: 60 }, (_, i) => ({
-    amount: `Customer note number ${i} about a delivery that went to plan`,
+    amount: `Delivery note for customer ${i}: shipment arrived on schedule`,
     n: i % 9,
   }));
   assert.equal(roleOf(rows, "amount"), "text");
