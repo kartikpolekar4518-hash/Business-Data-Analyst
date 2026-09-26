@@ -65,7 +65,7 @@ jobs:
           cache: npm
       # The Signals prediction service. Separate toolchain, same job: it is one
       # deployed image, so a green build has to mean both halves pass.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.11"
           cache: pip
