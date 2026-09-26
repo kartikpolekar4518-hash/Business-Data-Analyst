@@ -56,8 +56,8 @@ app.use((_req, res, next) => {
   res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   res.setHeader(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
-      "script-src 'self'; connect-src 'self'; font-src 'self' data:; object-src 'none'; " +
+    "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "script-src 'self'; connect-src 'self'; font-src 'self' data: https://fonts.gstatic.com; object-src 'none'; " +
       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   );
   if (env.isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");

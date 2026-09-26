@@ -8,8 +8,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
@@ -178,6 +179,7 @@ model Dataset {
   @@index([organizationId])
   @@index([connectionId])
   @@index([recipeId])
+  @@index([organizationId, createdAt(sort: Desc)])
 }
 
 // An ordered, column-scoped list of cleaning steps (see engine/cleaning.ts), saved so
@@ -263,6 +265,7 @@ model Report {
   shares                  ReportShare[]
 
   @@index([organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
 }
 
 // A public, revocable capability link to one report. Holding the token grants
@@ -359,6 +362,7 @@ model Forecast {
   scores         ForecastScore[]
 
   @@index([organizationId])
+  @@index([organizationId, createdAt(sort: Desc)])
 }
 
 // A single matured prediction graded against what actually happened. Separate from
@@ -488,6 +492,7 @@ model ActivityLog {
 
   @@index([organizationId])
   @@index([organizationId, entityType, entityId])
+  @@index([organizationId, createdAt(sort: Desc)])
 }
 
 // A note left by one member of the organization on a report, a dataset, or a saved
@@ -509,6 +514,7 @@ model Comment {
   organizationId   String
 
   @@index([organizationId, entityType, entityId])
+  @@index([organizationId, entityType, entityId, createdAt(sort: Asc)])
 }
 
 // A report the scheduler regenerates on a cadence (and optionally emails). The
@@ -603,4 +609,5 @@ model Prediction {
   datasetId       String?
 
   @@index([organizationId, kind])
+  @@index([organizationId, kind, createdAt(sort: Desc)])
 }

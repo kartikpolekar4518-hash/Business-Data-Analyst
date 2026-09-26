@@ -1,50 +1,92 @@
+# ────────────────────────────────────────────────────────────────
+# NoPS — Hybrid Local-Cloud Stack
+#
+#   db          Local PostgreSQL 16 (data persisted in a named volume)
+#   api         Express + Prisma + Python ML  (built from apps/api/Dockerfile)
+#   tunnel      Cloudflare Tunnel → exposes the API to the internet
+#
+# Start:   docker compose up -d --build
+# Logs:    docker compose logs -f
+# Stop:    docker compose down          (data survives in the volume)
+# Nuke:    docker compose down -v       (deletes database volume too)
+# ────────────────────────────────────────────────────────────────
+
 services:
+  # ── PostgreSQL ──────────────────────────────────────────────
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: nops
-      POSTGRES_PASSWORD: nops
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nops_local_dev}
       POSTGRES_DB: nops
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U nops"]
+      test: ["CMD-SHELL", "pg_isready -U nops -d nops"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 10
 
+  # ── API (Node + Prisma + Python ML) ─────────────────────────
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-    environment:
-      # Local demo only. The API refuses to boot on the public default secret
-      # unless NODE_ENV is development/test — override both for any real deploy.
-      NODE_ENV: ${NODE_ENV:-development}
-      DATABASE_URL: postgresql://nops:nops@db:5432/nops?schema=public
-      # Demo default — export JWT_SECRET before `docker compose up` for anything non-local.
-      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
-      JWT_EXPIRES_IN: 7d
-      APP_URL: http://localhost:5173
-      PORT: 4000
-      # Signals — the optional prediction service, spawned by the API as a child
-      # process on loopback. Set ML_ENABLED=false to run without it: the Signals
-      # pages then say so and nothing else in the product changes.
-      ML_ENABLED: ${ML_ENABLED:-true}
-      # Demo default, same convention as JWT_SECRET above. The service is bound to
-      # 127.0.0.1 inside the container, so this is a second layer, not the boundary.
-      ML_SHARED_SECRET: ${ML_SHARED_SECRET:-change-me-in-production}
-      ML_SERVICE_URL: http://127.0.0.1:8000
-      ML_TIMEOUT_MS: 120000
-    ports:
-      - "4000:4000"
+    restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
-    # Runs migrations + seed on first boot, then serves API + web UI on :4000.
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      # Direct connection to the local Postgres — no pgbouncer needed.
+      DATABASE_URL: postgresql://nops:${POSTGRES_PASSWORD:-nops_local_dev}@db:5432/nops?schema=public
+      DIRECT_URL: postgresql://nops:${POSTGRES_PASSWORD:-nops_local_dev}@db:5432/nops?schema=public
+      # Auth & security
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CONNECTOR_ENCRYPTION_KEY: ${CONNECTOR_ENCRYPTION_KEY}
+      # CORS origin — the Vercel frontend URL + tunnel URL
+      APP_URL: ${APP_URL:-http://localhost:5173}
+      # Proxy hops: 1 for Cloudflare Tunnel sitting in front
+      TRUST_PROXY_HOPS: 1
+      # AI (optional)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-5-nano}
+      # Billing (optional)
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      # Email (optional)
+      SMTP_URL: ${SMTP_URL:-}
+      REPORT_FROM: ${REPORT_FROM:-NoPS Reports <reports@nops.local>}
+      # Signals — Python ML service
+      ML_ENABLED: ${ML_ENABLED:-true}
+      ML_SHARED_SECRET: ${ML_SHARED_SECRET}
+      ML_SERVICE_URL: http://127.0.0.1:8000
+      ML_TIMEOUT_MS: ${ML_TIMEOUT_MS:-120000}
+    # Run migrations then start the server
     command: sh -c "npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js"
+
+  # ── Cloudflare Tunnel ───────────────────────────────────────
+  # Exposes http://api:4000 to the internet via a Cloudflare named tunnel.
+  #
+  # Setup (one-time):
+  #   1. Go to https://one.dash.cloudflare.com → Zero Trust → Networks → Tunnels
+  #   2. Create a tunnel, copy the tunnel token
+  #   3. Set CLOUDFLARE_TUNNEL_TOKEN in your .env
+  #   4. In the tunnel dashboard, add a public hostname pointing to http://api:4000
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    command: tunnel run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
 
 volumes:
   pgdata:
