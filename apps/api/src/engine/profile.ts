@@ -99,7 +99,7 @@ export function profileDataset(rows: Row[], columns: string[]): Profile {
     if (nonBlank.length === 0) type = "empty";
     else if (dateCount / n > 0.7) type = "date";
     else if (currencyCount / n > 0.5) type = "currency";
-    else if (numCount / n > 0.8) type = "number";
+    else if ((numCount + numericWithText) / n > 0.8) type = "number";
     else if (boolCount / n > 0.8) type = "boolean";
     else if (uniqueSet.size <= Math.max(20, n * 0.1)) type = "category";
 
