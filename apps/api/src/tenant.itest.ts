@@ -37,7 +37,7 @@ test("tenant isolation: organization A cannot access organization B's dataset", 
     .attach("file", Buffer.from(csv), "data.csv");
   
   assert.equal(upload.status, 201);
-  const datasetId = upload.body.id;
+  const datasetId = upload.body.dataset?.id ?? upload.body.id;
   
   // Org A can access it
   const getA = await request(app)
