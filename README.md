@@ -188,7 +188,8 @@ Copy `.env.example` → `apps/api/.env`:
 
 | Var | Purpose |
 |-----|---------|
-| `DATABASE_URL` | Postgres connection string |
+| `DATABASE_URL` | Postgres connection string, used for every query (required) |
+| `DIRECT_URL` | Direct (non-pooled) Postgres connection string, read only by the Prisma CLI for migrations — required wherever a migration runs (required) |
 | `JWT_SECRET` | Secret for signing JWTs (required in production) |
 | `JWT_EXPIRES_IN` | Token lifetime (e.g. `7d`) |
 | `APP_URL` | Web origin(s) for CORS (default `http://localhost:5173`) |
@@ -302,7 +303,7 @@ CI runs all four in one job, because it is one deployed image and a green build 
 - Models: `User`, `Organization`, `OrganizationMember`, `PasswordResetToken`, `Dataset`, `DataQualityIssue`, `Report`, `Forecast`, `Alert`, `AIConversation`, `AIMessage`, `ApiKey`, `ActivityLog`, `Prediction` (Signals estimates, read by nothing else) — all UUIDs, `createdAt` / `updatedAt`, org-scoped, indexed, cascading FKs.
 - `AIConversation` / `AIMessage` are historical names for the chat-log tables; they store user messages and the deterministic engine's structured responses. No model outputs are stored.
 - Migrate (dev): `npm run db:migrate`
-- Migrate (prod): `npx prisma migrate deploy --schema apps/api/prisma/schema.prisma`
+- Migrate (prod): `npx prisma migrate deploy --schema apps/api/prisma/schema.prisma` (reads `DIRECT_URL`)
 - Seed: `npm run db:seed`
 
 ## Extending the engine
@@ -324,6 +325,74 @@ Add a new insight in `insights.ts`; add a new column semantic in `schema.ts`; ad
 
 Machine-learning estimates deliberately live **outside** this engine, in Signals (see above). Nothing there can alter a figure the deterministic engine produces, and nothing here reads a prediction.
 
+## Deploying (Vercel UI + API host + Supabase Postgres)
+
+Three parts, and none is a substitute for another: the SPA on Vercel, the API on a
+long-running Node host, and the database on Supabase. The API must not be deployed as a
+serverless function — it runs an in-process scheduler (scheduled reports, alert rules), it
+spawns the optional Signals service as a child process, and its rate limiters keep state in
+memory. It expects one long-lived process behind `PORT`.
+
+### 1. Supabase
+
+Create a project, then copy **both** connection strings from Settings → Database:
+
+| Variable | Which string | Used by |
+|---|---|---|
+| `DATABASE_URL` | Transaction pooler — port `6543`, with `?pgbouncer=true` | Every application query (Prisma Client) |
+| `DIRECT_URL` | Direct connection — port `5432` | `prisma migrate deploy`, and nothing else |
+
+Migrations cannot run through the port-6543 transaction pooler: it holds no session for the
+advisory locks and DDL Prisma Migrate needs, which is why `DIRECT_URL` is the non-pooled
+string. On a project with no IPv6 route, use the session pooler (port `5432`) as the direct
+connection. On a serverless host, append `&connection_limit=1` to `DATABASE_URL`.
+
+### 2. API host
+
+Set `NODE_ENV=production`, `PORT`, `DATABASE_URL`, `DIRECT_URL`, `JWT_SECRET` (64+ random
+characters), `CONNECTOR_ENCRYPTION_KEY` (32+ random characters) and `APP_URL` (below).
+Boot-time validation refuses to start on the repo's public default secrets outside
+`NODE_ENV=development|test`, so a missing secret fails the deploy instead of running
+insecurely. Behind a load balancer or ingress, set `TRUST_PROXY_HOPS` to the real hop
+count: rate limiting keys on the client IP, and `0` behind a proxy puts every caller in the
+world into one bucket.
+
+```bash
+npx prisma migrate deploy   # applies every pending migration; reads DIRECT_URL
+npm run seed                # optional: demo workspace + the sample retail dataset
+npm start
+curl https://api.yourdomain.com/api/health   # -> {"ok":true}
+```
+
+`APP_URL` is a comma-separated allow-list of the origins permitted to call the API (CORS),
+and its first entry is the base of every public share link. Set it to the Vercel domain,
+e.g. `APP_URL=https://nops.vercel.app`. Auth is a Bearer token in `localStorage`, not a
+cookie, so no credentials mode or CSRF token is involved.
+
+### 3. Vercel (the web app)
+
+- **Leave the project's Root Directory at the repository root.** The root `vercel.json`
+  carries the install/build/output paths for the `apps/web` workspace; pointing the Root
+  Directory at `apps/web` makes Vercel ignore that file — and the SPA rewrite that keeps
+  deep links working goes with it.
+- Build, from `vercel.json`: `npm install` at the root (the npm-workspace lockfile),
+  `npm run build --workspace apps/web`, output `apps/web/dist`.
+- Environment variables: `VITE_API_URL` — the API origin, no trailing slash and no `/api`
+  suffix, e.g. `https://api.yourdomain.com` (the client appends `/api` itself).
+  `VITE_APP_NAME` is optional and defaults to `NoPS`. Vite inlines `VITE_*` at build time,
+  so changing one needs a redeploy, and none of them may hold a secret.
+- A catch-all rewrite serves `index.html`, so `/login`, `/dashboard/<id>` and every other
+  route survive a refresh or a direct link. Requests for real files are served as files:
+  rewrites apply only to paths the deployment does not already have.
+
+The UI and the API are therefore on different origins, which is what `APP_URL` on the API
+side authorises: the JSON responses carry `Access-Control-Allow-Origin` for those origins
+only. The API's `Content-Security-Policy` header is not what governs the cross-origin
+calls in this topology — a browser enforces CSP against the page's own document, and here
+the header is only ever attached to JSON responses. It matters in single-container mode
+(`docker compose up`, where the API serves the built SPA itself), where the page and API
+share an origin and `connect-src` is widened to the configured `APP_URL` origins.
+
 ## Troubleshooting
 
 - **`Can't reach database`** — is Postgres running and does `DATABASE_URL` match? `docker compose up -d db`.
@@ -331,3 +400,5 @@ Machine-learning estimates deliberately live **outside** this engine, in Signals
 - **Prisma client out of date** — `npm run prisma:generate --workspace apps/api`.
 - **CORS errors** — set `APP_URL` to your web origin.
 - **Fonts don't load offline** — the app uses Google Fonts with a system-font fallback; purely cosmetic.
+- **`Environment variable not found: DIRECT_URL`** — `schema.prisma` declares `directUrl`, so every Prisma CLI command that connects (`migrate deploy`, `db push`, `db pull`) needs `DIRECT_URL` set alongside `DATABASE_URL`. Prisma Client does not: application queries use `DATABASE_URL` alone, so the API itself runs fine with only the pooled URL.
+- **Deployed UI calls the wrong origin (404s, or requests landing on the Vercel domain)** — `VITE_API_URL` was empty when the bundle was built, so the SPA used relative `/api` paths. Set it in the Vercel environment and redeploy; Vite inlines the value at build time, so a restart alone changes nothing.

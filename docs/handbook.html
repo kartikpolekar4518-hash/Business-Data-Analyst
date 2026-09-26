@@ -781,7 +781,8 @@ npm run dev                         # api → :4000, web → :5173</code></pre>
   <h3>Key configuration knobs (<code>.env</code>)</h3>
   <table>
     <tr><th>Variable</th><th>What it controls</th></tr>
-    <tr><td><code>DATABASE_URL</code></td><td>Postgres connection string.</td></tr>
+    <tr><td><code>DATABASE_URL</code></td><td>Postgres connection string, used for every query.</td></tr>
+    <tr><td><code>DIRECT_URL</code></td><td>Non-pooled Postgres connection string, read only by the Prisma CLI for migrations.</td></tr>
     <tr><td><code>JWT_SECRET</code></td><td>Signs login tokens (required in production).</td></tr>
     <tr><td><code>OPENAI_API_KEY</code></td><td>Optional. Set it to enable GPT question-understanding; leave blank for fully offline rule-based parsing.</td></tr>
     <tr><td><code>CONNECTOR_ENCRYPTION_KEY</code></td><td>Encrypts saved connector credentials (required in production).</td></tr>

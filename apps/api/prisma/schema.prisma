@@ -8,8 +8,17 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Runtime connection: read by Prisma Client for every query. On Supabase this is the
+  // Supavisor transaction pooler (port 6543) with ?pgbouncer=true, which disables
+  // prepared statements exactly as that pooler requires.
+  url       = env("DATABASE_URL")
+  // Migration connection: read by the Prisma CLI only (migrate deploy / db push / db pull).
+  // Prisma Client never opens it, so runtime traffic is unaffected and stays pooled. Any
+  // host that runs a migration must set it as well as DATABASE_URL — on Supabase, the
+  // direct (non-pooled) connection, because a transaction pooler carries neither the
+  // session-level advisory locks nor the DDL that Prisma Migrate needs.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {
