@@ -154,7 +154,7 @@ test("combine files: a compatible file is appended and re-cleaned by the dataset
   await request(app).post(`/api/datasets/${dataset.id}/clean`).set("Authorization", token).send({ recipeId: recipe.id });
 
   const combined = await uploadCsv(token, APRIL, "april.csv", `/api/uploads/${dataset.id}/append`);
-  assert.equal(combined.status, 200);
+  assert.equal(combined.status, 200, JSON.stringify(combined.body));
   assert.equal(combined.body.addedRows, 2);
   assert.equal(combined.body.recipeApplied.id, recipe.id);
   assert.equal(combined.body.dataset.rowCount, 7, "5 cleaned March rows + 2 April rows");
