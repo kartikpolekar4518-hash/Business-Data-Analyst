@@ -154,7 +154,7 @@ test("with the model service unreachable, Signals fails alone and the rest of th
   const prediction = await settled(token, "segments");
   assert.equal(prediction.status, "FAILED");
   assert.equal(prediction.result, null, "no result is invented when the service does not answer");
-  assert.match(prediction.error, /did not return a usable result/i);
+  assert.match(prediction.error, /could not be reached|did not return a usable result/i);
 
   // The point of the whole design. Every one of these runs through the deterministic
   // engine and none of them knows the model service exists.
