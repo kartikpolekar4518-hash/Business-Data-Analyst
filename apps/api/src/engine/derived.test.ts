@@ -162,7 +162,7 @@ test("every discovered grouping is exposed, even beyond the dashboard's three", 
   const rows: Row[] = Array.from({ length: 60 }, (_, i) => ({
     when: day(i),
     total: 10 + (i % 40),
-    a: `a${i % 3}`, b: `b${i % 4}`, c: `c${i % 5}`, d: `d${i % 6}`, e: `e${i % 7}`,
+    a: ["North", "South", "East"][i % 3], b: ["Retail", "Wholesale", "Online", "Partner"][i % 4], c: ["Q1", "Q2", "Q3", "Q4", "Q5"][i % 5], d: ["A", "B", "C", "D", "E", "F"][i % 6], e: ["Red", "Blue", "Green", "Yellow", "Black", "White", "Grey"][i % 7],
   }));
   const m = modelOf(rows);
   assert.equal(m.dimensions.length, 5);
