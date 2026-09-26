@@ -198,7 +198,9 @@ function classify(p: ColumnProfile, rows: Row[], rowCount: number): Verdict & { 
     return { role: "ignored", confidence: 0.95, reasons: ["every row holds the same value"], nums: [] };
   }
 
-  if (p.type === "date" && plausibleDates(rows, p.name)) {
+  // ID-like headers must win over JavaScript's permissive Date.parse (e.g. "T-1" can parse as a date).
+  // A reference key is never a valid trend axis merely because the runtime can parse it.
+  if (!HINT_ID.test(p.name) && p.type === "date" && plausibleDates(rows, p.name)) {
     reasons.push("values parse as dates");
     if (distinctness > 0.02) reasons.push("dates spread across the file");
     return { role: "time", confidence: clamp01(0.7 + coverage * 0.3), reasons, nums: [] };
