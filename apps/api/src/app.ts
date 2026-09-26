@@ -45,9 +45,21 @@ if (env.trustProxyHops > 0) app.set("trust proxy", env.trustProxyHops);
 
 // Security response headers. Hand-rolled (like the rate limiters and SSRF guard)
 // so we add no dependency. HSTS is prod-only — sending it over plain http on a
-// real domain would wrongly pin the browser to https. The CSP is scoped for a
-// same-origin Vite SPA + JSON API; widen the *-src lists if the web app ever
-// loads assets from another origin.
+// real domain would wrongly pin the browser to https.
+//
+// Where this CSP is actually enforced: a browser applies CSP to the *document* that
+// issued a request, not to the response that carries the header. In a split deployment
+// (Vercel serves the SPA, this API only answers JSON) the header never reaches a
+// document, so it cannot restrict the UI's cross-origin calls — CORS does that, from
+// APP_URL below. The policy becomes the page's own only in single-container mode
+// (WEB_DIST set: this process serves index.html), and there page and API share an
+// origin, so 'self' already covers the calls the SPA makes.
+//
+// connect-src is still the one directive that can need other origins: the same code also
+// runs in single-container mode behind an alias, where the page is served by this API but
+// VITE_API_URL names a public APP_URL origin. Listing those origins keeps that
+// configuration working and permits nothing else.
+const connectSrc = ["'self'", ...env.appUrls].join(" ");
 app.use((_req, res, next) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("X-Frame-Options", "DENY");
@@ -57,7 +69,7 @@ app.use((_req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
     "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; " +
-      "script-src 'self'; connect-src 'self'; font-src 'self' data:; object-src 'none'; " +
+      `script-src 'self'; connect-src ${connectSrc}; font-src 'self' data:; object-src 'none'; ` +
       "frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
   );
   if (env.isProd) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");

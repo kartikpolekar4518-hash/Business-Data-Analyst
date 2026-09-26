@@ -52,6 +52,11 @@ jobs:
           --health-retries 10
     env:
       DATABASE_URL: postgres://test:test@localhost:5432/test
+      # Read only by the Prisma CLI, for the `migrate deploy` step below — never by the
+      # API's queries. Same database here, because CI's Postgres has no pooler in front of
+      # it. Set because schema.prisma declares `directUrl`: without it the migrate step
+      # fails with "Environment variable not found: DIRECT_URL" and the job stops there.
+      DIRECT_URL: postgres://test:test@localhost:5432/test
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

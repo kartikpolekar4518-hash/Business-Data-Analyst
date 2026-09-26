@@ -1,6 +1,15 @@
 // Thin typed fetch wrapper. Token is read from localStorage on each call.
 const TOKEN_KEY = "diq_token";
 
+// Absolute origin of the API, or "" for same-origin. Unset/empty (the default, and what
+// local development uses) keeps the relative "/api" paths that Vite's dev proxy forwards
+// to localhost:4000 — so this changes nothing about the current dev workflow. Set
+// VITE_API_URL to the API's origin (https://api.example.com) when the UI and the API are
+// served from different origins, which is the Vercel + separate-API deployment.
+// Trailing slashes are trimmed so a value of "https://api.example.com/" cannot produce
+// "//api". Vite inlines this at build time, so it is public — never a secret.
+const API_BASE = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+
 export const getToken = () => localStorage.getItem(TOKEN_KEY);
 export const setToken = (t: string | null) => t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY);
 
@@ -16,7 +25,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   let payload: BodyInit | undefined = body instanceof FormData ? body : undefined;
   if (body && !(body instanceof FormData)) { headers["Content-Type"] = "application/json"; payload = JSON.stringify(body); }
 
-  const res = await fetch(`/api${path}`, { method, headers, body: payload });
+  const res = await fetch(`${API_BASE}/api${path}`, { method, headers, body: payload });
   if (res.status === 204) return undefined as T;
   const isJson = res.headers.get("content-type")?.includes("application/json");
   const data = isJson ? await res.json() : await res.blob();
@@ -33,7 +42,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 function upload<T>(path: string, form: FormData, onProgress?: (pct: number) => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api${path}`);
+    xhr.open("POST", `${API_BASE}/api${path}`);
     const token = getToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     // Don't set Content-Type — the browser adds the multipart boundary itself.
